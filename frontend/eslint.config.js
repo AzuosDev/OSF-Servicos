@@ -1,0 +1,41 @@
+import js from "@eslint/js";
+import globals from "globals";
+import reactHooks from "eslint-plugin-react-hooks";
+import reactRefresh from "eslint-plugin-react-refresh";
+import tseslint from "typescript-eslint";
+
+export default tseslint.config(
+  {
+    ignores: [
+      "dist",
+      "node_modules",
+      "src/routes",
+      "src/components/ui",
+      "src/routeTree.gen.ts",
+      "src/router.tsx",
+      "src/start.ts",
+      "src/server.ts",
+      "src/lib/config.server.ts",
+      "src/lib/error-capture.ts",
+      "src/lib/error-page.ts",
+      "src/lib/lovable-error-reporting.ts",
+    ],
+  },
+  {
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    files: ["src/**/*.{ts,tsx}", "vite.config.ts", "tailwind.config.ts"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: globals.browser,
+    },
+    plugins: {
+      "react-hooks": reactHooks,
+      "react-refresh": reactRefresh,
+    },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      "@typescript-eslint/no-unused-vars": "off",
+    },
+  },
+);
