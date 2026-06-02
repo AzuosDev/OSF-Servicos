@@ -1,399 +1,317 @@
-# Estrutura uSolutions
-
+## Estrutura uSolutions
+ 
 _Estrutura de projeto._
 
----
-
-## Visão geral
-
-Sistema web para controle de gastos mostrando o quanto que o usuario esta gastando, que possa abranger diversas categorias as quais inclui custos diversos.
+### Visão geral
+ 
+Sistema web para controle de gastos mostrando o quanto que o usuario esta gastando, que possa abranger diversas categorias as quais inclui custos diversos.  
 Com compatibilidade para desktop e mobile.
 
-## Pontos Principais
-
+### Pontos Principais
 - Ambiente
 - Melhorias e Sustentações
 
 ---
 
-## 1 Tecnologias
-
+### 1 Tecnologias
 - React
-- express
+- NestJS (substituindo Express para melhor organização e escalabilidade)
 - Node.js
 - Mongo DB Atlas
+- Mongoose
+- JWT (Access + Refresh Token)
 
-### 1.1 Hospedagem
+#### 1.1 Hospedagem
+- vercel (backend adaptado para serverless)
 
-- vercel
-
-### 1.2 Frontend Interface
-
+#### 1.2 Frontend Interface
 - Area de login
-  > - Usuario
-  > - Senha
+- Usuario
+- Senha
+- envio de email para confirmação
+
 - Painel principal
-  > - (topo da direita) menu que contenha opcoes de usuarios, como: logout, mudar do tema (dark ou white) ;
-  > - A esquerda um menu de opcoes para que fique em formato de hambuguer de acordo com a responsividade, nesse menu: gastos; ganhos; dashboard; contas pendentes, metas financeiras;
-  > - Quadro para visualizar previa do dashboard
+- (topo da direita) menu que contenha opcoes de usuarios, como: logout, mudar do tema (dark ou white)
+
+- A esquerda um menu de opcoes para que fique em formato de hambuguer de acordo com a responsividade, nesse menu:
+  - gastos
+  - ganhos
+  - dashboard
+  - contas pendentes
+  - metas financeiras
+
+- Quadro para visualizar previa do dashboard
+
 - Insercao de Gastos:
-  > - Valor do Gasto
-  > - Categoria (qual o tipo de gasto)
-  > - data do gasto
+  - Valor do Gasto
+  - Categoria (qual o tipo de gasto)
+  - data do gasto
+  - descrição (opcional)
+
 - Insercao de Ganhos:
-  > - Valor
-  > - data
+  - Valor
+  - data
+  - descrição (opcional)
+
 - Dashboard:
-  > - Dados relacionado a ganhos, Gastos, saldo e contas pendentes
-  > - Filto por mes e ano
-  > - especificar a categoria e o valor
-- Categorias:
-  > - essas serao as categorias que estaram "pre-selecionadas" para que o usuario classifique seus gastos: Educacao, eletronicos, Transferencias para conta propria, Assinaturas digitais, Cartao de credito, Casa, Comida e bebida, Compras, contas e servicos, Emprestimos, Entretenimento, Esportes, Impostos, Investimento, Roupas, saques, saude e cuidados pessoais, servicos profissionais, supermecado, taxas, Transporte, viagens.
-  > - opcao para adicionar as categorias de acordo com a rotina pessoal do cliente
-
-Bases para o design:
-
-- Painel principal, Insercao de Gasto, Insercao de Ganhos, Dashboard, Categorias (DESKTOP E MOBILE)
-- Responsivo
-
-Garantir que seja acessivel tanto para celulares e PCs
-interface moderna com design intuitivo a nivel empresárial, garantindo uma boa visualização.
-
-trazendo em evidência a performance antes de qualquer coisa
-
-### 1.2.1 Cores
-
-Cores modernas, de design premium
-
-### 1.3 Backend
-
-Backend: express
-Banco de dados: MongoDB Atlas
-ODM: Mongoose
-Autenticação: JWT + Refresh Token
-Arquitetura: Modular
-API REST
-Multi-tenant por transportadora
-Certificado digital A1
-
-### 1.3.1 Regras
-
-Área de Login
-
-Campos:
-
-Usuário
-Senha
-
-Requisitos:
-
-- JWT
-  > - Refresh Token
-  > - Hash de senha com bcrypt
-  >   -Controle de sessão
-  >   -Recuperação de senha
-
-> IMPORTANTE: _O sistema inicialmente NÃO terá múltiplos usuários_
+  - Dados relacionado a ganhos, Gastos, saldo e contas pendentes
+  - Filto por mes e ano
+  - especificar a categoria e o valor
 
 ---
 
-O sistema possuirá apenas:
+#### Categorias:
+- essas serao as categorias que estaram "pre-selecionadas" para que o usuario classifique seus gastos:
 
-- 1 usuário administrador (seed-user)
-  criado automaticamente via backend/script seed
-  Não incluir gerenciamento de usuários na sidebar
-  Não criar módulo complexo de RBAC inicialmente
-  Estruturar apenas de forma preparada para expansão futura
+Educacao, eletronicos, Transferencias para conta propria, Assinaturas digitais, Cartao de credito, Casa, Comida e bebida, Compras, contas e servicos, Emprestimos, Entretenimento, Esportes, Impostos, Investimento, Roupas, saques, saude e cuidados pessoais, servicos profissionais, supermecado, taxas, Transporte, viagens.
 
-- Painel Principal
+- opcao para adicionar as categorias de acordo com a rotina pessoal do cliente 
 
-  O painel principal deve possuir:
+---
 
-  > Lista horizontal fixa no topo contendo transportadoras
-  > Área Kanban para MDF-e pendentes
-  > Área para MDF-e emitidos
-  > CRUD completo de MDF-e
-  > Status do MDF-e
+Bases para o design:
+- Painel principal, Insercao de Gasto, Insercao de Ganhos, Dashboard, Categorias (DESKTOP E MOBILE)
+- Responsivo 
+- Garantir que seja acessivel tanto para celulares e PCs
+- interface moderna com design intuitivo a nivel empresárial,
+- foco em performance
 
-- Ações:
+#### 1.2.1 Cores
+- Cores modernas, de design premium
 
-  Integrar com a sefaz para emitir as MDFe conforma a api disponibilizada para a emissão integrada
+---
 
-  Emitir
-  Editar
-  Excluir
-  Visualizar
-  Download XML
-  Download PDF/DAMDFE
+### 1.3 Backend
+ 
+Backend: NestJS  
+Banco de dados: MongoDB Atlas  
+ODM: Mongoose  
+Autenticação: JWT + Refresh Token  
+Arquitetura: Modular  
+API REST  
+Multi-tenant por usuário  
+Compatível com Vercel (Serverless)
 
-- Após emissão:
+---
 
-  MDF-e deve ser marcado como emitido
-  Deve possuir data de emissão
-  Deve armazenar:
+### 1.3.1 Regras
+ 
+Área de Login  
 
-  número MDF-e
-  chave MDF-e
-  protocolo SEFAZ
-  status da emissão
-  histórico de emissão
-
-> IMPORTANTE: _XML e PDF NÃO devem ser armazenados no banco
-> Apenas os metadados da emissão_
-
-- O banco deve armazenar somente:
-
-  URLs
-  paths
-  hash
-  metadata
-  status
-
-- Cadastro de Transportadora
-  - Campos:
-
-    > - Nome da transportadora
-    > - CNPJ
-    > - Certificado Digital A1
-    > - Senha do certificado
-    > - Chave/API interna
-    > - Status
-    > - Ambiente SEFAZ:
-    > - homologação
-    > - produção
+Campos:  
+- Usuário (email)  
+- Senha  
 
 Requisitos:
+- verificação de email valido
+- envio de confirmação por email (Resend/Nodemailer)
+- JWT
+- Refresh Token
+- Hash de senha com bcrypt
+- Controle de sessão
+- Recuperação de senha atraves do email
 
-Guardar de maneira segura o certificado
-Criptografia de dados sensíveis
-Multi-tenant
-Quadros da Transportadora
+---
 
-- Cada transportadora terá:
+Painel Principal  
 
-  > - Quadro de emissão
-  > - Quadro de emitidos
-  > - Visualização estilo KANBAN
-  > - Lista e cards
-  > - Renomear quadro
-  > - Adicionar itens
-  > - Ordenação por drag and drop futuramente
+O painel principal deve possuir:
 
-- Cadastro de MDF-e / Itens
-- Cada item representa um MDF-e.
+Cadastro de Usuário  
 
-- Campos:
-  - Dados da carga
+Campos:
+- Email
+- Senha 
 
-  > - CNPJ do contratante
-  > - Peso da carga
-  > - Valor da carga
-  > - Valor do imposto
-  > - Chave de acesso da NF-e
-  > - Observações
-  - Destino
+Requisitos:
+- email valido
 
-  > - UF
-  > - Cidade
-  - Motorista
+---
 
-  > - Nome
-  > - CPF
-  > - CNH
-  - Veículo principal
+### 1.3.2 Funcionalidades dos Itens (Backend Alinhado)
 
-  > - Placa
-  > - RENAVAM
-  > - CRLV
-  - Reboques
+O backend deve suportar:
 
-  > - Máximo 2 reboques
-  > - Cada reboque possui:
+- CRUD completo de gastos e ganhos (Transaction)
+- CRUD de categorias (default + personalizada)
+- Controle de contas pendentes
+- Controle de metas financeiras
+- Dashboard com agregações por:
+  - mês
+  - ano
+  - categoria
+- Multi-tenant (dados isolados por usuário)
+- Autenticação completa
+- Filtros avançados
 
-  > - placa
-  > - renavam
-  > - CRLV
-
-_Regra: Caminhões menores podem não possuir reboque_
-
-### 1.3.2 Funcionalidades dos Itens
-
-Cada MDF-e deve permitir:
-
-Emitir MDF-e
-Cancelar MDF-e
-Editar
-Excluir
-Visualizar detalhes
-Download XML
-Download PDF/DAMDFE
-Reprocessar emissão
-
-Visualização:
-
-Card
-Modal
-Lista
-
-Sidebar
-
-Itens:
-
-Nome da transportadora selecionada
-Painel principal
-Cadastro de transportadora
-Configurações
-Logout na parte inferior
-
-IMPORTANTE:
-
-Não incluir menu de usuários
+---
 
 ### 1.3.3 ROTAS NECESSÁRIAS
-
+ 
 Além do CRUD padrão, criar modelagem para:
 
-Auth
+#### Auth 
+- login
+- refresh-token
+- logout
+- forgot-password
+- reset-password
+- me
+- register
 
-login
-refresh-token
-logout
-forgot-password
-reset-password
-me
+---
 
-Transportadoras
+#### Transactions (Gastos / Ganhos)
+- POST /transactions
+- GET /transactions
+- GET /transactions/:id
+- PATCH /transactions/:id
+- DELETE /transactions/:id
 
-CRUD
-atualizar ambiente SEFAZ
+---
 
-MDF-e
+#### Categories
+- GET /categories
+- POST /categories
 
-criar
-editar
-deletar
-listar
-detalhar
-emitir
-cancelar
-reemitir
-consultar status
-download XML
-download PDF/DAMDFE
+---
 
-guardar no banco em forma de String/Numeros (NÂO VAI SER ARMAZENADO ARQUIVO CNH )
+#### Contas Pendentes
+- POST /pending
+- GET /pending
+- PATCH /pending/:id
+- DELETE /pending/:id
 
-CNH
-CRLV
-certificado
+---
+
+#### Metas
+- POST /goals
+- GET /goals
+- PATCH /goals/:id
+- DELETE /goals/:id
+
+---
+
+#### Dashboard
+- GET /dashboard?month=&year=
+
+---
 
 ### 1.3.4 REQUISITOS TÉCNICOS
-
+ 
 Quero que você me entregue:
 
-1. MODELAGEM DE ENTIDADES
+---
 
-Liste todas entidades necessárias:
-Exemplo:
+#### MODELAGEM DE ENTIDADES 
 
-AdminUser
-Transportadora
-MDFe
-Veiculo
-Reboque
-Documento
-Motorista
-RefreshToken
-EmissaoLog
-etc
+User  
+- id  
+- email  
+- password  
+- emailVerified  
+- createdAt  
 
-2. SCHEMAS MONGOOSE
+Auth  
+- id  
+- userId  
+- refreshToken  
+- expiresAt  
 
-Para cada entidade:
+Transaction (Gastos / Ganhos)  
+- id  
+- userId  
+- type (EXPENSE | INCOME)  
+- value  
+- categoryId  
+- description  
+- date  
 
-Nome da collection
-Campos
-Tipos
-Required
-Defaults
-Indexes
-Unique
-Enums
-Timestamps
-Soft delete
-Auditoria
+Category  
+- id  
+- userId (null = padrão do sistema)  
+- name  
+- type  
 
-Exemplo esperado:
+Contas (PendingAccount)  
+- id  
+- userId  
+- title  
+- value  
+- dueDate  
+- paid  
 
-@Schema({ timestamps: true })
-export class Transportadora {
-  @Prop({ required: true })
-  nome: string;
-}
+Metas (Goal)  
+- id  
+- userId  
+- name  
+- targetValue  
+- currentValue  
+- deadline  
 
-3. DTOs DO NESTJS
+---
 
-Criar:
+#### SCHEMAS MONGOOSE  
+(necessário criar todos com timestamps e validações)
 
-Create DTO
-Update DTO
-Response DTO
+---
 
-Utilizar:
+#### DTOs DO NESTJS 
 
-class-validator
-class-transformer
+Criar:  
+- Create DTO  
+- Update DTO  
+- Response DTO  
 
-4. ESTRUTURA DE MÓDULOS
+Para:
+- User
+- Auth
+- Transaction
+- Category
+- Pending
+- Goal
 
-Exemplo:
+---
 
-src/
-modules/
-auth/
-admin/
-transportadoras/
-mdfe/
-sefaz/
-common/
+#### ESTRUTURA DE MÓDULOS 
 
-Quero sugestão profissional e escalável.
+Sugestão profissional:
 
-5. AUTENTICAÇÃO E SEGURANÇA
+- auth
+- users
+- transactions
+- categories
+- pending
+- goals
+- dashboard
+
+---
+
+#### AUTENTICAÇÃO E SEGURANÇA 
 
 Quero:
 
-JWT access token
-Refresh token
-Guards
-Seed admin
-Multi-tenant seguro
-Criptografia
-Rate limit
-Helmet
-CORS
-Validação de certificado A1
+- JWT access token
+- Refresh token
+- Guards (AuthGuard)
+- Multi-tenant seguro (userId em todas queries)
+- Criptografia com bcrypt
+- Rate limit
+- Helmet
+- CORS configurável
 
-6. PARA SEFAZ
+---
 
-que tenha integração com a sefaz para a emissão de notas
-
-7. MODELAGEM DO FLUXO MDF-e
-
-Sugira status possíveis
-
-8. ESTRUTURA DE PASTAS
+#### ESTRUTURA DE PASTAS 
 
 Quero estrutura completa do backend NestJS.
 
-9. DOWNLOADS
-   downloads das dos arquivos geradas pela SEFAZ
+---
 
-IMPORTANTE:
+### 2 Melhorias e Sustentações
 
-XML/PDF NÃO devem ser persistidos diretamente no MongoDB
-Apenas referências e metadados
-
-## 2 Melhorias e Sustentações
-
-- Dashboard de Relatórios
+- Exportação de relatórios
+- Integração com APIs financeiras
+- Notificações
+- Inteligência para análise de gastos
+- Cache para dashboard (Redis - opcional futuro)
