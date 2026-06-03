@@ -23,8 +23,7 @@ export class AuthService {
   }
 
   async verifyEmail(token: string) {
-    // procurar usuário com token
-    const user = await (this.usersService as any).userModel?.findOneAndUpdate({ emailVerificationToken: token }, { emailVerified: true, emailVerificationToken: null }, { new: true }).select('-password').exec();
+    const user = await this.usersService.markEmailVerifiedByToken(token);
     if (!user) throw new UnauthorizedException('Token inválido');
     return user;
   }

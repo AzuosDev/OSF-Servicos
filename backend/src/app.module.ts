@@ -3,6 +3,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { CategoriesModule } from './modules/categories/categories.module';
+import { TransactionsModule } from './modules/transactions/transactions.module';
+import { PendingModule } from './modules/pending/pending.module';
+import { GoalsModule } from './modules/goals/goals.module';
 
 @Module({
   imports: [
@@ -22,6 +28,12 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
       inject: [ConfigService],
     }),
     ThrottlerModule.forRoot({ ttl: 60, limit: 100 }),
+    AuthModule,
+    UsersModule,
+    CategoriesModule,
+    TransactionsModule,
+    PendingModule,
+    GoalsModule,
   ],
 })
 export class AppModule {}

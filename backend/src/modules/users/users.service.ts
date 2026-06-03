@@ -20,6 +20,9 @@ export class UsersService {
     });
     const obj: any = created.toObject();
     delete obj.password;
+    delete obj.emailVerificationToken;
+    delete obj.passwordResetToken;
+    delete obj.passwordResetExpires;
     return obj;
   }
 
@@ -35,6 +38,10 @@ export class UsersService {
 
   async markEmailVerified(userId: string) {
     return this.userModel.findByIdAndUpdate(userId, { emailVerified: true, emailVerificationToken: null }, { new: true }).select('-password').exec();
+  }
+
+  async markEmailVerifiedByToken(token: string) {
+    return this.userModel.findOneAndUpdate({ emailVerificationToken: token }, { emailVerified: true, emailVerificationToken: null }, { new: true }).select('-password').exec();
   }
 
   async setPasswordResetToken(email: string) {

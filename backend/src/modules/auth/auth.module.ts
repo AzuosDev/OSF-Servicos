@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -8,7 +8,9 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { RefreshTokenSchema } from './schemas/refresh-token.schema';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
+@Global()
 @Module({
   imports: [
     PassportModule,
@@ -17,7 +19,7 @@ import { AuthController } from './auth.controller';
     UsersModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtStrategy],
-  exports: [AuthService],
+  providers: [AuthService, LocalStrategy, JwtStrategy, JwtAuthGuard],
+  exports: [AuthService, JwtModule, JwtAuthGuard],
 })
 export class AuthModule {}
