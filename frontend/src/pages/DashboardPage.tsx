@@ -1,63 +1,525 @@
-import { BarChart3, CreditCard, TrendingUp, Wallet } from "lucide-react";
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import {
+  Area,
+  AreaChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  Clock,
+  PiggyBank,
+  ReceiptText,
+  TrendingDown,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
 
-const chartData = [
-  { month: "Jan", balance: 2200 },
-  { month: "Fev", balance: 2800 },
-  { month: "Mar", balance: 2500 },
-  { month: "Abr", balance: 3400 },
-  { month: "Mai", balance: 3900 },
-  { month: "Jun", balance: 4300 },
+import { api } from "../lib/api";
+import { cn } from "../lib/utils";
+
+type DashboardApiResponse = Record<string, unknown>;
+
+type MonthlyPoint = {
+  month: string;
+  income: number;
+  expense: number;
+};
+
+type CategoryExpense = {
+  id: string;
+  name: string;
+  color: string;
+  amount: number;
+};
+
+type RecentTransaction = {
+  id: string;
+  categoryName: string;
+  categoryColor: string;
+  description?: string;
+  date: string;
+  amount: number;
+  type: "INCOME" | "EXPENSE";
+};
+
+type DashboardData = {
+  balance: number;
+  totalIncome: number;
+  totalExpense: number;
+  pendingTotal: number;
+  savingsRate: number;
+  monthlyEvolution: MonthlyPoint[];
+  categories: CategoryExpense[];
+  recentTransactions: RecentTransaction[];
+};
+
+const monthOptions = [
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
 ];
 
-const cards = [
-  { label: "Saldo atual", value: "R$ 4.300", icon: Wallet, color: "text-accent-lime" },
-  { label: "Gastos do mês", value: "R$ 1.280", icon: CreditCard, color: "text-accent-orange" },
-  { label: "Economia", value: "R$ 620", icon: TrendingUp, color: "text-category-groceries" },
-];
+const brlFormatter = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
 
-export function DashboardPage() {
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function asArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.map(asRecord) : [];
+}
+
+function readNumber(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === "string") {
+      const parsed = Number(value.replace(",", "."));
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+
+  return 0;
+}
+
+function readString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
+function getDashboardValue(data: DashboardApiResponse, keys: string[]) {
+  for (const key of keys) {
+    if (key in data) {
+      return data[key];
+    }
+  }
+
+  return undefined;
+}
+
+function normalizeDashboard(data: DashboardApiResponse): DashboardData {
+  const summary = asRecord(data.summary);
+  const pending = asRecord(data.pending);
+  const categorySource =
+    getDashboardValue(data, ["categories", "expensesByCategory", "categoryExpenses"]) ??
+    [];
+  const transactionSource =
+    getDashboardValue(data, ["recentTransactions", "transactions", "latestTransactions"]) ??
+    [];
+  const monthlySource =
+    getDashboardValue(data, ["monthlyEvolution", "evolution", "chartData", "monthly"]) ??
+    [];
+
+  const totalIncome = readNumber(
+    data.totalIncome,
+    data.income,
+    data.entries,
+    summary.totalIncome,
+    summary.income,
+  );
+  const totalExpense = readNumber(
+    data.totalExpense,
+    data.expense,
+    data.expenses,
+    data.outputs,
+    summary.totalExpense,
+    summary.expense,
+  );
+  const balance = readNumber(data.balance, data.saldo, summary.balance, totalIncome - totalExpense);
+
+  return {
+    balance,
+    totalIncome,
+    totalExpense,
+    pendingTotal: readNumber(
+      data.pendingTotal,
+      data.totalPending,
+      data.pendingAmount,
+      pending.total,
+      summary.pendingTotal,
+    ),
+    savingsRate: readNumber(
+      data.savingsRate,
+      data.savingRate,
+      data.poupancaRate,
+      summary.savingsRate,
+    ),
+    monthlyEvolution: asArray(monthlySource).map((item, index) => ({
+      month: readString(item.month, item.label, item.name) || monthOptions[index % 12],
+      income: readNumber(item.income, item.totalIncome, item.entries),
+      expense: readNumber(item.expense, item.totalExpense, item.expenses, item.outputs),
+    })),
+    categories: asArray(categorySource)
+      .map((item, index) => {
+        const category = asRecord(item.category);
+        return {
+          id: readString(item.id, category.id) || `category-${index}`,
+          name:
+            readString(item.name, item.categoryName, category.name, item.label) ||
+            "Categoria",
+          color:
+            readString(item.color, item.categoryColor, category.color) ||
+            "#6B7280",
+          amount: readNumber(item.amount, item.total, item.value),
+        };
+      })
+      .filter((item) => item.amount > 0),
+    recentTransactions: asArray(transactionSource).slice(0, 5).map((item, index) => {
+      const category = asRecord(item.category);
+      const type = readString(item.type, item.transactionType).toUpperCase();
+
+      return {
+        id: readString(item.id) || `transaction-${index}`,
+        categoryName:
+          readString(item.categoryName, category.name, item.category) ||
+          "Movimentação",
+        categoryColor:
+          readString(item.categoryColor, category.color) ||
+          (type === "INCOME" ? "#A3E635" : "#EF4444"),
+        description: readString(item.description, item.notes),
+        date: readString(item.date, item.createdAt, item.paidAt, item.dueDate),
+        amount: readNumber(item.amount, item.value, item.total),
+        type: type === "INCOME" ? "INCOME" : "EXPENSE",
+      };
+    }),
+  };
+}
+
+function formatCurrency(value: number) {
+  return brlFormatter.format(value);
+}
+
+function formatCompact(value: number) {
+  if (Math.abs(value) >= 1000) {
+    return `${(value / 1000).toLocaleString("pt-BR", {
+      maximumFractionDigits: 1,
+    })}K`;
+  }
+
+  return value.toLocaleString("pt-BR");
+}
+
+function formatDate(value: string) {
+  const date = value ? new Date(value) : null;
+
+  if (!date || Number.isNaN(date.getTime())) {
+    return "--/--";
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+  }).format(date);
+}
+
+function Skeleton({ className }: { className: string }) {
+  return <div className={cn("animate-pulse rounded-2xl bg-bg-muted", className)} />;
+}
+
+function DashboardSkeleton() {
   return (
     <section className="space-y-6">
-      <header>
-        <p className="text-sm text-text-secondary">Visão geral</p>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-      </header>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        {cards.map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="rounded-card border border-bg-overlay bg-bg-card p-5">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-text-secondary">{label}</p>
-              <Icon className={`h-5 w-5 ${color}`} />
-            </div>
-            <strong className="mt-3 block text-2xl">{value}</strong>
-          </div>
+      <div className="flex justify-end gap-3">
+        <Skeleton className="h-12 w-32" />
+        <Skeleton className="h-12 w-28" />
+      </div>
+      <Skeleton className="h-40 w-full" />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={index} className="h-32" />
         ))}
       </div>
+      <Skeleton className="h-80 w-full" />
+      <Skeleton className="h-64 w-full" />
+      <Skeleton className="h-72 w-full" />
+    </section>
+  );
+}
 
-      <div className="rounded-card border border-bg-overlay bg-bg-card p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <BarChart3 className="h-5 w-5 text-accent-lime" />
-          <h2 className="text-lg font-semibold">Evolução do saldo</h2>
+function EmptyWallet() {
+  return (
+    <svg viewBox="0 0 160 120" className="mx-auto h-28 w-36 text-text-muted" fill="none" aria-hidden="true">
+      <rect x="20" y="34" width="116" height="68" rx="16" fill="currentColor" opacity="0.22" />
+      <path d="M36 34h82c10 0 18 8 18 18v10h-34c-11 0-20 9-20 20v20H36c-10 0-18-8-18-18V52c0-10 8-18 18-18Z" fill="currentColor" opacity="0.45" />
+      <path d="M86 74c0-8 6-14 14-14h40v36h-40c-8 0-14-6-14-14v-8Z" fill="#141414" stroke="#4B5563" strokeWidth="4" />
+      <circle cx="104" cy="78" r="5" fill="#A3E635" />
+      <path d="M42 28 88 16c8-2 15 3 17 10l2 8H42v-6Z" fill="#A3E635" opacity="0.3" />
+    </svg>
+  );
+}
+
+function CustomTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ name?: string; value?: number; color?: string }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-xl border border-bg-muted bg-bg-card p-3 text-sm text-white shadow-xl">
+      <p className="mb-2 font-semibold">{label}</p>
+      {payload.map((item) => (
+        <p key={item.name} style={{ color: item.color }}>
+          {item.name}: {formatCurrency(item.value ?? 0)}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+export function DashboardPage() {
+  const currentYear = new Date().getFullYear();
+  const [month, setMonth] = useState(() => new Date().getMonth() + 1);
+  const [year, setYear] = useState(currentYear);
+  const navigate = useNavigate();
+
+  const years = useMemo(
+    () => Array.from({ length: 4 }, (_, index) => currentYear - index),
+    [currentYear],
+  );
+
+  const dashboardQuery = useQuery({
+    queryKey: ["dashboard", month, year],
+    queryFn: async () => {
+      const { data } = await api.get<DashboardApiResponse>("/api/dashboard", {
+        params: { month, year },
+      });
+
+      return normalizeDashboard(data);
+    },
+  });
+
+  if (dashboardQuery.isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  const dashboard = dashboardQuery.data ?? normalizeDashboard({});
+  const hasTransactions = dashboard.recentTransactions.length > 0;
+  const maxCategoryAmount = Math.max(...dashboard.categories.map((item) => item.amount), 0);
+
+  return (
+    <section className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm text-text-secondary">Visão geral</p>
+          <h1 className="font-sans text-3xl font-bold">Dashboard</h1>
         </div>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
-              <XAxis dataKey="month" stroke="#9CA3AF" />
-              <YAxis stroke="#9CA3AF" />
-              <Tooltip
-                contentStyle={{
-                  background: "#141414",
-                  border: "1px solid #232323",
-                  color: "#FFFFFF",
-                }}
-              />
-              <Area type="monotone" dataKey="balance" stroke="#A3E635" fill="#A3E635" fillOpacity={0.18} />
-            </AreaChart>
-          </ResponsiveContainer>
+        <div className="grid grid-cols-2 gap-3">
+          <select
+            value={month}
+            onChange={(event) => setMonth(Number(event.target.value))}
+            className="rounded-xl border border-bg-muted bg-bg-card px-4 py-3 text-sm text-white outline-none transition focus:border-accent-lime"
+          >
+            {monthOptions.map((label, index) => (
+              <option key={label} value={index + 1}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={year}
+            onChange={(event) => setYear(Number(event.target.value))}
+            className="rounded-xl border border-bg-muted bg-bg-card px-4 py-3 text-sm text-white outline-none transition focus:border-accent-lime"
+          >
+            {years.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
+
+      {dashboardQuery.isError && (
+        <div className="rounded-2xl border border-accent-red/30 bg-accent-red/10 p-4 text-sm text-accent-red">
+          Não foi possível carregar o dashboard agora.
+        </div>
+      )}
+
+      {!hasTransactions ? (
+        <div className="rounded-2xl border border-bg-muted bg-bg-card p-8 text-center">
+          <EmptyWallet />
+          <h2 className="mt-4 font-sans text-xl font-bold">Nenhuma movimentação este mês</h2>
+          <button
+            onClick={() => navigate("/transactions?type=EXPENSE&action=create")}
+            className="mt-5 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110"
+          >
+            Adicionar primeiro gasto
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="rounded-2xl bg-bg-card p-6">
+            <p className="text-sm uppercase tracking-widest text-text-secondary">Saldo</p>
+            <strong className="mt-3 block font-sans text-5xl font-extrabold text-accent-lime">
+              {formatCurrency(dashboard.balance)}
+            </strong>
+            <div className="mt-5 flex flex-wrap gap-4 text-sm">
+              <span className="text-accent-lime">
+                Entradas: {formatCurrency(dashboard.totalIncome)}
+              </span>
+              <span className="text-accent-red">
+                Saídas: {formatCurrency(dashboard.totalExpense)}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <SummaryCard icon={TrendingUp} label="Entradas" value={formatCurrency(dashboard.totalIncome)} iconClassName="text-accent-lime" />
+            <SummaryCard icon={TrendingDown} label="Saídas" value={formatCurrency(dashboard.totalExpense)} iconClassName="text-accent-red" />
+            <Link to="/pending" className="rounded-2xl bg-bg-card p-4 transition hover:bg-bg-muted">
+              <Clock className="mb-4 h-6 w-6 text-accent-yellow" />
+              <strong className="block text-xl">{formatCurrency(dashboard.pendingTotal)}</strong>
+              <span className="text-sm text-text-secondary">Contas Pendentes</span>
+            </Link>
+            <SummaryCard icon={PiggyBank} label="Taxa de Poupança" value={`${dashboard.savingsRate.toFixed(1)}%`} iconClassName="text-accent-lime" />
+          </div>
+
+          <div className="rounded-2xl bg-bg-card p-5">
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <h2 className="font-sans text-xl font-bold">Evolução Mensal</h2>
+              <div className="flex gap-4 text-xs text-text-secondary">
+                <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-accent-lime" /> Entradas</span>
+                <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-accent-orange" /> Saídas</span>
+              </div>
+            </div>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={dashboard.monthlyEvolution}>
+                  <defs>
+                    <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#A3E635" stopOpacity={0.18} />
+                      <stop offset="95%" stopColor="#A3E635" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#F97316" stopOpacity={0.18} />
+                      <stop offset="95%" stopColor="#F97316" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="month" stroke="#9CA3AF" tickLine={false} axisLine={false} />
+                  <YAxis stroke="#9CA3AF" tickLine={false} axisLine={false} tickFormatter={formatCompact} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area type="monotone" name="Entradas" dataKey="income" stroke="#A3E635" fill="url(#incomeGradient)" strokeWidth={2} />
+                  <Area type="monotone" name="Saídas" dataKey="expense" stroke="#F97316" fill="url(#expenseGradient)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-bg-card p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-sans text-xl font-bold">Gastos por Categoria</h2>
+              <Link to="/expenses" className="text-sm font-semibold text-accent-lime">Ver todas</Link>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {dashboard.categories.slice(0, 6).map((category) => (
+                <div key={category.id} className="rounded-xl bg-bg-muted p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-10 w-10 place-items-center rounded-xl" style={{ backgroundColor: `${category.color}22` }}>
+                      <ReceiptText className="h-5 w-5" style={{ color: category.color }} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold">{category.name}</p>
+                      <p className="text-sm text-text-secondary">{formatCurrency(category.amount)}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 h-2 rounded-full bg-bg-overlay">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${maxCategoryAmount ? (category.amount / maxCategoryAmount) * 100 : 0}%`,
+                        backgroundColor: category.color,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-bg-card p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-sans text-xl font-bold">Últimas Transações</h2>
+              <Link to="/transactions" className="text-sm font-semibold text-accent-lime">Ver todas</Link>
+            </div>
+            <div className="divide-y divide-bg-muted">
+              {dashboard.recentTransactions.map((transaction) => (
+                <div key={transaction.id} className="flex items-center gap-3 py-4">
+                  <span className="grid h-11 w-11 place-items-center rounded-xl" style={{ backgroundColor: `${transaction.categoryColor}22` }}>
+                    {transaction.type === "INCOME" ? (
+                      <TrendingUp className="h-5 w-5" style={{ color: transaction.categoryColor }} />
+                    ) : (
+                      <TrendingDown className="h-5 w-5" style={{ color: transaction.categoryColor }} />
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold">{transaction.categoryName}</p>
+                    <p className="truncate text-sm text-text-secondary">
+                      {transaction.description || "Sem descrição"} · {formatDate(transaction.date)}
+                    </p>
+                  </div>
+                  <strong className={cn("text-sm", transaction.type === "INCOME" ? "text-accent-lime" : "text-accent-red")}>
+                    {transaction.type === "INCOME" ? "+" : "-"} {formatCurrency(transaction.amount)}
+                  </strong>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </section>
+  );
+}
+
+function SummaryCard({
+  icon: Icon,
+  label,
+  value,
+  iconClassName,
+}: {
+  icon: typeof Wallet;
+  label: string;
+  value: string;
+  iconClassName: string;
+}) {
+  return (
+    <div className="rounded-2xl bg-bg-card p-4">
+      <Icon className={cn("mb-4 h-6 w-6", iconClassName)} />
+      <strong className="block text-xl">{value}</strong>
+      <span className="text-sm text-text-secondary">{label}</span>
+    </div>
   );
 }
