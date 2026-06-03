@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 
 import { AppLayout } from "./components/layout/AppLayout";
+import { ToastProvider } from "./components/ui/Toast";
 import { getAccessToken, hasRefreshToken, refreshAccessToken } from "./lib/auth";
 import { BudgetPage } from "./pages/BudgetPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -53,6 +54,7 @@ function AppBoot({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
+    <ToastProvider>
     <AppBoot>
       <Routes>
         <Route path="/" element={<RootRedirect />} />
@@ -76,5 +78,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppBoot>
+    </ToastProvider>
   );
 }

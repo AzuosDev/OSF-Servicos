@@ -18,7 +18,9 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 import { clearTokens, getAccessToken } from "../../lib/auth";
+import { api } from "../../lib/api";
 import { cn } from "../../lib/utils";
+import { useToast } from "../ui/Toast";
 
 type NavItem = {
   to: string;
@@ -78,6 +80,7 @@ function Avatar({ email }: { email: string }) {
 export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -86,9 +89,16 @@ export function AppLayout() {
   const currentUrl = `${location.pathname}${location.search}`;
   const title = pageTitles[currentPath] ?? "ContaCerta";
 
-  const handleLogout = () => {
-    clearTokens();
-    navigate("/login", { replace: true });
+  const handleLogout = async () => {
+    try {
+      await api.post("/api/auth/logout");
+    } catch {
+      // Ignora falha de logout do servidor e segue com o fluxo local.
+    } finally {
+      clearTokens();
+      addToast("Sessão encerrada com sucesso.", "success");
+      navigate("/login", { replace: true });
+    }
   };
 
   const goToCreate = (type: "EXPENSE" | "INCOME") => {
