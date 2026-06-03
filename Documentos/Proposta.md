@@ -25,7 +25,7 @@ Com compatibilidade para desktop e mobile.
 
 #### 1.1 Hospedagem
 
-- vercel (backend adaptado para serverless)
+- vercel (backend adaptado para serverless.)
 
 #### 1.2 Frontend Interface
 
