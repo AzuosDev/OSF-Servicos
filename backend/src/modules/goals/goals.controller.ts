@@ -1,13 +1,10 @@
 import { Body, Controller, Delete, Get, Patch, Post, UseGuards, Param } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { GoalsService } from './goals.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
 
-@ApiTags('Goals')
-@ApiBearerAuth()
 @Controller('api/goals')
 export class GoalsController {
   constructor(private goalsService: GoalsService) {}
