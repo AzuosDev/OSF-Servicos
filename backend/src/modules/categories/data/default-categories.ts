@@ -1,0 +1,26 @@
+import { PartialType } from '@nestjs/mapped-types';
+
+export const DEFAULT_CATEGORIES = [
+  { name: 'Educação', slug: 'educacao', icon: 'GraduationCap', color: '#8B5CF6', isDefault: true },
+  { name: 'Eletrônicos', slug: 'eletronicos', icon: 'Laptop', color: '#3B82F6', isDefault: true },
+  { name: 'Transferência Conta Própria', slug: 'transferencia-conta-propria', icon: 'ArrowLeftRight', color: '#6B7280', isDefault: true },
+  { name: 'Assinaturas Digitais', slug: 'assinaturas-digitais', icon: 'Repeat', color: '#EC4899', isDefault: true },
+  { name: 'Cartão de Crédito', slug: 'cartao-credito', icon: 'CreditCard', color: '#F97316', isDefault: true },
+  { name: 'Casa', slug: 'casa', icon: 'Home', color: '#14B8A6', isDefault: true },
+  { name: 'Comida e Bebida', slug: 'comida-bebida', icon: 'UtensilsCrossed', color: '#F59E0B', isDefault: true },
+  { name: 'Compras', slug: 'compras', icon: 'ShoppingBag', color: '#EF4444', isDefault: true },
+  { name: 'Contas e Serviços', slug: 'contas-servicos', icon: 'FileText', color: '#64748B', isDefault: true },
+  { name: 'Empréstimos', slug: 'emprestimos', icon: 'Banknote', color: '#DC2626', isDefault: true },
+  { name: 'Entretenimento', slug: 'entretenimento', icon: 'Tv2', color: '#7C3AED', isDefault: true },
+  { name: 'Esportes', slug: 'esportes', icon: 'Dumbbell', color: '#16A34A', isDefault: true },
+  { name: 'Impostos', slug: 'impostos', icon: 'Receipt', color: '#9CA3AF', isDefault: true },
+  { name: 'Investimento', slug: 'investimento', icon: 'TrendingUp', color: '#A3E635', isDefault: true },
+  { name: 'Roupas', slug: 'roupas', icon: 'Shirt', color: '#F472B6', isDefault: true },
+  { name: 'Saques', slug: 'saques', icon: 'Wallet', color: '#78716C', isDefault: true },
+  { name: 'Saúde e Cuidados Pessoais', slug: 'saude', icon: 'HeartPulse', color: '#06B6D4', isDefault: true },
+  { name: 'Serviços Profissionais', slug: 'servicos-profissionais', icon: 'Briefcase', color: '#0EA5E9', isDefault: true },
+  { name: 'Supermercado', slug: 'supermercado', icon: 'ShoppingCart', color: '#22C55E', isDefault: true },
+  { name: 'Taxas', slug: 'taxas', icon: 'Percent', color: '#A3A3A3', isDefault: true },
+  { name: 'Transporte', slug: 'transporte', icon: 'Car', color: '#2563EB', isDefault: true },
+  { name: 'Viagens', slug: 'viagens', icon: 'Plane', color: '#0891B2', isDefault: true },
+];

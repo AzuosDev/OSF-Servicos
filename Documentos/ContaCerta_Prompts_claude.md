@@ -218,10 +218,10 @@ Todos os schemas devem usar SchemaFactory.createForFeature() do Mongoose com Nes
 ```
 
 ### ✅ Checklist Etapa 2 — Backend
-- [ ] Todos os 6 schemas criados sem erros TypeScript
-- [ ] Indexes definidos nos schemas de Transaction, Category e PendingAccount
-- [ ] Array de categorias padrão criado em `default-categories.ts`
-- [ ] `npm run build` compila sem erros
+- [x] Todos os 6 schemas criados sem erros TypeScript
+- [x] Indexes definidos nos schemas de Transaction, Category e PendingAccount
+- [x] Array de categorias padrão criado em `default-categories.ts`
+- [x] `npm run build` compila sem erros
 
 ---
 
@@ -296,15 +296,15 @@ EMAIL SERVICE:
 ```
 
 ### ✅ Checklist Etapa 3 — Backend
-- [ ] `POST /api/auth/register` cria usuário e retorna 201
-- [ ] Senha está sendo hashada com bcrypt (verificar no MongoDB Compass)
-- [ ] `POST /api/auth/login` retorna accessToken + refreshToken
-- [ ] RefreshToken está salvo como HASH no banco (não texto puro)
-- [ ] `GET /api/auth/me` com Bearer token retorna dados do usuário sem senha
-- [ ] `POST /api/auth/refresh` gera novo par de tokens
-- [ ] `POST /api/auth/logout` remove refreshToken do banco
-- [ ] EmailService não quebra a aplicação se o servidor de email não estiver configurado
-- [ ] `npm run build` sem erros
+- [x] `POST /api/auth/register` cria usuário e retorna 201
+- [x] Senha está sendo hashada com bcrypt (verificar no MongoDB Compass)
+- [x] `POST /api/auth/login` retorna accessToken + refreshToken
+- [x] RefreshToken está salvo como HASH no banco (não texto puro)
+- [x] `GET /api/auth/me` com Bearer token retorna dados do usuário sem senha
+- [x] `POST /api/auth/refresh` gera novo par de tokens
+- [x] `POST /api/auth/logout` remove refreshToken do banco
+- [x] EmailService não quebra a aplicação se o servidor de email não estiver configurado
+- [x] `npm run build` sem erros
 
 ---
 
