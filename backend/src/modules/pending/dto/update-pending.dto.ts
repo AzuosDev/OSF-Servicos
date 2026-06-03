@@ -1,8 +1,10 @@
 import { IsOptional, IsString, IsNumber, Min, MaxLength, IsDateString, IsBoolean } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
+import sanitizeHtml from 'sanitize-html';
 
 export class UpdatePendingDto {
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))
   @IsString()
   @MaxLength(200)
   title?: string;
@@ -22,6 +24,7 @@ export class UpdatePendingDto {
   paid?: boolean;
 
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))
   @IsString()
   @MaxLength(500)
   description?: string;

@@ -1,4 +1,6 @@
 import { Body, Controller, Get, Post, Query, UseGuards, Req, HttpCode } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -8,10 +10,13 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UsersService } from '../users/users.service';
 
+@ApiTags('Auth')
+@ApiBearerAuth()
 @Controller('api/auth')
 export class AuthController {
   constructor(private authService: AuthService, private usersService: UsersService) {}
 
+  @Throttle(5, 60)
   @Post('register')
   @HttpCode(201)
   async register(@Body() dto: RegisterDto) {
@@ -24,6 +29,7 @@ export class AuthController {
     return this.authService.verifyEmail(token);
   }
 
+  @Throttle(5, 60)
   @UseGuards(LocalAuthGuard)
   @Post('login')
   async login(@Req() req: any) {
@@ -44,6 +50,7 @@ export class AuthController {
     return { ok: true };
   }
 
+  @Throttle(5, 60)
   @Post('forgot-password')
   async forgot(@Body() body: { email: string }) {
     await this.authService.forgotPassword(body.email);

@@ -1,5 +1,6 @@
 import { IsEnum, IsOptional, IsString, IsNumber, Min, MaxLength, ValidateIf, IsDateString } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
+import sanitizeHtml from 'sanitize-html';
 import { TransactionType } from '../schemas/transaction.schema';
 
 export class UpdateTransactionDto {
@@ -19,6 +20,7 @@ export class UpdateTransactionDto {
   categoryId?: string;
 
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))
   @IsString()
   @MaxLength(500)
   description?: string;
