@@ -218,10 +218,10 @@ Todos os schemas devem usar SchemaFactory.createForFeature() do Mongoose com Nes
 ```
 
 ### ✅ Checklist Etapa 2 — Backend
-- [ ] Todos os 6 schemas criados sem erros TypeScript
-- [ ] Indexes definidos nos schemas de Transaction, Category e PendingAccount
-- [ ] Array de categorias padrão criado em `default-categories.ts`
-- [ ] `npm run build` compila sem erros
+- [x] Todos os 6 schemas criados sem erros TypeScript
+- [x] Indexes definidos nos schemas de Transaction, Category e PendingAccount
+- [x] Array de categorias padrão criado em `default-categories.ts`
+- [x] `npm run build` compila sem erros
 
 ---
 
