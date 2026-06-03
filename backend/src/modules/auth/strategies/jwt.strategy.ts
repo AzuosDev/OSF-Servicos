@@ -2,12 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { UsersService } from '../../users/users.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private usersService: UsersService) {
-    const secret = process.env.JWT_SECRET || 'dev';
-    console.log('JwtStrategy secret:', secret ? '[redacted]' : '[none]');
+  constructor(private usersService: UsersService, configService: ConfigService) {
+    const secret = configService.get<string>('JWT_SECRET') || 'dev';
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: secret,
@@ -15,9 +15,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    console.log('JwtStrategy validate payload:', payload);
-    const user = await this.usersService.findById(payload.sub);
-    console.log('JwtStrategy user found:', user?._id?.toString());
-    return user;
+    return this.usersService.findById(payload.sub);
   }
 }

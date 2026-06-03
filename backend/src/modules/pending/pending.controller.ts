@@ -1,10 +1,13 @@
 import { Body, Controller, Delete, Get, Param, Patch, Query, UseGuards, Post } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { PendingService } from './pending.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CreatePendingDto } from './dto/create-pending.dto';
 import { UpdatePendingDto } from './dto/update-pending.dto';
 
+@ApiTags('Pending')
+@ApiBearerAuth()
 @Controller('api/pending')
 export class PendingController {
   constructor(private pendingService: PendingService) {}

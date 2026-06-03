@@ -1,8 +1,10 @@
 import { IsNotEmpty, IsString, IsNumber, Min, MaxLength, IsDateString, IsOptional } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
+import sanitizeHtml from 'sanitize-html';
 
 export class CreatePendingDto {
   @IsNotEmpty()
+  @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))
   @IsString()
   @MaxLength(200)
   title!: string;
@@ -16,6 +18,7 @@ export class CreatePendingDto {
   dueDate!: string;
 
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))
   @IsString()
   @MaxLength(500)
   description?: string;
