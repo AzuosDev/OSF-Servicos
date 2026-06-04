@@ -121,15 +121,45 @@ export class DashboardService {
       percentComplete: goal.targetValue > 0 ? Math.round((goal.currentValue / goal.targetValue) * 100) : 0,
     }));
 
+    const recentTransactions = await this.transactionModel
+      .aggregate([
+        { $match: { userId: userObjectId, date: { $gte: startDate, $lte: endDate } } },
+        { $sort: { date: -1 } },
+        { $limit: 5 },
+        {
+          $lookup: {
+            from: 'categories',
+            localField: 'categoryId',
+            foreignField: '_id',
+            as: 'category',
+          },
+        },
+        { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            id: '$_id',
+            type: 1,
+            value: 1,
+            date: 1,
+            description: 1,
+            categoryName: '$category.name',
+            categoryColor: '$category.color',
+          },
+        },
+      ])
+      .exec();
+
     return {
       month,
       year,
       totalIncome,
+      totalExpense: totalExpenses,
       totalExpenses,
       balance,
       savingsRate,
       expensesByCategory,
       monthlyEvolution,
+      recentTransactions,
       pendingAccounts: {
         items: pendingAccounts,
         totalPending,
