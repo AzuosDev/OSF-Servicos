@@ -6,8 +6,10 @@ import { Loader2, TrendingDown, TrendingUp } from "lucide-react";
 import { z } from "zod";
 
 import { api } from "../../lib/api";
+import { getApiErrorMessages, setFieldErrorsFromApi } from "../../lib/errors";
 import { buildTransactionPayload, dateInputValue } from "../../lib/finance";
 import type { Transaction } from "../../types/finance";
+import type { Transaction as ApiTransaction } from "../../types/api";
 import {
   AmountField,
   CategoryField,
@@ -65,7 +67,7 @@ export function EditTransactionModal({
         return;
       }
 
-      await api.patch(
+      await api.patch<ApiTransaction>(
         `/api/transactions/${transaction.id}`,
         buildTransactionPayload({ ...values, type: transaction.type }),
       );
@@ -74,9 +76,12 @@ export function EditTransactionModal({
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
         queryClient.invalidateQueries({ queryKey: ["transactions"] }),
-        queryClient.invalidateQueries({ queryKey: ["expenses"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] }),
       ]);
       onClose();
+    },
+    onError: (error) => {
+      setFieldErrorsFromApi(error, form.setError, ["amount", "categoryId", "date", "description"]);
     },
   });
 
@@ -119,9 +124,11 @@ export function EditTransactionModal({
         />
 
         {mutation.isError && (
-          <p className="rounded-xl bg-accent-red/10 p-3 text-sm text-accent-red">
-            Não foi possível atualizar a transação.
-          </p>
+          <div className="rounded-xl bg-accent-red/10 p-3 text-sm text-accent-red">
+            {getApiErrorMessages(mutation.error, "Nao foi possivel atualizar a transacao.").map((message) => (
+              <p key={message}>{message}</p>
+            ))}
+          </div>
         )}
 
         <button

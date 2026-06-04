@@ -6,6 +6,7 @@ import { Loader2, TrendingDown } from "lucide-react";
 import { z } from "zod";
 
 import { api } from "../../lib/api";
+import { getApiErrorMessages, setFieldErrorsFromApi } from "../../lib/errors";
 import { buildTransactionPayload } from "../../lib/finance";
 import {
   AmountField,
@@ -15,6 +16,7 @@ import {
   useCategories,
 } from "./TransactionFormFields";
 import { ModalShell } from "./ModalShell";
+import type { Transaction as ApiTransaction } from "../../types/api";
 
 const schema = z.object({
   amount: z.number().positive("Informe um valor maior que zero."),
@@ -60,7 +62,7 @@ export function AddExpenseModal({
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
-      await api.post(
+      await api.post<ApiTransaction>(
         "/api/transactions",
         buildTransactionPayload({ ...values, type: "EXPENSE" }),
       );
@@ -69,9 +71,12 @@ export function AddExpenseModal({
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
         queryClient.invalidateQueries({ queryKey: ["transactions"] }),
-        queryClient.invalidateQueries({ queryKey: ["expenses"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] }),
       ]);
       onClose();
+    },
+    onError: (error) => {
+      setFieldErrorsFromApi(error, form.setError, ["amount", "categoryId", "date", "description"]);
     },
   });
 
@@ -109,9 +114,11 @@ export function AddExpenseModal({
         />
 
         {mutation.isError && (
-          <p className="rounded-xl bg-accent-red/10 p-3 text-sm text-accent-red">
-            Não foi possível salvar o gasto.
-          </p>
+          <div className="rounded-xl bg-accent-red/10 p-3 text-sm text-accent-red">
+            {getApiErrorMessages(mutation.error, "Nao foi possivel salvar o gasto.").map((message) => (
+              <p key={message}>{message}</p>
+            ))}
+          </div>
         )}
 
         <button

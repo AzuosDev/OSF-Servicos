@@ -50,7 +50,7 @@ export function normalizeCategory(value: unknown, fallbackIndex = 0): Category {
   const item = asRecord(value);
 
   return {
-    id: readString(item.id, item.categoryId) || `category-${fallbackIndex}`,
+    id: readString(item.id, item._id, item.categoryId) || `category-${fallbackIndex}`,
     name: readString(item.name, item.categoryName, item.label) || "Categoria",
     color: readString(item.color, item.categoryColor) || "#6B7280",
     icon: readString(item.icon, item.iconName, item.categoryIcon) || "Receipt",
@@ -67,12 +67,12 @@ export function normalizeTransaction(value: unknown, fallbackIndex = 0): Transac
       : undefined;
 
   return {
-    id: readString(item.id) || `transaction-${fallbackIndex}`,
+    id: readString(item.id, item._id) || `transaction-${fallbackIndex}`,
     type: type === "INCOME" ? "INCOME" : "EXPENSE",
     amount: readNumber(item.amount, item.value, item.total),
     date: readString(item.date, item.createdAt, item.paidAt, item.dueDate) || new Date().toISOString(),
     description: readString(item.description, item.notes),
-    categoryId: readString(item.categoryId, nestedCategory.id),
+    categoryId: readString(item.categoryId, nestedCategory.id, nestedCategory._id),
     category:
       category ??
       (type === "INCOME"
@@ -95,9 +95,14 @@ export function normalizeTransactionsResponse(data: unknown) {
     record.results ??
     data;
 
+  const total = readNumber(record.total);
+  const page = readNumber(record.page);
+  const limit = readNumber(record.limit);
+
   return {
     transactions: asArray(source).map(normalizeTransaction),
-    hasMore: Boolean(record.hasMore ?? record.nextPage ?? record.nextCursor),
+    hasMore: Boolean(record.hasMore ?? record.nextPage ?? record.nextCursor) ||
+      (total > 0 && page > 0 && limit > 0 && page * limit < total),
   };
 }
 
@@ -141,7 +146,7 @@ export function buildTransactionPayload(values: {
 }) {
   return {
     type: values.type,
-    amount: values.amount,
+    value: values.amount,
     date: values.date,
     description: values.description?.trim() || undefined,
     categoryId: values.categoryId || undefined,

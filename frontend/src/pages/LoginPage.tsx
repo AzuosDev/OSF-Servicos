@@ -1,5 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { isAxiosError } from "axios";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -11,6 +10,8 @@ import { Field } from "../components/Field";
 import { SubmitButton } from "../components/SubmitButton";
 import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
+import { getApiErrorMessages } from "../lib/errors";
+import type { AuthTokens } from "../types/api";
 
 const loginSchema = z.object({
   email: z.string().trim().email("Informe um email válido"),
@@ -19,20 +20,9 @@ const loginSchema = z.object({
 
 type LoginForm = z.infer<typeof loginSchema>;
 
-function getApiError(error: unknown, fallback: string) {
-  if (isAxiosError(error)) {
-    const message = error.response?.data?.message;
-    if (typeof message === "string") {
-      return message;
-    }
-  }
-
-  return fallback;
-}
-
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [apiError, setApiError] = useState("");
+  const [apiErrors, setApiErrors] = useState<string[]>([]);
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTo = (location.state as { from?: string } | null)?.from ?? "/dashboard";
@@ -47,10 +37,10 @@ export function LoginPage() {
   });
 
   async function onSubmit(values: LoginForm) {
-    setApiError("");
+    setApiErrors([]);
 
     try {
-      const { data } = await api.post("/api/auth/login", values);
+      const { data } = await api.post<AuthTokens>("/api/auth/login", values);
 
       if (!data?.accessToken || !data?.refreshToken) {
         throw new Error("Resposta inválida do servidor");
@@ -59,9 +49,7 @@ export function LoginPage() {
       setTokens(data.accessToken, data.refreshToken);
       navigate(redirectTo, { replace: true });
     } catch (error) {
-      setApiError(
-        getApiError(error, "Não foi possível entrar. Verifique suas credenciais."),
-      );
+      setApiErrors(getApiErrorMessages(error, "Nao foi possivel entrar. Verifique suas credenciais."));
     }
   }
 
@@ -113,9 +101,11 @@ export function LoginPage() {
           </Link>
         </div>
 
-        {apiError && (
+        {apiErrors.length > 0 && (
           <div className="rounded-icon border border-accent-red/40 bg-accent-red/10 px-3 py-2 text-sm text-accent-red">
-            {apiError}
+            {apiErrors.map((message) => (
+              <p key={message}>{message}</p>
+            ))}
           </div>
         )}
 
