@@ -10,8 +10,13 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
 
   app.use(helmet());
+
+  const frontendUrl = configService.get<string>('FRONTEND_URL');
   app.enableCors({
-    origin: configService.get<string>('FRONTEND_URL') ?? true,
+    origin: process.env.NODE_ENV === 'production' ? frontendUrl : true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
   });
 
   app.useGlobalPipes(
