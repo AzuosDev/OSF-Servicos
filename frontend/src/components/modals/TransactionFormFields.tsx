@@ -6,6 +6,7 @@ import { DynamicIcon } from "../DynamicIcon";
 import { api } from "../../lib/api";
 import { asArray, normalizeCategory } from "../../lib/finance";
 import { cn } from "../../lib/utils";
+import type { Category as ApiCategory } from "../../types/api";
 import type { Category } from "../../types/finance";
 
 export type TransactionFormValues = {
@@ -16,10 +17,10 @@ export type TransactionFormValues = {
 };
 
 export function useCategories() {
-  return useQuery({
+  return useQuery<Category[]>({
     queryKey: ["categories"],
     queryFn: async () => {
-      const { data } = await api.get("/api/categories");
+      const { data } = await api.get<ApiCategory[]>("/api/categories");
       const source =
         typeof data === "object" && data !== null && "categories" in data
           ? (data as { categories?: unknown }).categories

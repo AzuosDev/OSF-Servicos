@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { clearTokens, getAccessToken } from "../../lib/auth";
+import { clearTokens, getAccessToken, getRefreshToken } from "../../lib/auth";
 import { api } from "../../lib/api";
 import { cn } from "../../lib/utils";
 import { useToast } from "../ui/Toast";
@@ -91,7 +91,8 @@ export function AppLayout() {
 
   const handleLogout = async () => {
     try {
-      await api.post("/api/auth/logout");
+      const refreshToken = getRefreshToken();
+      await api.post("/api/auth/logout", { refreshToken });
     } catch {
       // Ignora falha de logout do servidor e segue com o fluxo local.
     } finally {

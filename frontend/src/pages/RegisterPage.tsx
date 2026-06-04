@@ -1,5 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { isAxiosError } from "axios";
 import { CheckCircle2, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -10,6 +9,8 @@ import { AuthCard } from "../components/AuthCard";
 import { Field } from "../components/Field";
 import { SubmitButton } from "../components/SubmitButton";
 import { api } from "../lib/api";
+import { getApiErrorMessages, setFieldErrorsFromApi } from "../lib/errors";
+import type { User } from "../types/api";
 
 const registerSchema = z
   .object({
@@ -28,25 +29,15 @@ const registerSchema = z
 
 type RegisterForm = z.infer<typeof registerSchema>;
 
-function getApiError(error: unknown, fallback: string) {
-  if (isAxiosError(error)) {
-    const message = error.response?.data?.message;
-    if (typeof message === "string") {
-      return message;
-    }
-  }
-
-  return fallback;
-}
-
 export function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [apiError, setApiError] = useState("");
+  const [apiErrors, setApiErrors] = useState<string[]>([]);
   const [success, setSuccess] = useState(false);
 
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
@@ -54,16 +45,17 @@ export function RegisterPage() {
   });
 
   async function onSubmit(values: RegisterForm) {
-    setApiError("");
+    setApiErrors([]);
 
     try {
-      await api.post("/api/auth/register", {
+      await api.post<User>("/api/auth/register", {
         email: values.email,
         password: values.password,
       });
       setSuccess(true);
     } catch (error) {
-      setApiError(getApiError(error, "Não foi possível criar sua conta."));
+      const messages = setFieldErrorsFromApi(error, setError, ["email", "password"]);
+      setApiErrors(messages.length ? messages : getApiErrorMessages(error, "Nao foi possivel criar sua conta."));
     }
   }
 
@@ -138,9 +130,11 @@ export function RegisterPage() {
           error={errors.confirmPassword?.message}
         />
 
-        {apiError && (
+        {apiErrors.length > 0 && (
           <div className="rounded-icon border border-accent-red/40 bg-accent-red/10 px-3 py-2 text-sm text-accent-red">
-            {apiError}
+            {apiErrors.map((message) => (
+              <p key={message}>{message}</p>
+            ))}
           </div>
         )}
 

@@ -24,7 +24,19 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-let refreshPromise: Promise<string | null> | null = null;
+let isRefreshing = false;
+let refreshQueue: Array<(token: string | null) => void> = [];
+
+function resolveRefreshQueue(token: string | null) {
+  refreshQueue.forEach((resolve) => resolve(token));
+  refreshQueue = [];
+}
+
+function redirectToLogin() {
+  if (window.location.pathname !== "/login") {
+    window.location.assign("/login");
+  }
+}
 
 api.interceptors.response.use(
   (response) => response,
@@ -39,9 +51,26 @@ api.interceptors.response.use(
       !isRefreshRequest
     ) {
       originalRequest._retry = true;
-      refreshPromise = refreshPromise ?? refreshAccessToken();
-      const newAccessToken = await refreshPromise;
-      refreshPromise = null;
+
+      if (isRefreshing) {
+        const queuedToken = await new Promise<string | null>((resolve) => {
+          refreshQueue.push(resolve);
+        });
+
+        if (queuedToken) {
+          originalRequest.headers.Authorization = `Bearer ${queuedToken}`;
+          return api(originalRequest);
+        }
+
+        clearTokens();
+        redirectToLogin();
+        return Promise.reject(error);
+      }
+
+      isRefreshing = true;
+      const newAccessToken = await refreshAccessToken();
+      isRefreshing = false;
+      resolveRefreshQueue(newAccessToken);
 
       if (newAccessToken) {
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
@@ -49,7 +78,7 @@ api.interceptors.response.use(
       }
 
       clearTokens();
-      window.location.assign("/login");
+      redirectToLogin();
     }
 
     return Promise.reject(error);
