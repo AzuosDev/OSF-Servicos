@@ -281,6 +281,7 @@ export function TransactionsPage() {
                     transaction={transaction}
                     onEdit={setEditing}
                     onDelete={setDeleting}
+                    categories={categoriesQuery.data ?? []}
                   />
                 ))}
               </div>
