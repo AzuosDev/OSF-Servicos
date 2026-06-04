@@ -25,4 +25,5 @@ export class Category {
 }
 
 export const CategorySchema = SchemaFactory.createForClass(Category);
+CategorySchema.index({ slug: 1, isDefault: 1 }, { unique: true, sparse: true });
 CategorySchema.index({ userId: 1 });

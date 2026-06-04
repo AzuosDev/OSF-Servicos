@@ -10,9 +10,14 @@ export class CategoriesService implements OnModuleInit {
   constructor(@InjectModel(Category.name) private categoryModel: Model<CategoryDocument>) {}
 
   async onModuleInit() {
-    const count = await this.categoryModel.countDocuments({ isDefault: true }).exec();
-    if (count === 0) {
-      await this.categoryModel.insertMany(DEFAULT_CATEGORIES);
+    for (const cat of DEFAULT_CATEGORIES) {
+      await this.categoryModel
+        .updateOne(
+          { slug: cat.slug, isDefault: true },
+          { $setOnInsert: cat },
+          { upsert: true },
+        )
+        .exec();
     }
   }
 

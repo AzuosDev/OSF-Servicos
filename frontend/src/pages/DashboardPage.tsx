@@ -180,7 +180,7 @@ function normalizeDashboard(data: DashboardApiResponse): DashboardData {
       .map((item, index) => {
         const category = asRecord(item.category);
         return {
-          id: readString(item.id, category.id) || `category-${index}`,
+          id: readString(item.id, item._id, category.id, category._id) || `category-${index}`,
           name:
             readString(item.name, item.categoryName, category.name, item.label) ||
             "Categoria",
