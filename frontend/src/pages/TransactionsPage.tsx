@@ -93,6 +93,9 @@ export function TransactionsPage() {
           page: pageParam,
           limit: 20,
           type: selectedType === "ALL" ? undefined : selectedType,
+          categoryId: categoryId || undefined,
+          month,
+          year,
         },
       });
 
