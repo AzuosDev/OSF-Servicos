@@ -22,15 +22,7 @@ export class TransactionsController {
   @UseGuards(JwtAuthGuard)
   @Get()
   async findAll(@CurrentUser() user: any, @Query() query: GetTransactionsDto) {
-    return this.transactionsService.findAll(
-      user._id.toString(),
-      query.type,
-      query.page,
-      query.limit,
-      query.categoryId,
-      query.month,
-      query.year,
-    );
+    return this.transactionsService.findAll(user._id.toString(), query.type, query.page, query.limit);
   }
 
   @UseGuards(JwtAuthGuard)
