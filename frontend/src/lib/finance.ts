@@ -146,7 +146,7 @@ export function buildTransactionPayload(values: {
 }) {
   return {
     type: values.type,
-    value: values.amount,
+    amount: values.amount,
     date: values.date,
     description: values.description?.trim() || undefined,
     categoryId: values.categoryId || undefined,
