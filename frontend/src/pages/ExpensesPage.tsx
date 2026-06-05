@@ -8,6 +8,7 @@ import { DynamicIcon } from "../components/DynamicIcon";
 import { api } from "../lib/api";
 import { formatCurrency, normalizeExpenseCategory } from "../lib/finance";
 import { cn } from "../lib/utils";
+import type { DashboardResponse } from "../types/api";
 import type { CategoryExpense } from "../types/finance";
 
 const periodTabs = [
@@ -58,17 +59,17 @@ function CategoryRow({ category, onClick }: { category: CategoryExpense; onClick
 export function ExpensesPage() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<ExpensePeriod>("monthly");
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
 
   const expensesQuery = useQuery({
-    queryKey: ["expenses", period],
+    queryKey: ["dashboard-expenses", period, month, year],
     queryFn: async () => {
-      const { data } = await api.get("/api/expenses", { params: { period } });
-      const source =
-        (data && typeof data === "object" && "categories" in data
-          ? (data as { categories?: unknown }).categories
-          : Array.isArray(data)
-            ? data
-            : (data as { data?: unknown })?.data) ?? [];
+      const { data } = await api.get<DashboardResponse>("/api/dashboard", {
+        params: { month, year },
+      });
+      const source = data.expensesByCategory ?? [];
 
       return (Array.isArray(source) ? source : []).map((item, index) =>
         normalizeExpenseCategory(item, index),

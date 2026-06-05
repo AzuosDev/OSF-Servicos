@@ -11,6 +11,7 @@ import { useCategories } from "../components/modals/TransactionFormFields";
 import { api } from "../lib/api";
 import { normalizeTransactionsResponse, readString } from "../lib/finance";
 import { cn } from "../lib/utils";
+import type { TransactionsResponse } from "../types/api";
 import type { Transaction, TransactionType } from "../types/finance";
 
 const tabs: Array<{ label: string; value: "ALL" | TransactionType }> = [
@@ -87,14 +88,11 @@ export function TransactionsPage() {
     queryKey: ["transactions", selectedType, categoryId, month, year],
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
-      const { data } = await api.get("/api/transactions", {
+      const { data } = await api.get<TransactionsResponse>("/api/transactions", {
         params: {
           page: pageParam,
           limit: 20,
           type: selectedType === "ALL" ? undefined : selectedType,
-          categoryId: categoryId || undefined,
-          month,
-          year,
         },
       });
 
@@ -105,7 +103,18 @@ export function TransactionsPage() {
   });
 
   const transactions =
-    transactionsQuery.data?.pages.flatMap((page) => page.transactions) ?? [];
+    transactionsQuery.data?.pages
+      .flatMap((page) => page.transactions)
+      .filter((transaction) => {
+        const date = new Date(transaction.date);
+        const matchesCategory = !categoryId || transaction.categoryId === categoryId;
+        const matchesPeriod =
+          !Number.isNaN(date.getTime()) &&
+          date.getMonth() + 1 === month &&
+          date.getFullYear() === year;
+
+        return matchesCategory && matchesPeriod;
+      }) ?? [];
 
   const groupedTransactions = useMemo(() => {
     const groups = new Map<string, Transaction[]>();
@@ -130,7 +139,7 @@ export function TransactionsPage() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
         queryClient.invalidateQueries({ queryKey: ["transactions"] }),
-        queryClient.invalidateQueries({ queryKey: ["expenses"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] }),
       ]);
       setDeleting(null);
     },

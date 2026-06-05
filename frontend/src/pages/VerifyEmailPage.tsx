@@ -1,10 +1,11 @@
-import { isAxiosError } from "axios";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { AuthCard } from "../components/AuthCard";
 import { api } from "../lib/api";
+import { getApiErrorText } from "../lib/errors";
+import type { User } from "../types/api";
 
 type VerifyState =
   | { status: "loading"; message: string }
@@ -26,16 +27,15 @@ export function VerifyEmailPage() {
     }
 
     api
-      .get("/api/auth/verify-email", { params: { token } })
+      .get<User>("/api/auth/verify-email", { params: { token } })
       .then(() => {
         setState({ status: "success", message: "Seu email foi verificado com sucesso." });
       })
       .catch((error) => {
-        const message =
-          isAxiosError(error) && typeof error.response?.data?.message === "string"
-            ? error.response.data.message
-            : "Não foi possível verificar este email. O token pode ter expirado.";
-        setState({ status: "error", message });
+        setState({
+          status: "error",
+          message: getApiErrorText(error, "Nao foi possivel verificar este email. O token pode ter expirado."),
+        });
       });
   }, [token]);
 

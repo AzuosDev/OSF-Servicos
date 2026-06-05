@@ -95,9 +95,14 @@ export function normalizeTransactionsResponse(data: unknown) {
     record.results ??
     data;
 
+  const total = readNumber(record.total);
+  const page = readNumber(record.page);
+  const limit = readNumber(record.limit);
+
   return {
     transactions: asArray(source).map(normalizeTransaction),
-    hasMore: Boolean(record.hasMore ?? record.nextPage ?? record.nextCursor),
+    hasMore: Boolean(record.hasMore ?? record.nextPage ?? record.nextCursor) ||
+      (total > 0 && page > 0 && limit > 0 && page * limit < total),
   };
 }
 
@@ -141,7 +146,7 @@ export function buildTransactionPayload(values: {
 }) {
   return {
     type: values.type,
-    value: values.amount,
+    amount: values.amount,
     date: values.date,
     description: values.description?.trim() || undefined,
     categoryId: values.categoryId || undefined,

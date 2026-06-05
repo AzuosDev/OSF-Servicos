@@ -5,6 +5,7 @@ import { Loader2, Trophy } from "lucide-react";
 import { useToast } from "../components/ui/Toast";
 import { api } from "../lib/api";
 import { formatCurrency } from "../lib/finance";
+import type { Goal as ApiGoal } from "../types/api";
 
 type Goal = {
   id: string;
@@ -14,17 +15,22 @@ type Goal = {
   deadline: string;
 };
 
-const mockGoals: Goal[] = [
-  { id: "goal-1", name: "Reserva de emergência", target: 12000, current: 7200, deadline: "2026-12-31" },
-  { id: "goal-2", name: "Viagem", target: 5000, current: 3400, deadline: "2026-10-15" },
-];
-
 function normalizeGoals(data: unknown): Goal[] {
-  if (Array.isArray(data)) return data as Goal[];
-  if (data && typeof data === "object" && "items" in data && Array.isArray((data as { items?: unknown }).items)) {
-    return (data as { items: Goal[] }).items;
+  if (Array.isArray(data)) {
+    return data.map((item) => ({
+      id: item._id ?? item.id,
+      name: item.name,
+      target: item.targetValue ?? item.target ?? 0,
+      current: item.currentValue ?? item.current ?? 0,
+      deadline: item.deadline ?? "",
+    }));
   }
-  return mockGoals;
+
+  if (data && typeof data === "object" && "items" in data && Array.isArray((data as { items?: unknown }).items)) {
+    return normalizeGoals((data as { items: unknown[] }).items);
+  }
+
+  return [];
 }
 
 export function GoalsPage() {
@@ -33,15 +39,11 @@ export function GoalsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [amount, setAmount] = useState(0);
 
-  const goalsQuery = useQuery({
+  const goalsQuery = useQuery<Goal[]>({
     queryKey: ["goals"],
     queryFn: async () => {
-      try {
-        const { data } = await api.get("/api/goals");
-        return normalizeGoals(data);
-      } catch {
-        return mockGoals;
-      }
+      const { data } = await api.get<ApiGoal[]>("/api/goals");
+      return normalizeGoals(data);
     },
   });
 
@@ -54,9 +56,12 @@ export function GoalsPage() {
   }, [goals]);
 
   const updateGoal = useMutation({
-    mutationFn: async ({ id, value }: { id: string; value: number }) => api.patch(`/api/goals/${id}`, { current: value }),
+    mutationFn: async ({ id, value }: { id: string; value: number }) => api.patch<ApiGoal>(`/api/goals/${id}`, { currentValue: value }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["goals"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["goals"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
       addToast("Meta atualizada com sucesso.", "success");
       setSelectedId(null);
     },

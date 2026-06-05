@@ -48,22 +48,14 @@ export class TransactionsService {
     });
   }
 
-  async findAll(
-    userId: string,
-    type?: TransactionType,
-    page = 1,
-    limit = 10,
-    categoryId?: string,
-    month?: number,
-    year?: number,
-  ) {
-    const filter: any = { userId: this.toObjectId(userId, 'userId') };
+  async findAll(userId: string, type?: TransactionType, page = 1, limit = 10) {
+    const filter: any = { userId: new Types.ObjectId(userId) };
     if (type) {
       filter.type = type;
     }
 
     if (categoryId) {
-      filter.categoryId = this.toObjectId(categoryId, 'categoryId');
+      filter.categoryId = new Types.ObjectId(categoryId);
     }
 
     if (month && year) {

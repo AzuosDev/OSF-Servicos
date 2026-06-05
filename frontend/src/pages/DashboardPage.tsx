@@ -20,8 +20,9 @@ import {
 
 import { api } from "../lib/api";
 import { cn } from "../lib/utils";
+import type { DashboardResponse } from "../types/api";
 
-type DashboardApiResponse = Record<string, unknown>;
+type DashboardApiResponse = DashboardResponse;
 
 type MonthlyPoint = {
   month: string;
@@ -115,9 +116,10 @@ function readString(...values: unknown[]) {
 }
 
 function getDashboardValue(data: DashboardApiResponse, keys: string[]) {
+  const record = data as unknown as Record<string, unknown>;
   for (const key of keys) {
-    if (key in data) {
-      return data[key];
+    if (key in record) {
+      return record[key];
     }
   }
 
@@ -125,8 +127,10 @@ function getDashboardValue(data: DashboardApiResponse, keys: string[]) {
 }
 
 function normalizeDashboard(data: DashboardApiResponse): DashboardData {
-  const summary = asRecord(data.summary);
-  const pending = asRecord(data.pending);
+  const record = data as unknown as Record<string, unknown>;
+  const summary = asRecord(record.summary);
+  const pending = asRecord(record.pending);
+  const pendingAccounts = asRecord(record.pendingAccounts);
   const categorySource =
     getDashboardValue(data, ["categories", "expensesByCategory", "categoryExpenses"]) ??
     [];
@@ -138,41 +142,43 @@ function normalizeDashboard(data: DashboardApiResponse): DashboardData {
     [];
 
   const totalIncome = readNumber(
-    data.totalIncome,
-    data.income,
-    data.entries,
+    record.totalIncome,
+    record.income,
+    record.entries,
     summary.totalIncome,
     summary.income,
   );
   const totalExpense = readNumber(
-    data.totalExpense,
-    data.expense,
-    data.expenses,
-    data.outputs,
+    record.totalExpenses,
+    record.totalExpense,
+    record.expense,
+    record.expenses,
+    record.outputs,
     summary.totalExpense,
     summary.expense,
   );
-  const balance = readNumber(data.balance, data.saldo, summary.balance, totalIncome - totalExpense);
+  const balance = readNumber(record.balance, record.saldo, summary.balance, totalIncome - totalExpense);
 
   return {
     balance,
     totalIncome,
     totalExpense,
     pendingTotal: readNumber(
-      data.pendingTotal,
-      data.totalPending,
-      data.pendingAmount,
+      record.pendingTotal,
+      record.totalPending,
+      record.pendingAmount,
+      pendingAccounts.totalPending,
       pending.total,
       summary.pendingTotal,
     ),
     savingsRate: readNumber(
-      data.savingsRate,
-      data.savingRate,
-      data.poupancaRate,
+      record.savingsRate,
+      record.savingRate,
+      record.poupancaRate,
       summary.savingsRate,
     ),
     monthlyEvolution: asArray(monthlySource).map((item, index) => ({
-      month: readString(item.month, item.label, item.name) || monthOptions[index % 12],
+      month: readString(item.label, item.name) || monthOptions[(readNumber(item.month) || index + 1) - 1] || monthOptions[index % 12],
       income: readNumber(item.income, item.totalIncome, item.entries),
       expense: readNumber(item.expense, item.totalExpense, item.expenses, item.outputs),
     })),
@@ -180,7 +186,7 @@ function normalizeDashboard(data: DashboardApiResponse): DashboardData {
       .map((item, index) => {
         const category = asRecord(item.category);
         return {
-          id: readString(item.id, item._id, category.id, category._id) || `category-${index}`,
+          id: readString(item.id, item._id, item.categoryId, category.id, category._id) || `category-${index}`,
           name:
             readString(item.name, item.categoryName, category.name, item.label) ||
             "Categoria",
@@ -196,7 +202,7 @@ function normalizeDashboard(data: DashboardApiResponse): DashboardData {
       const type = readString(item.type, item.transactionType).toUpperCase();
 
       return {
-        id: readString(item.id) || `transaction-${index}`,
+        id: readString(item.id, item._id) || `transaction-${index}`,
         categoryName:
           readString(item.categoryName, category.name, item.category) ||
           "Movimentação",
@@ -326,7 +332,7 @@ export function DashboardPage() {
     return <DashboardSkeleton />;
   }
 
-  const dashboard = dashboardQuery.data ?? normalizeDashboard({});
+  const dashboard = dashboardQuery.data ?? normalizeDashboard({} as DashboardResponse);
   const hasTransactions = dashboard.recentTransactions.length > 0;
   const maxCategoryAmount = Math.max(...dashboard.categories.map((item) => item.amount), 0);
 

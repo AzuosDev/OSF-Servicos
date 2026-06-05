@@ -6,6 +6,7 @@ import { api } from "../lib/api";
 import { formatCurrency } from "../lib/finance";
 import { cn } from "../lib/utils";
 import { useToast } from "../components/ui/Toast";
+import type { PendingAccount } from "../types/api";
 
 type PendingItem = {
   id: string;
@@ -16,35 +17,23 @@ type PendingItem = {
   description?: string;
 };
 
-const mockPending: PendingItem[] = [
-  {
-    id: "pending-1",
-    title: "Internet",
-    value: 129.9,
-    dueDate: new Date().toISOString(),
-    paid: false,
-    description: "Plano mensal",
-  },
-  {
-    id: "pending-2",
-    title: "Assinatura de streaming",
-    value: 39.9,
-    dueDate: new Date(Date.now() + 86400000).toISOString(),
-    paid: false,
-    description: "Entretenimento",
-  },
-];
-
 function normalizePending(data: unknown): PendingItem[] {
   if (Array.isArray(data)) {
-    return data as PendingItem[];
+    return data.map((item) => ({
+      id: item._id ?? item.id,
+      title: item.title,
+      value: item.value,
+      dueDate: item.dueDate,
+      paid: item.paid,
+      description: item.description,
+    }));
   }
 
   if (data && typeof data === "object" && "items" in data && Array.isArray((data as { items?: unknown }).items)) {
-    return (data as { items: PendingItem[] }).items;
+    return normalizePending((data as { items: unknown[] }).items);
   }
 
-  return mockPending;
+  return [];
 }
 
 function statusLabel(item: PendingItem) {
@@ -64,15 +53,11 @@ export function PendingPage() {
   const { addToast } = useToast();
   const [creating, setCreating] = useState(false);
 
-  const pendingQuery = useQuery({
+  const pendingQuery = useQuery<PendingItem[]>({
     queryKey: ["pending"],
     queryFn: async () => {
-      try {
-        const { data } = await api.get("/api/pending");
-        return normalizePending(data);
-      } catch {
-        return mockPending;
-      }
+      const { data } = await api.get<PendingAccount[]>("/api/pending");
+      return normalizePending(data);
     },
   });
 
@@ -85,9 +70,12 @@ export function PendingPage() {
   }, [items]);
 
   const markPaid = useMutation({
-    mutationFn: async (id: string) => api.patch(`/api/pending/${id}`, { paid: true }),
+    mutationFn: async (id: string) => api.patch<PendingAccount>(`/api/pending/${id}`, { paid: true }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["pending"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["pending"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
       addToast("Conta marcada como paga com sucesso.", "success");
     },
     onError: () => addToast("Não foi possível atualizar a conta.", "error"),
