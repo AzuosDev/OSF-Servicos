@@ -44,9 +44,10 @@ export class AuthService {
       const ok = await bcrypt.compare(rawRefreshToken, t.token);
       if (ok) {
         const userId = t.userId.toString();
+        const user = await this.usersService.findById(userId);
         // rotate
         await this.refreshModel.findByIdAndDelete(t._id).exec();
-        const payload = { sub: userId };
+        const payload = { sub: userId, email: user.email };
         const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
         const newRaw = crypto.randomBytes(64).toString('hex');
         const hashed = await bcrypt.hash(newRaw, 10);

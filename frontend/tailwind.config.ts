@@ -6,10 +6,10 @@ export default {
     extend: {
       colors: {
         bg: {
-          base: "#0A0A0A",
-          card: "#141414",
-          muted: "#1C1C1C",
-          overlay: "#232323",
+          base: "var(--color-bg-base)",
+          card: "var(--color-bg-card)",
+          muted: "var(--color-bg-muted)",
+          overlay: "var(--color-bg-overlay)",
         },
         accent: {
           lime: "#A3E635",
@@ -18,9 +18,9 @@ export default {
           yellow: "#EAB308",
         },
         text: {
-          primary: "#FFFFFF",
-          secondary: "#9CA3AF",
-          muted: "#4B5563",
+          primary: "var(--color-text-primary)",
+          secondary: "var(--color-text-secondary)",
+          muted: "var(--color-text-muted)",
         },
         category: {
           shopping: "#EF4444",

@@ -3,6 +3,7 @@ import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 
 import { AppLayout } from "./components/layout/AppLayout";
 import { ToastProvider } from "./components/ui/Toast";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import { getAccessToken, hasRefreshToken, refreshAccessToken } from "./lib/auth";
 import { BudgetPage } from "./pages/BudgetPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -54,30 +55,32 @@ function AppBoot({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <ToastProvider>
-    <AppBoot>
-      <Routes>
-        <Route path="/" element={<RootRedirect />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/verify-email" element={<VerifyEmailPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
+    <ThemeProvider>
+      <ToastProvider>
+        <AppBoot>
+          <Routes>
+            <Route path="/" element={<RootRedirect />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-        <Route element={<PrivateRoute />}>
-          <Route element={<AppLayout />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/expenses" element={<ExpensesPage />} />
-            <Route path="/transactions" element={<TransactionsPage />} />
-            <Route path="/budget" element={<BudgetPage />} />
-            <Route path="/goals" element={<GoalsPage />} />
-            <Route path="/pending" element={<PendingPage />} />
-          </Route>
-        </Route>
+            <Route element={<PrivateRoute />}>
+              <Route element={<AppLayout />}>
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/expenses" element={<ExpensesPage />} />
+                <Route path="/transactions" element={<TransactionsPage />} />
+                <Route path="/budget" element={<BudgetPage />} />
+                <Route path="/goals" element={<GoalsPage />} />
+                <Route path="/pending" element={<PendingPage />} />
+              </Route>
+            </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </AppBoot>
-    </ToastProvider>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AppBoot>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }

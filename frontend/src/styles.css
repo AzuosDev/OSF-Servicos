@@ -3,6 +3,27 @@
 @tailwind utilities;
 
 @layer base {
+  :root,
+  html.dark {
+    --color-bg-base: #0a0a0a;
+    --color-bg-card: #141414;
+    --color-bg-muted: #1c1c1c;
+    --color-bg-overlay: #232323;
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #9ca3af;
+    --color-text-muted: #4b5563;
+  }
+
+  html.light {
+    --color-bg-base: #f6f8f4;
+    --color-bg-card: #ffffff;
+    --color-bg-muted: #e8eee2;
+    --color-bg-overlay: #dfe8d6;
+    --color-text-primary: #172013;
+    --color-text-secondary: #5f6f57;
+    --color-text-muted: #8a9783;
+  }
+
   html,
   body,
   #root {
