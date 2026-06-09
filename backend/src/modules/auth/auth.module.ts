@@ -10,6 +10,7 @@ import { RefreshTokenSchema } from './schemas/refresh-token.schema';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { EmailService } from '../../common/services/email.service';
 
 @Global()
 @Module({
@@ -28,7 +29,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
     UsersModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtStrategy, JwtAuthGuard],
+  providers: [AuthService, LocalStrategy, JwtStrategy, JwtAuthGuard, EmailService],
   exports: [AuthService, JwtModule, JwtAuthGuard],
 })
 export class AuthModule {}
