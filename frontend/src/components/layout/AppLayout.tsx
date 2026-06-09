@@ -39,7 +39,12 @@ type NavItem = {
 const navigation: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/expenses", label: "Gastos", icon: TrendingDown },
-  { to: "/transactions?type=INCOME", match: "/transactions?type=INCOME", label: "Ganhos", icon: TrendingUp },
+  {
+    to: "/transactions?type=INCOME",
+    match: "/transactions?type=INCOME",
+    label: "Ganhos",
+    icon: TrendingUp,
+  },
   { to: "/transactions", label: "Transações", icon: List },
   { to: "/pending", label: "Contas Pendentes", icon: Clock },
   { to: "/goals", label: "Metas Financeiras", icon: Target },
@@ -109,7 +114,7 @@ function ThemeToggleButton({ collapsed = false }: { collapsed?: boolean }) {
       <Icon className="h-4 w-4" />
       {!collapsed && <span>{label}</span>}
       {collapsed && (
-        <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-bg-muted bg-bg-card px-3 py-2 text-xs font-semibold text-text-primary opacity-0 shadow-xl transition group-hover:opacity-100">
+        <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-border-default bg-bg-card px-3 py-2 text-xs font-semibold text-text-primary opacity-0 shadow-xl transition group-hover:opacity-100">
           {label}
         </span>
       )}
@@ -127,14 +132,30 @@ type SidebarContentProps = {
   onToggleCollapse?: () => void;
 };
 
-function SidebarContent({ currentPath, currentUrl, email, onLogout, onNavigate, collapsed = false, onToggleCollapse }: SidebarContentProps) {
+function SidebarContent({
+  currentPath,
+  currentUrl,
+  email,
+  onLogout,
+  onNavigate,
+  collapsed = false,
+  onToggleCollapse,
+}: SidebarContentProps) {
   return (
     <>
-      <div className={cn("flex items-center gap-3 p-6", collapsed ? "justify-center px-4" : "justify-between")}>
+      <div
+        className={cn(
+          "flex items-center gap-3 p-6",
+          collapsed ? "justify-center px-4" : "justify-between",
+        )}
+      >
         <Link
           to="/dashboard"
           onClick={onNavigate}
-          className={cn("flex min-w-0 items-center gap-3 font-sans text-xl font-bold text-text-primary", collapsed && "justify-center")}
+          className={cn(
+            "flex min-w-0 items-center gap-3 font-sans text-xl font-bold text-text-primary",
+            collapsed && "justify-center",
+          )}
           title={collapsed ? "ContaCerta" : undefined}
         >
           <Coins className="h-7 w-7 shrink-0 text-accent-lime" />
@@ -153,7 +174,12 @@ function SidebarContent({ currentPath, currentUrl, email, onLogout, onNavigate, 
         )}
       </div>
 
-      <nav className={cn("flex flex-1 flex-col gap-1", collapsed ? "px-3" : "px-4")}>
+      <nav
+        className={cn(
+          "flex flex-1 flex-col gap-1",
+          collapsed ? "px-3" : "px-4",
+        )}
+      >
         {navigation.map(({ to, match, label, icon: Icon }) => {
           const active = match ? currentUrl === match : currentPath === to;
 
@@ -174,7 +200,7 @@ function SidebarContent({ currentPath, currentUrl, email, onLogout, onNavigate, 
               <Icon className={cn("h-5 w-5", active && "text-accent-lime")} />
               {!collapsed && <span>{label}</span>}
               {collapsed && (
-                <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-bg-muted bg-bg-card px-3 py-2 text-xs font-semibold text-text-primary opacity-0 shadow-xl transition group-hover:opacity-100">
+                <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-border-default bg-bg-card px-3 py-2 text-xs font-semibold text-text-primary opacity-0 shadow-xl transition group-hover:opacity-100">
                   {label}
                 </span>
               )}
@@ -183,14 +209,26 @@ function SidebarContent({ currentPath, currentUrl, email, onLogout, onNavigate, 
         })}
       </nav>
 
-      <div className={cn("border-t border-bg-muted p-4", collapsed && "px-3")}>
-        <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
+      <div
+        className={cn(
+          "border-t border-border-default p-4",
+          collapsed && "px-3",
+        )}
+      >
+        <div
+          className={cn(
+            "flex items-center gap-3",
+            collapsed && "justify-center",
+          )}
+        >
           <div className="relative" title={collapsed ? email : undefined}>
             <Avatar email={email} />
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-text-primary">Usuário</p>
+              <p className="truncate text-sm font-semibold text-text-primary">
+                Usuário
+              </p>
               <p className="truncate text-xs text-text-secondary">{email}</p>
             </div>
           )}
@@ -234,7 +272,9 @@ export function AppLayout() {
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
-  const [email, setEmail] = useState(() => getUserEmailFromToken() ?? fallbackEmail);
+  const [email, setEmail] = useState(
+    () => getUserEmailFromToken() ?? fallbackEmail,
+  );
   const currentPath = location.pathname;
   const currentUrl = `${location.pathname}${location.search}`;
   const title = pageTitles[currentPath] ?? "ContaCerta";
@@ -305,7 +345,9 @@ export function AppLayout() {
           email={email}
           onLogout={handleLogout}
           collapsed={desktopSidebarCollapsed}
-          onToggleCollapse={() => setDesktopSidebarCollapsed((collapsed) => !collapsed)}
+          onToggleCollapse={() =>
+            setDesktopSidebarCollapsed((collapsed) => !collapsed)
+          }
         />
       </aside>
 
@@ -337,7 +379,7 @@ export function AppLayout() {
         </div>
       )}
 
-      <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-bg-muted bg-bg-card px-4 py-3 lg:hidden">
+      <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border-default bg-bg-card px-4 py-3 lg:hidden">
         <div className="flex min-w-0 items-center gap-3">
           <button
             onClick={() => setMobileSidebarOpen(true)}
@@ -346,7 +388,9 @@ export function AppLayout() {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <h1 className="truncate font-sans text-lg font-bold text-text-primary">{title}</h1>
+          <h1 className="truncate font-sans text-lg font-bold text-text-primary">
+            {title}
+          </h1>
         </div>
         <div className="relative">
           <button
@@ -358,12 +402,16 @@ export function AppLayout() {
             <ChevronDown className="h-4 w-4" />
           </button>
           {userMenuOpen && (
-            <div className="absolute right-0 mt-2 w-48 rounded-xl border border-bg-muted bg-bg-card p-2 shadow-xl">
+            <div className="absolute right-0 mt-2 w-48 rounded-xl border border-border-default bg-bg-card p-2 shadow-xl">
               <button
                 onClick={toggleTheme}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-text-secondary hover:bg-bg-overlay hover:text-text-primary"
               >
-                {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                {isDark ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
                 {isDark ? "Tema claro" : "Tema escuro"}
               </button>
               <button
@@ -378,17 +426,29 @@ export function AppLayout() {
         </div>
       </header>
 
-      <main className={cn("min-h-screen bg-bg-base p-5 pb-24 transition-[margin] duration-200 lg:pb-5", desktopSidebarCollapsed ? "lg:ml-20" : "lg:ml-64")}>
+      <main
+        className={cn(
+          "min-h-screen bg-bg-base p-5 pb-24 transition-[margin] duration-200 lg:pb-5",
+          desktopSidebarCollapsed ? "lg:ml-20" : "lg:ml-64",
+        )}
+      >
         <div className="mx-auto max-w-6xl">
           <Outlet />
         </div>
       </main>
 
-      <nav className="fixed bottom-0 left-0 z-40 grid w-full grid-cols-5 border-t border-bg-muted bg-bg-card px-3 pb-3 pt-2 lg:hidden">
+      <nav className="fixed bottom-0 left-0 z-40 grid w-full grid-cols-5 border-t border-border-default bg-bg-card px-3 pb-3 pt-2 lg:hidden">
         {mobileNavigation.slice(0, 2).map(({ to, label, icon: Icon }) => {
           const active = currentPath === to;
           return (
-            <Link key={to} to={to} className={cn("flex flex-col items-center gap-1 text-xs", active ? "text-accent-lime" : "text-text-muted")}>
+            <Link
+              key={to}
+              to={to}
+              className={cn(
+                "flex flex-col items-center gap-1 text-xs",
+                active ? "text-accent-lime" : "text-text-muted",
+              )}
+            >
               <Icon className="h-5 w-5" />
               {label}
             </Link>
@@ -406,7 +466,14 @@ export function AppLayout() {
         {mobileNavigation.slice(2).map(({ to, label, icon: Icon }) => {
           const active = currentPath === to;
           return (
-            <Link key={to} to={to} className={cn("flex flex-col items-center gap-1 text-xs", active ? "text-accent-lime" : "text-text-muted")}>
+            <Link
+              key={to}
+              to={to}
+              className={cn(
+                "flex flex-col items-center gap-1 text-xs",
+                active ? "text-accent-lime" : "text-text-muted",
+              )}
+            >
               <Icon className="h-5 w-5" />
               {label}
             </Link>
@@ -416,19 +483,28 @@ export function AppLayout() {
 
       {addModalOpen && (
         <div className="fixed inset-0 z-50 grid place-items-end bg-black/60 p-4 sm:place-items-center">
-          <div className="w-full max-w-sm rounded-2xl border border-bg-muted bg-bg-card p-5">
+          <div className="w-full max-w-sm rounded-2xl border border-border-default bg-bg-card p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-sans text-lg font-bold">Nova movimentação</h2>
-              <button onClick={() => setAddModalOpen(false)} className="rounded-lg px-2 py-1 text-text-secondary hover:bg-bg-overlay hover:text-white">
+              <button
+                onClick={() => setAddModalOpen(false)}
+                className="rounded-lg px-2 py-1 text-text-secondary hover:bg-bg-overlay hover:text-white"
+              >
                 Fechar
               </button>
             </div>
             <div className="grid gap-3">
-              <button onClick={() => goToCreate("EXPENSE")} className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay">
+              <button
+                onClick={() => goToCreate("EXPENSE")}
+                className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
+              >
                 <TrendingDown className="h-5 w-5 text-accent-red" />
                 <span className="font-semibold">Adicionar Gasto</span>
               </button>
-              <button onClick={() => goToCreate("INCOME")} className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay">
+              <button
+                onClick={() => goToCreate("INCOME")}
+                className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
+              >
                 <TrendingUp className="h-5 w-5 text-accent-lime" />
                 <span className="font-semibold">Adicionar Ganho</span>
               </button>
