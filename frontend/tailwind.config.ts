@@ -1,15 +1,16 @@
 import type { Config } from "tailwindcss";
 
 export default {
+  darkMode: "class",
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
         bg: {
-          base: "var(--color-bg-base)",
-          card: "var(--color-bg-card)",
-          muted: "var(--color-bg-muted)",
-          overlay: "var(--color-bg-overlay)",
+          base: "var(--bg-base)",
+          card: "var(--bg-card)",
+          muted: "var(--bg-muted)",
+          overlay: "var(--bg-overlay)",
         },
         accent: {
           lime: "#A3E635",
@@ -18,9 +19,13 @@ export default {
           yellow: "#EAB308",
         },
         text: {
-          primary: "var(--color-text-primary)",
-          secondary: "var(--color-text-secondary)",
-          muted: "var(--color-text-muted)",
+          primary: "var(--text-primary)",
+          secondary: "var(--text-secondary)",
+          muted: "var(--text-muted)",
+        },
+        border: {
+          default: "var(--border-default)",
+          strong: "var(--border-strong)",
         },
         category: {
           shopping: "#EF4444",
