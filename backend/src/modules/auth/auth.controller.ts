@@ -1,20 +1,18 @@
-import { Body, Controller, Get, Post, Query, UseGuards, Req, HttpCode } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Post, Query, UseGuards, Req, HttpCode } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
 import { LocalAuthGuard } from '../../common/guards/local-auth.guard';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { UsersService } from '../users/users.service';
 
 @ApiTags('Auth')
 @ApiBearerAuth()
 @Controller('api/auth')
 export class AuthController {
-  constructor(private authService: AuthService, private usersService: UsersService) {}
+  constructor(private authService: AuthService) {}
 
   @Throttle(5, 60)
   @Post('register')
@@ -59,7 +57,13 @@ export class AuthController {
 
   @Post('reset-password')
   async reset(@Body() dto: ResetPasswordDto) {
-    return this.usersService.resetPassword(dto.token, dto.newPassword);
+    const nextPassword = dto.newPassword ?? dto.password;
+
+    if (!nextPassword) {
+      throw new BadRequestException('Informe a nova senha');
+    }
+
+    return this.authService.resetPassword(dto.token, nextPassword);
   }
 
   @UseGuards(JwtAuthGuard)

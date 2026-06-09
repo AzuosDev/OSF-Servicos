@@ -1,15 +1,17 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { isAxiosError } from "axios";
-import { CheckCircle2, Eye, EyeOff, Lock } from "lucide-react";
+import { Eye, EyeOff, Lock } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { z } from "zod";
 
 import { AuthCard } from "../components/AuthCard";
 import { Field } from "../components/Field";
 import { SubmitButton } from "../components/SubmitButton";
 import { api } from "../lib/api";
+import { setTokens } from "../lib/auth";
+import type { AuthTokens } from "../types/api";
 
 const resetSchema = z
   .object({
@@ -18,11 +20,6 @@ const resetSchema = z
       .min(8, "A senha deve ter no mínimo 8 caracteres")
       .regex(/[A-Z]/, "A senha deve conter ao menos 1 letra maiúscula")
       .regex(/[0-9]/, "A senha deve conter ao menos 1 número"),
-    confirmPassword: z.string(),
-  })
-  .refine((values) => values.password === values.confirmPassword, {
-    path: ["confirmPassword"],
-    message: "As senhas não coincidem",
   });
 
 type ResetForm = z.infer<typeof resetSchema>;
@@ -30,9 +27,9 @@ type ResetForm = z.infer<typeof resetSchema>;
 export function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [apiError, setApiError] = useState("");
-  const [success, setSuccess] = useState(false);
 
   const {
     register,
@@ -40,7 +37,7 @@ export function ResetPasswordPage() {
     formState: { errors, isSubmitting },
   } = useForm<ResetForm>({
     resolver: zodResolver(resetSchema),
-    defaultValues: { password: "", confirmPassword: "" },
+    defaultValues: { password: "" },
   });
 
   async function onSubmit(values: ResetForm) {
@@ -52,11 +49,17 @@ export function ResetPasswordPage() {
     }
 
     try {
-      await api.post("/api/auth/reset-password", {
+      const { data } = await api.post<AuthTokens>("/api/auth/reset-password", {
         token,
         password: values.password,
       });
-      setSuccess(true);
+
+      if (!data?.accessToken || !data?.refreshToken) {
+        throw new Error("Resposta inválida do servidor");
+      }
+
+      setTokens(data.accessToken, data.refreshToken);
+      navigate("/dashboard", { replace: true });
     } catch (error) {
       const message =
         isAxiosError(error) && typeof error.response?.data?.message === "string"
@@ -64,24 +67,6 @@ export function ResetPasswordPage() {
           : "Não foi possível redefinir sua senha.";
       setApiError(message);
     }
-  }
-
-  if (success) {
-    return (
-      <AuthCard
-        title="Senha redefinida"
-        footer={
-          <Link to="/login" className="font-semibold text-accent-lime hover:underline">
-            Entrar
-          </Link>
-        }
-      >
-        <div className="flex flex-col items-center gap-3 text-center">
-          <CheckCircle2 className="h-12 w-12 text-accent-lime" />
-          <p className="text-sm text-text-secondary">Agora você pode acessar sua conta.</p>
-        </div>
-      </AuthCard>
-    );
   }
 
   return (
@@ -104,15 +89,6 @@ export function ResetPasswordPage() {
             </button>
           }
           error={errors.password?.message}
-        />
-
-        <Field
-          {...register("confirmPassword")}
-          type={showPassword ? "text" : "password"}
-          placeholder="Confirmar senha"
-          autoComplete="new-password"
-          icon={<Lock className="h-4 w-4" />}
-          error={errors.confirmPassword?.message}
         />
 
         {apiError && (

@@ -6,6 +6,7 @@ import { Model } from 'mongoose';
 import { RefreshTokenDocument } from './schemas/refresh-token.schema';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
+import { EmailService } from '../../common/services/email.service';
 
 @Injectable()
 export class AuthService {
@@ -13,19 +14,26 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     @InjectModel('RefreshToken') private refreshModel: Model<RefreshTokenDocument>,
+    private emailService: EmailService,
   ) {}
 
   async register(dto: { email: string; password: string }) {
     const user = await this.usersService.create(dto);
-    // enviar email de verificação (stub)
-    console.log('Enviar email de verificação para:', user.email);
-    return user;
+    await this.emailService.sendVerificationEmail(user.email, user.emailVerificationToken);
+    const { emailVerificationToken, password, passwordResetToken, passwordResetExpires, ...safeUser } = user as any;
+    return safeUser;
+  }
+
+  async sendPasswordReset(email: string) {
+    const token = await this.usersService.setPasswordResetToken(email);
+    await this.emailService.sendPasswordResetEmail(email, token);
+    return true;
   }
 
   async verifyEmail(token: string) {
     const user = await this.usersService.markEmailVerifiedByToken(token);
     if (!user) throw new UnauthorizedException('Token inválido');
-    return user;
+    return this.login(user);
   }
 
   async login(user: any) {
@@ -72,8 +80,12 @@ export class AuthService {
   }
 
   async forgotPassword(email: string) {
-    const token = await this.usersService.setPasswordResetToken(email);
-    console.log('Enviar email de reset para:', email, 'token:', token);
+    await this.sendPasswordReset(email);
     return true;
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const user = await this.usersService.resetPassword(token, newPassword);
+    return this.login(user);
   }
 }

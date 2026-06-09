@@ -20,7 +20,6 @@ export class UsersService {
     });
     const obj: any = created.toObject();
     delete obj.password;
-    delete obj.emailVerificationToken;
     delete obj.passwordResetToken;
     delete obj.passwordResetExpires;
     return obj;
