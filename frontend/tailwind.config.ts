@@ -18,6 +18,11 @@ export default {
           red: "#EF4444",
           yellow: "#EAB308",
         },
+        semantic: {
+          income: "var(--color-income)",
+          expense: "var(--color-expense)",
+          pending: "var(--color-pending)",
+        },
         text: {
           primary: "var(--text-primary)",
           secondary: "var(--text-secondary)",

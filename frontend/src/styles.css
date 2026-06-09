@@ -1,18 +1,6 @@
-/* ── Tema claro (padrão) ── */
+/* ── Tema escuro (padrão) ── */
 :root {
-  --bg-base: #f5f5f5;
-  --bg-card: #ffffff;
-  --bg-muted: #ebebeb;
-  --bg-overlay: #e2e2e2;
-  --text-primary: #111111;
-  --text-secondary: #555b6a;
-  --text-muted: #9ca3af;
-  --border-default: #e4e4e7;
-  --border-strong: #d1d1d6;
-}
-
-/* ── Tema escuro ── */
-.dark {
+  color-scheme: dark;
   --bg-base: #0a0a0a;
   --bg-card: #141414;
   --bg-muted: #1c1c1c;
@@ -22,6 +10,28 @@
   --text-muted: #4b5563;
   --border-default: #2a2a2a;
   --border-strong: #3a3a3a;
+  --color-income: #22c55e;
+  --color-expense: #ef4444;
+  --color-pending: #eab308;
+  --accent-lime: #a3e635;
+}
+
+/* ── Tema escuro ── */
+html.dark {
+  color-scheme: dark;
+  --bg-base: #0a0a0a;
+  --bg-card: #141414;
+  --bg-muted: #1c1c1c;
+  --bg-overlay: #232323;
+  --text-primary: #ffffff;
+  --text-secondary: #9ca3af;
+  --text-muted: #4b5563;
+  --border-default: #2a2a2a;
+  --border-strong: #3a3a3a;
+  --color-income: #22c55e;
+  --color-expense: #ef4444;
+  --color-pending: #eab308;
+  --accent-lime: #a3e635;
 }
 
 @tailwind base;
@@ -29,25 +39,40 @@
 @tailwind utilities;
 
 @layer base {
-  :root,
-  html.dark {
-    --color-bg-base: #0a0a0a;
-    --color-bg-card: #141414;
-    --color-bg-muted: #1c1c1c;
-    --color-bg-overlay: #232323;
-    --color-text-primary: #ffffff;
-    --color-text-secondary: #9ca3af;
-    --color-text-muted: #4b5563;
+  html.light {
+    color-scheme: light;
+
+    /* backgrounds */
+    --bg-base: #f6f8f4; /* fundo da página */
+    --bg-card: #ffffff; /* cartões e painéis */
+    --bg-muted: #e8eee2; /* inputs, chips inativos */
+    --bg-overlay: #dfe8d6; /* hover, seções secundárias */
+
+    /* textos */
+    --text-primary: #172013; /* AAA 15.8:1 */
+    --text-secondary: #5f6f57; /* AA  5.1:1  */
+    --text-muted: #8a9783; /* AA  3.1:1 (texto grande) */
+
+    /* bordas */
+    --border-default: #dfe8d6; /* separadores sutis */
+    --border-strong: #c5d4bc; /* foco, cards ativos */
+
+    /* semânticas financeiras */
+    --color-income: #3a7d2c; /* ganhos  — AAA 7.2:1 */
+    --color-expense: #b94545; /* gastos  — AA  5.8:1 */
+    --color-pending: #c97a2a; /* pendente — AA  4.6:1 */
+
+    /* accent (inalterado) */
+    --accent-lime: #A3E635; /* CTA principal */
   }
 
-  html.light {
-    --color-bg-base: #f6f8f4;
-    --color-bg-card: #ffffff;
-    --color-bg-muted: #e8eee2;
-    --color-bg-overlay: #dfe8d6;
-    --color-text-primary: #172013;
-    --color-text-secondary: #5f6f57;
-    --color-text-muted: #8a9783;
+  html.light .bg-bg-card.text-white,
+  html.light .bg-bg-muted.text-white,
+  html.light .bg-bg-overlay.text-white,
+  html.light .bg-bg-card .text-white,
+  html.light .bg-bg-muted .text-white,
+  html.light .bg-bg-overlay .text-white {
+    color: var(--text-primary) !important;
   }
 
   html,
