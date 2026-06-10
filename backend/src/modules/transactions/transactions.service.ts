@@ -12,15 +12,26 @@ export class TransactionsService {
     @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
   ) {}
 
+  private toObjectId(value: string, fieldName: string) {
+    if (!Types.ObjectId.isValid(value)) {
+      throw new BadRequestException(`${fieldName} must be a valid ObjectId`);
+    }
+    return new Types.ObjectId(value);
+  }
+
   async create(userId: string, dto: CreateTransactionDto) {
     if (dto.type === TransactionType.EXPENSE && !dto.categoryId) {
       throw new BadRequestException('categoryId is required for expense transactions');
     }
 
+    const userObjectId = this.toObjectId(userId, 'userId');
+    let categoryObjectId: Types.ObjectId | undefined;
+
     if (dto.categoryId) {
+      categoryObjectId = this.toObjectId(dto.categoryId, 'categoryId');
       const valid = await this.categoryModel.findOne({
-        _id: new Types.ObjectId(dto.categoryId),
-        $or: [{ userId: null }, { userId: new Types.ObjectId(userId) }],
+        _id: categoryObjectId,
+        $or: [{ userId: null }, { userId: userObjectId }],
       }).exec();
       if (!valid) {
         throw new BadRequestException('Invalid category for this user');
@@ -28,19 +39,37 @@ export class TransactionsService {
     }
 
     return this.transactionModel.create({
-      userId: new Types.ObjectId(userId),
+      userId: userObjectId,
       type: dto.type,
       value: dto.value,
-      categoryId: dto.categoryId ? new Types.ObjectId(dto.categoryId) : undefined,
+      categoryId: categoryObjectId,
       description: dto.description,
       date: new Date(dto.date),
     });
   }
 
-  async findAll(userId: string, type?: TransactionType, page = 1, limit = 10) {
+  async findAll(
+    userId: string,
+    type?: TransactionType,
+    page = 1,
+    limit = 10,
+    categoryId?: string,
+    month?: number,
+    year?: number,
+  ) {
     const filter: any = { userId: new Types.ObjectId(userId) };
     if (type) {
       filter.type = type;
+    }
+
+    if (categoryId) {
+      filter.categoryId = this.toObjectId(categoryId, 'categoryId');
+    }
+
+    if (month && year) {
+      const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
+      const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+      filter.date = { $gte: startDate, $lte: endDate };
     }
 
     const [data, total] = await Promise.all([
@@ -52,7 +81,10 @@ export class TransactionsService {
   }
 
   async findOne(userId: string, id: string) {
-    const transaction = await this.transactionModel.findOne({ _id: new Types.ObjectId(id), userId: new Types.ObjectId(userId) }).exec();
+    const transaction = await this.transactionModel.findOne({
+      _id: this.toObjectId(id, 'id'),
+      userId: this.toObjectId(userId, 'userId'),
+    }).exec();
     if (!transaction) {
       throw new NotFoundException('Transaction not found');
     }
@@ -60,14 +92,17 @@ export class TransactionsService {
   }
 
   async update(userId: string, id: string, dto: any) {
-    const transaction = await this.transactionModel.findOne({ _id: new Types.ObjectId(id), userId: new Types.ObjectId(userId) }).exec();
+    const transaction = await this.transactionModel.findOne({
+      _id: this.toObjectId(id, 'id'),
+      userId: this.toObjectId(userId, 'userId'),
+    }).exec();
     if (!transaction) {
       throw new NotFoundException('Transaction not found');
     }
 
     if (dto.type) transaction.type = dto.type;
     if (typeof dto.value !== 'undefined') transaction.value = dto.value;
-    if (dto.categoryId) transaction.categoryId = new Types.ObjectId(dto.categoryId);
+    if (dto.categoryId) transaction.categoryId = this.toObjectId(dto.categoryId, 'categoryId');
     if (typeof dto.description !== 'undefined') transaction.description = dto.description;
     if (dto.date) transaction.date = new Date(dto.date);
 
@@ -76,7 +111,10 @@ export class TransactionsService {
   }
 
   async remove(userId: string, id: string) {
-    const result = await this.transactionModel.findOneAndDelete({ _id: new Types.ObjectId(id), userId: new Types.ObjectId(userId) }).exec();
+    const result = await this.transactionModel.findOneAndDelete({
+      _id: this.toObjectId(id, 'id'),
+      userId: this.toObjectId(userId, 'userId'),
+    }).exec();
     if (!result) {
       throw new NotFoundException('Transaction not found');
     }

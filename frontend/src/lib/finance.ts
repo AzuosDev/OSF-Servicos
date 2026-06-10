@@ -1,4 +1,9 @@
-import type { Category, CategoryExpense, Transaction, TransactionType } from "../types/finance";
+import type {
+  Category,
+  CategoryExpense,
+  Transaction,
+  TransactionType,
+} from "../types/finance";
 
 export const brlFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -50,14 +55,19 @@ export function normalizeCategory(value: unknown, fallbackIndex = 0): Category {
   const item = asRecord(value);
 
   return {
-    id: readString(item.id, item._id, item.categoryId) || `category-${fallbackIndex}`,
+    id:
+      readString(item.id, item._id, item.categoryId) ||
+      `category-${fallbackIndex}`,
     name: readString(item.name, item.categoryName, item.label) || "Categoria",
     color: readString(item.color, item.categoryColor) || "#6B7280",
     icon: readString(item.icon, item.iconName, item.categoryIcon) || "Receipt",
   };
 }
 
-export function normalizeTransaction(value: unknown, fallbackIndex = 0): Transaction {
+export function normalizeTransaction(
+  value: unknown,
+  fallbackIndex = 0,
+): Transaction {
   const item = asRecord(value);
   const nestedCategory = asRecord(item.category);
   const type = readString(item.type, item.transactionType).toUpperCase();
@@ -70,9 +80,15 @@ export function normalizeTransaction(value: unknown, fallbackIndex = 0): Transac
     id: readString(item.id, item._id) || `transaction-${fallbackIndex}`,
     type: type === "INCOME" ? "INCOME" : "EXPENSE",
     amount: readNumber(item.amount, item.value, item.total),
-    date: readString(item.date, item.createdAt, item.paidAt, item.dueDate) || new Date().toISOString(),
+    date:
+      readString(item.date, item.createdAt, item.paidAt, item.dueDate) ||
+      new Date().toISOString(),
     description: readString(item.description, item.notes),
-    categoryId: readString(item.categoryId, nestedCategory.id, nestedCategory._id),
+    categoryId: readString(
+      item.categoryId,
+      nestedCategory.id,
+      nestedCategory._id,
+    ),
     category:
       category ??
       (type === "INCOME"
@@ -101,17 +117,33 @@ export function normalizeTransactionsResponse(data: unknown) {
 
   return {
     transactions: asArray(source).map(normalizeTransaction),
-    hasMore: Boolean(record.hasMore ?? record.nextPage ?? record.nextCursor) ||
+    hasMore:
+      Boolean(record.hasMore ?? record.nextPage ?? record.nextCursor) ||
       (total > 0 && page > 0 && limit > 0 && page * limit < total),
   };
 }
 
-export function normalizeExpenseCategory(value: unknown, fallbackIndex = 0): CategoryExpense {
+export function normalizeExpenseCategory(
+  value: unknown,
+  fallbackIndex = 0,
+): CategoryExpense {
   const item = asRecord(value);
   const nestedCategory = asRecord(item.category);
-  const category = normalizeCategory(Object.keys(nestedCategory).length > 0 ? nestedCategory : item, fallbackIndex);
-  const amount = readNumber(item.amount, item.total, item.value, item.currentAmount);
-  const previousAmount = readNumber(item.previousAmount, item.previousTotal, item.previousValue);
+  const category = normalizeCategory(
+    Object.keys(nestedCategory).length > 0 ? nestedCategory : item,
+    fallbackIndex,
+  );
+  const amount = readNumber(
+    item.amount,
+    item.total,
+    item.value,
+    item.currentAmount,
+  );
+  const previousAmount = readNumber(
+    item.previousAmount,
+    item.previousTotal,
+    item.previousValue,
+  );
   const variation =
     "variation" in item || "changePercent" in item
       ? readNumber(item.variation, item.changePercent)
@@ -146,10 +178,9 @@ export function buildTransactionPayload(values: {
 }) {
   return {
     type: values.type,
-    amount: values.amount,
+    value: values.amount, // ✅ corrigido: era "amount", backend espera "value"
     date: values.date,
     description: values.description?.trim() || undefined,
     categoryId: values.categoryId || undefined,
   };
 }
-

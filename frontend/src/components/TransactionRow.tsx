@@ -2,7 +2,7 @@ import { Edit2, Trash2 } from "lucide-react";
 
 import { formatCurrency } from "../lib/finance";
 import { cn } from "../lib/utils";
-import type { Transaction } from "../types/finance";
+import type { Transaction, Category } from "../types/finance";
 import { DynamicIcon } from "./DynamicIcon";
 
 function formatDate(value: string) {
@@ -23,14 +23,22 @@ export function TransactionRow({
   transaction,
   onEdit,
   onDelete,
+  categories,
 }: {
   transaction: Transaction;
   onEdit: (transaction: Transaction) => void;
   onDelete: (transaction: Transaction) => void;
+  categories?: Category[];
 }) {
-  const category = transaction.category ?? {
+  const categoriesMap = new Map<string, Category>();
+  (categories ?? []).forEach((c) => categoriesMap.set(c.id, c));
+
+  const resolvedCategory =
+    transaction.category ?? (transaction.categoryId ? categoriesMap.get(transaction.categoryId) : undefined);
+
+  const category = resolvedCategory ?? {
     id: "uncategorized",
-    name: transaction.type === "INCOME" ? "Ganho" : "Sem categoria",
+    name: transaction.type === "INCOME" ? "Ganho" : "Despesa",
     color: transaction.type === "INCOME" ? "#A3E635" : "#6B7280",
     icon: transaction.type === "INCOME" ? "TrendingUp" : "Receipt",
   };

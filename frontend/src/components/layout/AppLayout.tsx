@@ -1,25 +1,32 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   BarChart2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Coins,
   Home,
   LayoutDashboard,
   List,
   LogOut,
+  Menu,
   Moon,
   Plus,
+  Sun,
   Target,
   TrendingDown,
   TrendingUp,
+  X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { useTheme } from "../../hooks/useTheme";
 import { clearTokens, getAccessToken, getRefreshToken } from "../../lib/auth";
 import { api } from "../../lib/api";
 import { cn } from "../../lib/utils";
+import type { User } from "../../types/api";
 import { useToast } from "../ui/Toast";
 
 type NavItem = {
@@ -32,7 +39,12 @@ type NavItem = {
 const navigation: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/expenses", label: "Gastos", icon: TrendingDown },
-  { to: "/transactions?type=INCOME", match: "/transactions?type=INCOME", label: "Ganhos", icon: TrendingUp },
+  {
+    to: "/transactions?type=INCOME",
+    match: "/transactions?type=INCOME",
+    label: "Ganhos",
+    icon: TrendingUp,
+  },
   { to: "/transactions", label: "Transações", icon: List },
   { to: "/pending", label: "Contas Pendentes", icon: Clock },
   { to: "/goals", label: "Metas Financeiras", icon: Target },
@@ -40,7 +52,7 @@ const navigation: NavItem[] = [
 
 const mobileNavigation = [
   { to: "/dashboard", label: "Início", icon: Home },
-  { to: "/transactions", label: "Resumo", icon: BarChart2 },
+  { to: "/expenses", label: "Resumo", icon: BarChart2 },
   { to: "/pending", label: "Pendentes", icon: Clock },
   { to: "/goals", label: "Metas", icon: Target },
 ] as const;
@@ -54,18 +66,24 @@ const pageTitles: Record<string, string> = {
   "/budget": "Orçamento",
 };
 
-function getUserEmail() {
+const fallbackEmail = "usuario@contacerta.app";
+
+function isEmail(value: unknown): value is string {
+  return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function getUserEmailFromToken() {
   const token = getAccessToken();
 
   if (!token) {
-    return "usuario@contacerta.app";
+    return null;
   }
 
   try {
     const payload = JSON.parse(window.atob(token.split(".")[1] ?? ""));
-    return payload.email ?? payload.sub ?? "usuario@contacerta.app";
+    return isEmail(payload.email) ? payload.email : null;
   } catch {
-    return "usuario@contacerta.app";
+    return null;
   }
 }
 
@@ -77,17 +95,223 @@ function Avatar({ email }: { email: string }) {
   );
 }
 
+function ThemeToggleButton({ collapsed = false }: { collapsed?: boolean }) {
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === "dark";
+  const Icon = isDark ? Sun : Moon;
+  const label = isDark ? "Tema claro" : "Tema escuro";
+
+  return (
+    <button
+      onClick={toggleTheme}
+      className={cn(
+        "group relative flex w-full items-center rounded-xl px-3 py-2.5 text-sm text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary",
+        collapsed ? "justify-center" : "gap-3",
+      )}
+      aria-label={isDark ? "Ativar tema claro" : "Ativar tema escuro"}
+      title={collapsed ? label : undefined}
+    >
+      <Icon className="h-4 w-4" />
+      {!collapsed && <span>{label}</span>}
+      {collapsed && (
+        <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-border-default bg-bg-card px-3 py-2 text-xs font-semibold text-text-primary opacity-0 shadow-xl transition group-hover:opacity-100">
+          {label}
+        </span>
+      )}
+    </button>
+  );
+}
+
+type SidebarContentProps = {
+  currentPath: string;
+  currentUrl: string;
+  email: string;
+  onLogout: () => void;
+  onNavigate?: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+};
+
+function SidebarContent({
+  currentPath,
+  currentUrl,
+  email,
+  onLogout,
+  onNavigate,
+  collapsed = false,
+  onToggleCollapse,
+}: SidebarContentProps) {
+  return (
+    <>
+      <div
+        className={cn(
+          "flex items-center gap-3 p-6",
+          collapsed ? "justify-center px-4" : "justify-between",
+        )}
+      >
+        <Link
+          to="/dashboard"
+          onClick={onNavigate}
+          className={cn(
+            "flex min-w-0 items-center gap-3 font-sans text-xl font-bold text-text-primary",
+            collapsed && "justify-center",
+          )}
+          title={collapsed ? "ContaCerta" : undefined}
+        >
+          <Coins className="h-7 w-7 shrink-0 text-accent-lime" />
+          {!collapsed && <span className="truncate">ContaCerta</span>}
+        </Link>
+
+        {onToggleCollapse && !collapsed && (
+          <button
+            onClick={onToggleCollapse}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg-muted text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
+            aria-label="Comprimir menu lateral"
+            title="Comprimir menu"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      <nav
+        className={cn(
+          "flex flex-1 flex-col gap-1",
+          collapsed ? "px-3" : "px-4",
+        )}
+      >
+        {navigation.map(({ to, match, label, icon: Icon }) => {
+          const active = match ? currentUrl === match : currentPath === to;
+
+          return (
+            <Link
+              key={`${to}-${label}`}
+              to={to}
+              onClick={onNavigate}
+              title={collapsed ? label : undefined}
+              className={cn(
+                "group relative flex items-center rounded-xl py-3 text-sm font-medium transition",
+                collapsed ? "justify-center px-3" : "gap-3 px-4",
+                active
+                  ? "bg-bg-muted text-text-primary"
+                  : "text-text-secondary hover:bg-bg-overlay hover:text-text-primary",
+              )}
+            >
+              <Icon className={cn("h-5 w-5", active && "text-accent-lime")} />
+              {!collapsed && <span>{label}</span>}
+              {collapsed && (
+                <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-border-default bg-bg-card px-3 py-2 text-xs font-semibold text-text-primary opacity-0 shadow-xl transition group-hover:opacity-100">
+                  {label}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div
+        className={cn(
+          "border-t border-border-default p-4",
+          collapsed && "px-3",
+        )}
+      >
+        <div
+          className={cn(
+            "flex items-center gap-3",
+            collapsed && "justify-center",
+          )}
+        >
+          <div className="relative" title={collapsed ? email : undefined}>
+            <Avatar email={email} />
+          </div>
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-text-primary">
+                Usuário
+              </p>
+              <p className="truncate text-xs text-text-secondary">{email}</p>
+            </div>
+          )}
+        </div>
+        <div className="mt-4 grid gap-1">
+          {collapsed && onToggleCollapse && (
+            <button
+              onClick={onToggleCollapse}
+              className="grid h-10 w-full place-items-center rounded-xl text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
+              aria-label="Expandir menu lateral"
+              title="Expandir menu"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
+          <ThemeToggleButton collapsed={collapsed} />
+          <button
+            onClick={onLogout}
+            className={cn(
+              "flex w-full items-center rounded-xl px-3 py-2.5 text-sm text-text-secondary transition hover:bg-bg-overlay hover:text-accent-red",
+              collapsed ? "justify-center" : "gap-3",
+            )}
+            title={collapsed ? "Sair" : undefined}
+          >
+            <LogOut className="h-4 w-4" />
+            {!collapsed && "Sair"}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
+  const { theme, toggleTheme } = useTheme();
 
-  const email = useMemo(getUserEmail, []);
+  const [email, setEmail] = useState(
+    () => getUserEmailFromToken() ?? fallbackEmail,
+  );
   const currentPath = location.pathname;
   const currentUrl = `${location.pathname}${location.search}`;
   const title = pageTitles[currentPath] ?? "ContaCerta";
+  const isDark = theme === "dark";
+
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+    setUserMenuOpen(false);
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    const tokenEmail = getUserEmailFromToken();
+
+    if (tokenEmail) {
+      setEmail(tokenEmail);
+      return;
+    }
+
+    let active = true;
+
+    api
+      .get<User>("/api/auth/me")
+      .then(({ data }) => {
+        if (active && isEmail(data.email)) {
+          setEmail(data.email);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setEmail(fallbackEmail);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -109,54 +333,65 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen bg-bg-base text-text-primary">
-      <aside className="fixed left-0 top-0 hidden h-full w-64 flex-col bg-bg-card lg:flex">
-        <Link to="/dashboard" className="flex items-center gap-3 p-6 font-sans text-xl font-bold">
-          <Coins className="h-7 w-7 text-accent-lime" />
-          ContaCerta
-        </Link>
-
-        <nav className="flex flex-1 flex-col gap-1 px-4">
-          {navigation.map(({ to, match, label, icon: Icon }) => {
-            const active = match ? currentUrl === match : currentPath === to;
-
-            return (
-              <Link
-                key={`${to}-${label}`}
-                to={to}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition",
-                  active
-                    ? "bg-bg-muted text-white"
-                    : "text-text-secondary hover:bg-bg-overlay hover:text-white",
-                )}
-              >
-                <Icon className={cn("h-5 w-5", active && "text-accent-lime")} />
-                <span>{label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="border-t border-bg-muted p-4">
-          <div className="flex items-center gap-3">
-            <Avatar email={email} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-white">Usuário</p>
-              <p className="truncate text-xs text-text-secondary">{email}</p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="mt-4 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-text-secondary transition hover:bg-bg-overlay hover:text-accent-red"
-          >
-            <LogOut className="h-4 w-4" />
-            Sair
-          </button>
-        </div>
+      <aside
+        className={cn(
+          "fixed left-0 top-0 hidden h-full flex-col bg-bg-card transition-[width] duration-200 lg:flex",
+          desktopSidebarCollapsed ? "w-20" : "w-64",
+        )}
+      >
+        <SidebarContent
+          currentPath={currentPath}
+          currentUrl={currentUrl}
+          email={email}
+          onLogout={handleLogout}
+          collapsed={desktopSidebarCollapsed}
+          onToggleCollapse={() =>
+            setDesktopSidebarCollapsed((collapsed) => !collapsed)
+          }
+        />
       </aside>
 
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-bg-muted bg-bg-card px-5 py-3 lg:hidden">
-        <h1 className="font-sans text-lg font-bold text-white">{title}</h1>
+      {mobileSidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            className="absolute inset-0 h-full w-full bg-black/60"
+            onClick={() => setMobileSidebarOpen(false)}
+            aria-label="Fechar menu lateral"
+          />
+          <aside className="relative flex h-full w-[min(20rem,86vw)] flex-col bg-bg-card shadow-2xl">
+            <div className="absolute right-3 top-3">
+              <button
+                onClick={() => setMobileSidebarOpen(false)}
+                className="grid h-10 w-10 place-items-center rounded-xl bg-bg-muted text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
+                aria-label="Fechar menu"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <SidebarContent
+              currentPath={currentPath}
+              currentUrl={currentUrl}
+              email={email}
+              onLogout={handleLogout}
+              onNavigate={() => setMobileSidebarOpen(false)}
+            />
+          </aside>
+        </div>
+      )}
+
+      <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border-default bg-bg-card px-4 py-3 lg:hidden">
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            onClick={() => setMobileSidebarOpen(true)}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-bg-muted text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
+            aria-label="Abrir menu lateral"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <h1 className="truncate font-sans text-lg font-bold text-text-primary">
+            {title}
+          </h1>
+        </div>
         <div className="relative">
           <button
             onClick={() => setUserMenuOpen((open) => !open)}
@@ -167,10 +402,17 @@ export function AppLayout() {
             <ChevronDown className="h-4 w-4" />
           </button>
           {userMenuOpen && (
-            <div className="absolute right-0 mt-2 w-48 rounded-xl border border-bg-muted bg-bg-card p-2 shadow-xl">
-              <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-text-secondary hover:bg-bg-overlay hover:text-white">
-                <Moon className="h-4 w-4" />
-                Tema
+            <div className="absolute right-0 mt-2 w-48 rounded-xl border border-border-default bg-bg-card p-2 shadow-xl">
+              <button
+                onClick={toggleTheme}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-text-secondary hover:bg-bg-overlay hover:text-text-primary"
+              >
+                {isDark ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+                {isDark ? "Tema claro" : "Tema escuro"}
               </button>
               <button
                 onClick={handleLogout}
@@ -184,17 +426,29 @@ export function AppLayout() {
         </div>
       </header>
 
-      <main className="min-h-screen bg-bg-base p-5 pb-24 lg:ml-64 lg:pb-5">
+      <main
+        className={cn(
+          "min-h-screen bg-bg-base p-5 pb-24 transition-[margin] duration-200 lg:pb-5",
+          desktopSidebarCollapsed ? "lg:ml-20" : "lg:ml-64",
+        )}
+      >
         <div className="mx-auto max-w-6xl">
           <Outlet />
         </div>
       </main>
 
-      <nav className="fixed bottom-0 left-0 z-40 grid w-full grid-cols-5 border-t border-bg-muted bg-bg-card px-3 pb-3 pt-2 lg:hidden">
+      <nav className="fixed bottom-0 left-0 z-40 grid w-full grid-cols-5 border-t border-border-default bg-bg-card px-3 pb-3 pt-2 lg:hidden">
         {mobileNavigation.slice(0, 2).map(({ to, label, icon: Icon }) => {
           const active = currentPath === to;
           return (
-            <Link key={to} to={to} className={cn("flex flex-col items-center gap-1 text-xs", active ? "text-accent-lime" : "text-text-muted")}>
+            <Link
+              key={to}
+              to={to}
+              className={cn(
+                "flex flex-col items-center gap-1 text-xs",
+                active ? "text-accent-lime" : "text-text-muted",
+              )}
+            >
               <Icon className="h-5 w-5" />
               {label}
             </Link>
@@ -212,7 +466,14 @@ export function AppLayout() {
         {mobileNavigation.slice(2).map(({ to, label, icon: Icon }) => {
           const active = currentPath === to;
           return (
-            <Link key={to} to={to} className={cn("flex flex-col items-center gap-1 text-xs", active ? "text-accent-lime" : "text-text-muted")}>
+            <Link
+              key={to}
+              to={to}
+              className={cn(
+                "flex flex-col items-center gap-1 text-xs",
+                active ? "text-accent-lime" : "text-text-muted",
+              )}
+            >
               <Icon className="h-5 w-5" />
               {label}
             </Link>
@@ -222,19 +483,28 @@ export function AppLayout() {
 
       {addModalOpen && (
         <div className="fixed inset-0 z-50 grid place-items-end bg-black/60 p-4 sm:place-items-center">
-          <div className="w-full max-w-sm rounded-2xl border border-bg-muted bg-bg-card p-5">
+          <div className="w-full max-w-sm rounded-2xl border border-border-default bg-bg-card p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-sans text-lg font-bold">Nova movimentação</h2>
-              <button onClick={() => setAddModalOpen(false)} className="rounded-lg px-2 py-1 text-text-secondary hover:bg-bg-overlay hover:text-white">
+              <button
+                onClick={() => setAddModalOpen(false)}
+                className="rounded-lg px-2 py-1 text-text-secondary hover:bg-bg-overlay hover:text-white"
+              >
                 Fechar
               </button>
             </div>
             <div className="grid gap-3">
-              <button onClick={() => goToCreate("EXPENSE")} className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay">
+              <button
+                onClick={() => goToCreate("EXPENSE")}
+                className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
+              >
                 <TrendingDown className="h-5 w-5 text-accent-red" />
                 <span className="font-semibold">Adicionar Gasto</span>
               </button>
-              <button onClick={() => goToCreate("INCOME")} className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay">
+              <button
+                onClick={() => goToCreate("INCOME")}
+                className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
+              >
                 <TrendingUp className="h-5 w-5 text-accent-lime" />
                 <span className="font-semibold">Adicionar Ganho</span>
               </button>
