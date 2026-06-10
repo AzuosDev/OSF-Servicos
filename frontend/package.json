@@ -12,6 +12,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@tanstack/react-query": "^5.83.0",
+    "@vercel/speed-insights": "^2.0.0",
     "axios": "^1.16.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
