@@ -16,7 +16,7 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { TransactionsPage } from "./pages/TransactionsPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
-import { SpeedInsights } from "@vercel/speed-insights/next";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 function PrivateRoute() {
   const location = useLocation();
@@ -79,9 +79,8 @@ export default function App() {
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
-
-            <SpeedInsights/>
           </Routes>
+          <SpeedInsights />
         </AppBoot>
       </ToastProvider>
     </ThemeProvider>
