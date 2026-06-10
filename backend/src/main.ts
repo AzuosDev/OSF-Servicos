@@ -17,6 +17,7 @@ async function bootstrap() {
     ...configuredOrigins,
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    'https://meugasto.vercel.app'
   ]);
 
   app.use(helmet());
