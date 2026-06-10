@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { ExpressAdapter } from '@nestjs/platform-express';
+import { ValidationPipe } from '@nestjs/common';
 import express from 'express';
 import helmet from 'helmet';
 import { ConfigService } from '@nestjs/config';
@@ -43,7 +44,14 @@ async function bootstrap() {
         callback(new Error(`CORS blocked for origin: ${origin}`), false);
       },
     });
-    app.setGlobalPrefix('api');
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+        transformOptions: { enableImplicitConversion: true },
+      }),
+    );
     await app.init();
   }
   return server;
