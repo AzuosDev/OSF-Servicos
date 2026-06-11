@@ -63,6 +63,16 @@ export function PendingPage() {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const [creating, setCreating] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<PendingItem | null>(
+    null,
+  );
+  const [editFormData, setEditFormData] = useState({
+    title: "",
+    value: "",
+    dueDate: "",
+    description: "",
+  });
 
   // ✅ state dos campos do formulário
   const [formTitle, setFormTitle] = useState("");
@@ -102,6 +112,85 @@ export function PendingPage() {
     },
     onError: () => addToast("Não foi possível atualizar a conta.", "error"),
   });
+
+  const editPending = useMutation({
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: {
+        title?: string;
+        value?: number;
+        dueDate?: string;
+        description?: string;
+        paid?: boolean;
+      };
+    }) => api.patch<PendingAccount>(`/api/pending/${id}`, payload),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["pending"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
+      addToast("Conta atualizada com sucesso.", "success");
+      fecharModal();
+    },
+    onError: () => addToast("Não foi possível editar a conta.", "error"),
+  });
+
+  const deletePending = useMutation({
+    mutationFn: async (id: string) => api.delete(`/api/pending/${id}`),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["pending"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
+      addToast("Conta apagada com sucesso.", "success");
+    },
+    onError: () => addToast("Não foi possível apagar a conta.", "error"),
+  });
+
+  function abrirModalEdicao(item: PendingItem) {
+    setSelectedAccount(item);
+    setEditFormData({
+      title: item.title,
+      value: String(item.value),
+      dueDate: item.dueDate.slice(0, 10),
+      description: item.description ?? "",
+    });
+    setIsEditModalOpen(true);
+  }
+
+  function fecharModal() {
+    setIsEditModalOpen(false);
+    setSelectedAccount(null);
+    setEditFormData({
+      title: "",
+      value: "",
+      dueDate: "",
+      description: "",
+    });
+  }
+
+  function salvarEdicao() {
+    if (!selectedAccount) return;
+
+    editPending.mutate({
+      id: selectedAccount.id,
+      payload: {
+        title: editFormData.title.trim(),
+        value: parseFloat(editFormData.value),
+        dueDate: new Date(editFormData.dueDate).toISOString(),
+        description: editFormData.description.trim() || undefined,
+      },
+    });
+  }
+
+  function confirmarDeletar(id: string, title: string) {
+    const confirmed = window.confirm(`Deseja apagar a conta "${title}"?`);
+    if (!confirmed) return;
+    deletePending.mutate(id);
+  }
 
   // ✅ mutation para criar conta pendente
   const createPending = useMutation({
@@ -239,12 +328,15 @@ export function PendingPage() {
                   )}
                   <button
                     type="button"
+                    onClick={() => abrirModalEdicao(item)}
                     className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-white"
                   >
                     Editar
                   </button>
                   <button
                     type="button"
+                    onClick={() => confirmarDeletar(item.id, item.title)}
+                    disabled={deletePending.isPending}
                     className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-accent-red"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -310,6 +402,87 @@ export function PendingPage() {
                 className="flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-2 text-sm font-bold text-black disabled:opacity-70"
               >
                 {createPending.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isEditModalOpen && selectedAccount && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-bg-muted bg-bg-card p-5">
+            <h2 className="text-lg font-bold text-white">
+              Editar conta pendente
+            </h2>
+            <p className="mt-1 text-sm text-text-secondary">
+              Atualize os dados da conta selecionada.
+            </p>
+            <div className="mt-4 space-y-3">
+              <input
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                placeholder="Título"
+                value={editFormData.title}
+                onChange={(e) =>
+                  setEditFormData((prev) => ({
+                    ...prev,
+                    title: e.target.value,
+                  }))
+                }
+              />
+              <input
+                type="number"
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                placeholder="Valor"
+                value={editFormData.value}
+                onChange={(e) =>
+                  setEditFormData((prev) => ({
+                    ...prev,
+                    value: e.target.value,
+                  }))
+                }
+              />
+              <input
+                type="date"
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                value={editFormData.dueDate}
+                onChange={(e) =>
+                  setEditFormData((prev) => ({
+                    ...prev,
+                    dueDate: e.target.value,
+                  }))
+                }
+              />
+              <textarea
+                rows={3}
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                placeholder="Descrição (opcional)"
+                value={editFormData.description}
+                onChange={(e) =>
+                  setEditFormData((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={fecharModal}
+                className="rounded-xl border border-bg-muted px-4 py-2 text-sm text-white"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={salvarEdicao}
+                disabled={editPending.isPending}
+                className="flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-2 text-sm font-bold text-black disabled:opacity-70"
+              >
+                {editPending.isPending && (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )}
                 Salvar
