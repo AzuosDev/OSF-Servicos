@@ -17,7 +17,7 @@ Com compatibilidade para desktop e mobile.
 ### 1 Tecnologias
 
 - React
-- NestJS (substituindo Express para melhor organização e escalabilidade)
+- NestJS (substituindo Express para melhor organização e escalabilidade.)
 - Node.js
 - Mongo DB Atlas
 - Mongoose
