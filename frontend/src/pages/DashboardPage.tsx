@@ -425,7 +425,7 @@ export function DashboardPage() {
           </div>
           <button
             onClick={() => setAddModalOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition-opacity hover:brightness-110"
+            className="hidden md:flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition-opacity hover:brightness-110"
             aria-label="Adicionar transação"
           >
             <Plus className="h-6 w-6" /> Nova
