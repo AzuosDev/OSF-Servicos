@@ -65,6 +65,8 @@ export function PendingPage() {
   const { addToast } = useToast();
   const [creating, setCreating] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedDelete, setSelectedDelete] = useState<{ id: string; title: string } | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<PendingItem | null>(
     null,
   );
@@ -491,6 +493,17 @@ export function PendingPage() {
           </div>
         </div>
       )}
-    </section>
+      <ConfirmDeleteModal
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={() => {
+          if (selectedDelete) {
+            deletePending.mutate(selectedDelete.id);
+          }
+          setDeleteModalOpen(false);
+        }}
+        accountName={selectedDelete?.title ?? ""}
+      />
+      </section>
   );
 }

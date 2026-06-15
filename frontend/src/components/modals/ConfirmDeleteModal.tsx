@@ -10,7 +10,7 @@ interface ConfirmDeleteModalProps {
 
 export function ConfirmDeleteModal({ open, onClose, onConfirm, accountName }: ConfirmDeleteModalProps) {
   return (
-    <ModalShell open={open} onClose={onClose}>
+    <ModalShell open={open} title="Confirmar exclusão" icon={<AlertTriangle className="h-6 w-6 text-accent-red" />} onClose={onClose}>
       <div className="flex flex-col items-center space-y-4">
         <AlertTriangle className="h-12 w-12 text-accent-red" />
         <h2 className="text-lg font-bold text-white">Excluir conta</h2>
