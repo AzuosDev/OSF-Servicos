@@ -6,6 +6,7 @@ import { api } from "../lib/api";
 import { formatCurrency } from "../lib/finance";
 import { cn } from "../lib/utils";
 import { useToast } from "../components/ui/Toast";
+import { ConfirmDeleteModal } from "../components/modals/ConfirmDeleteModal";
 import type { PendingAccount } from "../types/api";
 
 type PendingItem = {
