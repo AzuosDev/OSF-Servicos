@@ -422,6 +422,14 @@ export function DashboardPage() {
         </div>
         <div className="flex items-center gap-3">
           <div className="grid grid-cols-2 gap-3">
+          </div>
+          <button
+            onClick={() => setAddModalOpen(true)}
+            className="hidden lg:flex h-12 w-12 place-items-center rounded-full bg-accent-lime text-black shadow-lg shadow-lime-500/20 hover:opacity-80 transition-opacity"
+            aria-label="Adicionar transação"
+          >
+            <Plus className="h-6 w-6" />
+          </button>
           <select
             value={month}
             onChange={(event) => setMonth(Number(event.target.value))}
@@ -445,8 +453,6 @@ export function DashboardPage() {
             ))}
           </select>
         </div>
-      </div>
-
       </div>
 
       {dashboardQuery.isError && (
