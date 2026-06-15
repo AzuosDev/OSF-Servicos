@@ -425,10 +425,10 @@ export function DashboardPage() {
           </div>
           <button
             onClick={() => setAddModalOpen(true)}
-            className="hidden lg:flex h-12 w-12 place-items-center rounded-full bg-accent-lime text-black shadow-lg shadow-lime-500/20 hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition-opacity hover:brightness-110"
             aria-label="Adicionar transação"
           >
-            <Plus className="h-6 w-6" />
+            <Plus className="h-6 w-6" /> Nova
           </button>
           <select
             value={month}
