@@ -447,6 +447,8 @@ export function DashboardPage() {
         </div>
       </div>
 
+      </div>
+
       {dashboardQuery.isError && (
         <div className="rounded-2xl border border-accent-red/30 bg-accent-red/10 p-4 text-sm text-accent-red">
           Não foi possível carregar o dashboard agora.

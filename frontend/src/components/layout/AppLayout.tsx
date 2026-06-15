@@ -521,5 +521,6 @@ export function AppLayout() {
         </div>
       )}
     </div>
+  </TransactionModalContext.Provider>
   );
 }
