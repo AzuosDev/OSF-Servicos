@@ -262,6 +262,13 @@ function SidebarContent({
   );
 }
 
+import { createContext, useContext } from "react";
+
+export const TransactionModalContext = createContext<{ open: boolean; setOpen: React.Dispatch<React.SetStateAction<boolean>> }>({
+  open: false,
+  setOpen: () => {},
+});
+
 export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -332,7 +339,8 @@ export function AppLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-bg-base text-text-primary">
+    <TransactionModalContext.Provider value={{ open: addModalOpen, setOpen: setAddModalOpen }}>
+        <div className="min-h-screen bg-bg-base text-text-primary">
       <aside
         className={cn(
           "fixed left-0 top-0 hidden h-full flex-col bg-bg-card transition-[width] duration-200 lg:flex",

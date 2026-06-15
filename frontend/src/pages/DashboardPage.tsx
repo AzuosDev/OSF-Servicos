@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useContext } from "react";
+import { TransactionModalContext } from "../components/layout/AppLayout";
+import { Plus } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -380,6 +382,8 @@ export function DashboardPage() {
   const [month, setMonth] = useState(() => new Date().getMonth() + 1);
   const [year, setYear] = useState(currentYear);
   const navigate = useNavigate();
+  const { setOpen: setAddModalOpen } = useContext(TransactionModalContext);
+
 
   const years = useMemo(
     () => Array.from({ length: 4 }, (_, index) => currentYear - index),
@@ -416,7 +420,8 @@ export function DashboardPage() {
           <p className="text-sm text-text-secondary">Visão geral</p>
           <h1 className="font-sans text-3xl font-bold">Dashboard</h1>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex items-center gap-3">
+          <div className="grid grid-cols-2 gap-3">
           <select
             value={month}
             onChange={(event) => setMonth(Number(event.target.value))}
