@@ -188,9 +188,8 @@ export function PendingPage() {
   }
 
   function confirmarDeletar(id: string, title: string) {
-    const confirmed = window.confirm(`Deseja apagar a conta "${title}"?`);
-    if (!confirmed) return;
-    deletePending.mutate(id);
+    setSelectedDelete({ id, title });
+    setDeleteModalOpen(true);
   }
 
   // ✅ mutation para criar conta pendente
