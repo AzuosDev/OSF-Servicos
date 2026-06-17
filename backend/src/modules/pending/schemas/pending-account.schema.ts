@@ -5,22 +5,6 @@ export type PendingAccountDocument = PendingAccount & Document;
 
 @Schema({ timestamps: true })
 export class PendingAccount {
-
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  userId!: Types.ObjectId;
-
-  @Prop({ required: true, maxlength: 200 })
-  title!: string;
-
-  @Prop({ required: true, min: 0.01 })
-  value!: number;
-
-  @Prop({ required: true })
-  dueDate!: Date;
-
-  @Prop({ default: false })
-  paid!: boolean;
-
   /**
    * Indica se a conta é parcelada.
    * @default false
@@ -57,7 +41,7 @@ export class PendingAccount {
   })
   formatoPagamento!: string;
 
-  // Subdocumento de parcelas, presente somente se isParcelada = true
+  // Subdocumento de parcelas (presente apenas se isParcelada = true)
   @Prop({
     type: {
       totalParcelas: { type: Number, required: true },
@@ -76,7 +60,7 @@ export class PendingAccount {
     dataFim: Date;
   };
 
-  // Subdocumento de recorrência, presente somente se isRecorrente = true
+  // Subdocumento de recorrência (presente apenas se isRecorrente = true)
   @Prop({
     type: {
       periodoRecorrencia: {
@@ -93,6 +77,21 @@ export class PendingAccount {
     dataProxima: Date;
   };
 
+
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  userId!: Types.ObjectId;
+
+  @Prop({ required: true, maxlength: 200 })
+  title!: string;
+
+  @Prop({ required: true, min: 0.01 })
+  value!: number;
+
+  @Prop({ required: true })
+  dueDate!: Date;
+
+  @Prop({ default: false })
+  paid!: boolean;
 
   @Prop()
   paidAt?: Date;
