@@ -7,20 +7,22 @@ export function ModalShell({
   icon,
   onClose,
   children,
+  containerClassName = "",
 }: {
   open: boolean;
   title: string;
   icon: ReactNode;
   onClose: () => void;
   children: ReactNode;
+  containerClassName?: string;
 }) {
   if (!open) {
     return null;
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-black/60 p-4 backdrop-blur-sm sm:place-items-center">
-      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-bg-muted bg-bg-card p-5 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm">
+      <div className={`max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-bg-muted bg-bg-card p-5 shadow-2xl ${containerClassName}`}>
         <div className="mb-5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             {icon}
