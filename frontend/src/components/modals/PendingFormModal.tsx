@@ -170,8 +170,7 @@ export function PendingFormModal({
       open={open}
       onClose={onClose}
       title={editAccount ? "Editar Conta Pendentes" : "Nova Conta Pendentes"}
-      containerClassName="max-h-[90vh] overflow-y-auto"
-    >
+      >
       {/* Segmented control */}
       <div className="flex space-x-1 rounded-xl bg-bg-muted p-1 mb-4">
         {["Não parcelada", "Parcelada", "Recorrente"].map((type) => (
