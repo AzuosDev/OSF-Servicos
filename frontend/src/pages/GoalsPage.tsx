@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { ModalShell } from "../components/modals/ModalShell";
 import { useToast } from "../components/ui/Toast";
+import { ConfirmDeleteModal } from "../components/modals/ConfirmDeleteModal";
 import { api } from "../lib/api";
 import { formatCurrency } from "../lib/finance";
 import { getApiErrorMessages, setFieldErrorsFromApi } from "../lib/errors";
@@ -409,6 +410,8 @@ export function GoalsPage() {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const [activeAction, setActiveAction] = useState<GoalAction | null>(null);
+  const [deleteGoalModalOpen, setDeleteGoalModalOpen] = useState(false);
+  const [selectedGoal, setSelectedGoal] = useState<{ id: string; name: string } | null>(null);
 
   const goalsQuery = useQuery<GoalItem[]>({
     queryKey: ["goals"],
@@ -462,12 +465,8 @@ export function GoalsPage() {
   const closeModal = () => setActiveAction(null);
 
   const handleDelete = (goal: GoalItem) => {
-    const confirmed = window.confirm(`Deseja excluir a meta "${goal.name}"?`);
-    if (!confirmed) {
-      return;
-    }
-
-    deleteGoal.mutate(goal.id);
+    setSelectedGoal({ id: goal.id, name: goal.name });
+    setDeleteGoalModalOpen(true);
   };
 
   return (
@@ -637,6 +636,17 @@ export function GoalsPage() {
         goal={currentGoal}
         onClose={closeModal}
       />
-    </section>
+    <ConfirmDeleteModal
+        open={deleteGoalModalOpen}
+        onClose={() => setDeleteGoalModalOpen(false)}
+        onConfirm={() => {
+          if (selectedGoal) {
+            deleteGoal.mutate(selectedGoal.id);
+          }
+          setDeleteGoalModalOpen(false);
+        }}
+        accountName={selectedGoal?.name ?? ""}
+      />
+</section>
   );
 }

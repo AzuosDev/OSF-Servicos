@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useContext } from "react";
+import { TransactionModalContext } from "../components/layout/AppLayout";
+import { Plus } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -132,14 +134,24 @@ function normalizeDashboard(data: DashboardApiResponse): DashboardData {
   const pending = asRecord(record.pending);
   const pendingAccounts = asRecord(record.pendingAccounts);
   const categorySource =
-    getDashboardValue(data, ["categories", "expensesByCategory", "categoryExpenses"]) ??
-    [];
+    getDashboardValue(data, [
+      "categories",
+      "expensesByCategory",
+      "categoryExpenses",
+    ]) ?? [];
   const transactionSource =
-    getDashboardValue(data, ["recentTransactions", "transactions", "latestTransactions"]) ??
-    [];
+    getDashboardValue(data, [
+      "recentTransactions",
+      "transactions",
+      "latestTransactions",
+    ]) ?? [];
   const monthlySource =
-    getDashboardValue(data, ["monthlyEvolution", "evolution", "chartData", "monthly"]) ??
-    [];
+    getDashboardValue(data, [
+      "monthlyEvolution",
+      "evolution",
+      "chartData",
+      "monthly",
+    ]) ?? [];
 
   const totalIncome = readNumber(
     record.totalIncome,
@@ -157,7 +169,12 @@ function normalizeDashboard(data: DashboardApiResponse): DashboardData {
     summary.totalExpense,
     summary.expense,
   );
-  const balance = readNumber(record.balance, record.saldo, summary.balance, totalIncome - totalExpense);
+  const balance = readNumber(
+    record.balance,
+    record.saldo,
+    summary.balance,
+    totalIncome - totalExpense,
+  );
 
   return {
     balance,
@@ -178,18 +195,37 @@ function normalizeDashboard(data: DashboardApiResponse): DashboardData {
       summary.savingsRate,
     ),
     monthlyEvolution: asArray(monthlySource).map((item, index) => ({
-      month: readString(item.label, item.name) || monthOptions[(readNumber(item.month) || index + 1) - 1] || monthOptions[index % 12],
+      month:
+        readString(item.label, item.name) ||
+        monthOptions[(readNumber(item.month) || index + 1) - 1] ||
+        monthOptions[index % 12],
       income: readNumber(item.income, item.totalIncome, item.entries),
-      expense: readNumber(item.expense, item.totalExpense, item.expenses, item.outputs),
+      expense: readNumber(
+        item.expense,
+        item.totalExpense,
+        item.expenses,
+        item.outputs,
+      ),
     })),
     categories: asArray(categorySource)
       .map((item, index) => {
         const category = asRecord(item.category);
         return {
-          id: readString(item.id, item._id, item.categoryId, category.id, category._id) || `category-${index}`,
+          id:
+            readString(
+              item.id,
+              item._id,
+              item.categoryId,
+              category.id,
+              category._id,
+            ) || `category-${index}`,
           name:
-            readString(item.name, item.categoryName, category.name, item.label) ||
-            "Categoria",
+            readString(
+              item.name,
+              item.categoryName,
+              category.name,
+              item.label,
+            ) || "Categoria",
           color:
             readString(item.color, item.categoryColor, category.color) ||
             "#6B7280",
@@ -197,24 +233,31 @@ function normalizeDashboard(data: DashboardApiResponse): DashboardData {
         };
       })
       .filter((item) => item.amount > 0),
-    recentTransactions: asArray(transactionSource).slice(0, 5).map((item, index) => {
-      const category = asRecord(item.category);
-      const type = readString(item.type, item.transactionType).toUpperCase();
+    recentTransactions: asArray(transactionSource)
+      .slice(0, 5)
+      .map((item, index) => {
+        const category = asRecord(item.category);
+        const type = readString(item.type, item.transactionType).toUpperCase();
 
-      return {
-        id: readString(item.id, item._id) || `transaction-${index}`,
-        categoryName:
-          readString(item.categoryName, category.name, item.category) ||
-          "Movimentação",
-        categoryColor:
-          readString(item.categoryColor, category.color) ||
-          (type === "INCOME" ? "#A3E635" : "#EF4444"),
-        description: readString(item.description, item.notes),
-        date: readString(item.date, item.createdAt, item.paidAt, item.dueDate),
-        amount: readNumber(item.amount, item.value, item.total),
-        type: type === "INCOME" ? "INCOME" : "EXPENSE",
-      };
-    }),
+        return {
+          id: readString(item.id, item._id) || `transaction-${index}`,
+          categoryName:
+            readString(item.categoryName, category.name, item.category) ||
+            "Movimentação",
+          categoryColor:
+            readString(item.categoryColor, category.color) ||
+            (type === "INCOME" ? "#A3E635" : "#EF4444"),
+          description: readString(item.description, item.notes),
+          date: readString(
+            item.date,
+            item.createdAt,
+            item.paidAt,
+            item.dueDate,
+          ),
+          amount: readNumber(item.amount, item.value, item.total),
+          type: type === "INCOME" ? "INCOME" : "EXPENSE",
+        };
+      }),
   };
 }
 
@@ -246,7 +289,9 @@ function formatDate(value: string) {
 }
 
 function Skeleton({ className }: { className: string }) {
-  return <div className={cn("animate-pulse rounded-2xl bg-bg-muted", className)} />;
+  return (
+    <div className={cn("animate-pulse rounded-2xl bg-bg-muted", className)} />
+  );
 }
 
 function DashboardSkeleton() {
@@ -271,12 +316,38 @@ function DashboardSkeleton() {
 
 function EmptyWallet() {
   return (
-    <svg viewBox="0 0 160 120" className="mx-auto h-28 w-36 text-text-muted" fill="none" aria-hidden="true">
-      <rect x="20" y="34" width="116" height="68" rx="16" fill="currentColor" opacity="0.22" />
-      <path d="M36 34h82c10 0 18 8 18 18v10h-34c-11 0-20 9-20 20v20H36c-10 0-18-8-18-18V52c0-10 8-18 18-18Z" fill="currentColor" opacity="0.45" />
-      <path d="M86 74c0-8 6-14 14-14h40v36h-40c-8 0-14-6-14-14v-8Z" fill="#141414" stroke="#4B5563" strokeWidth="4" />
+    <svg
+      viewBox="0 0 160 120"
+      className="mx-auto h-28 w-36 text-text-muted"
+      fill="none"
+      aria-hidden="true"
+    >
+      <rect
+        x="20"
+        y="34"
+        width="116"
+        height="68"
+        rx="16"
+        fill="currentColor"
+        opacity="0.22"
+      />
+      <path
+        d="M36 34h82c10 0 18 8 18 18v10h-34c-11 0-20 9-20 20v20H36c-10 0-18-8-18-18V52c0-10 8-18 18-18Z"
+        fill="currentColor"
+        opacity="0.45"
+      />
+      <path
+        d="M86 74c0-8 6-14 14-14h40v36h-40c-8 0-14-6-14-14v-8Z"
+        fill="#141414"
+        stroke="#4B5563"
+        strokeWidth="4"
+      />
       <circle cx="104" cy="78" r="5" fill="#A3E635" />
-      <path d="M42 28 88 16c8-2 15 3 17 10l2 8H42v-6Z" fill="#A3E635" opacity="0.3" />
+      <path
+        d="M42 28 88 16c8-2 15 3 17 10l2 8H42v-6Z"
+        fill="#A3E635"
+        opacity="0.3"
+      />
     </svg>
   );
 }
@@ -311,6 +382,8 @@ export function DashboardPage() {
   const [month, setMonth] = useState(() => new Date().getMonth() + 1);
   const [year, setYear] = useState(currentYear);
   const navigate = useNavigate();
+  const { setOpen: setAddModalOpen } = useContext(TransactionModalContext);
+
 
   const years = useMemo(
     () => Array.from({ length: 4 }, (_, index) => currentYear - index),
@@ -332,9 +405,13 @@ export function DashboardPage() {
     return <DashboardSkeleton />;
   }
 
-  const dashboard = dashboardQuery.data ?? normalizeDashboard({} as DashboardResponse);
+  const dashboard =
+    dashboardQuery.data ?? normalizeDashboard({} as DashboardResponse);
   const hasTransactions = dashboard.recentTransactions.length > 0;
-  const maxCategoryAmount = Math.max(...dashboard.categories.map((item) => item.amount), 0);
+  const maxCategoryAmount = Math.max(
+    ...dashboard.categories.map((item) => item.amount),
+    0,
+  );
 
   return (
     <section className="space-y-6">
@@ -343,7 +420,16 @@ export function DashboardPage() {
           <p className="text-sm text-text-secondary">Visão geral</p>
           <h1 className="font-sans text-3xl font-bold">Dashboard</h1>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex items-center gap-3">
+          <div className="grid grid-cols-2 gap-3">
+          </div>
+          <button
+            onClick={() => setAddModalOpen(true)}
+            className="hidden md:flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition-opacity hover:brightness-110"
+            aria-label="Adicionar transação"
+          >
+            <Plus className="h-6 w-6" /> Nova
+          </button>
           <select
             value={month}
             onChange={(event) => setMonth(Number(event.target.value))}
@@ -378,7 +464,9 @@ export function DashboardPage() {
       {!hasTransactions ? (
         <div className="rounded-2xl border border-bg-muted bg-bg-card p-8 text-center">
           <EmptyWallet />
-          <h2 className="mt-4 font-sans text-xl font-bold">Nenhuma movimentação este mês</h2>
+          <h2 className="mt-4 font-sans text-xl font-bold">
+            Nenhuma movimentação este mês
+          </h2>
           <button
             onClick={() => navigate("/transactions?type=EXPENSE&action=create")}
             className="mt-5 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110"
@@ -389,7 +477,9 @@ export function DashboardPage() {
       ) : (
         <>
           <div className="rounded-2xl bg-bg-card p-6">
-            <p className="text-sm uppercase tracking-widest text-text-secondary">Saldo</p>
+            <p className="text-sm uppercase tracking-widest text-text-secondary">
+              Saldo
+            </p>
             <strong className="mt-3 block font-sans text-5xl font-extrabold text-accent-lime">
               {formatCurrency(dashboard.balance)}
             </strong>
@@ -404,42 +494,116 @@ export function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <SummaryCard icon={TrendingUp} label="Entradas" value={formatCurrency(dashboard.totalIncome)} iconClassName="text-accent-lime" />
-            <SummaryCard icon={TrendingDown} label="Saídas" value={formatCurrency(dashboard.totalExpense)} iconClassName="text-accent-red" />
-            <Link to="/pending" className="rounded-2xl bg-bg-card p-4 transition hover:bg-bg-muted">
+            <SummaryCard
+              icon={TrendingUp}
+              label="Entradas"
+              value={formatCurrency(dashboard.totalIncome)}
+              iconClassName="text-accent-lime"
+              onClick={() => navigate("/transactions?type=INCOME")}
+            />
+            <SummaryCard
+              icon={TrendingDown}
+              label="Saídas"
+              value={formatCurrency(dashboard.totalExpense)}
+              iconClassName="text-accent-red"
+              onClick={() => navigate("/expenses")}
+            />
+            <Link
+              to="/pending"
+              className="rounded-2xl bg-bg-card p-4 transition hover:bg-bg-muted"
+            >
               <Clock className="mb-4 h-6 w-6 text-accent-yellow" />
-              <strong className="block text-xl">{formatCurrency(dashboard.pendingTotal)}</strong>
-              <span className="text-sm text-text-secondary">Contas Pendentes</span>
+              <strong className="block text-xl">
+                {formatCurrency(dashboard.pendingTotal)}
+              </strong>
+              <span className="text-sm text-text-secondary">
+                Contas Pendentes
+              </span>
             </Link>
-            <SummaryCard icon={PiggyBank} label="Taxa de Poupança" value={`${dashboard.savingsRate.toFixed(1)}%`} iconClassName="text-accent-lime" />
+            <SummaryCard
+              icon={PiggyBank}
+              label="Taxa de Poupança"
+              value={`${dashboard.savingsRate.toFixed(1)}%`}
+              iconClassName="text-accent-lime"
+            />
           </div>
 
           <div className="rounded-2xl bg-bg-card p-5">
             <div className="mb-5 flex items-center justify-between gap-3">
               <h2 className="font-sans text-xl font-bold">Evolução Mensal</h2>
               <div className="flex gap-4 text-xs text-text-secondary">
-                <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-accent-lime" /> Entradas</span>
-                <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-accent-orange" /> Saídas</span>
+                <span className="flex items-center gap-2">
+                  <i className="h-2.5 w-2.5 rounded-full bg-accent-lime" />{" "}
+                  Entradas
+                </span>
+                <span className="flex items-center gap-2">
+                  <i className="h-2.5 w-2.5 rounded-full bg-accent-orange" />{" "}
+                  Saídas
+                </span>
               </div>
             </div>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={dashboard.monthlyEvolution}>
                   <defs>
-                    <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#A3E635" stopOpacity={0.18} />
+                    <linearGradient
+                      id="incomeGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="5%"
+                        stopColor="#A3E635"
+                        stopOpacity={0.18}
+                      />
                       <stop offset="95%" stopColor="#A3E635" stopOpacity={0} />
                     </linearGradient>
-                    <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#F97316" stopOpacity={0.18} />
+                    <linearGradient
+                      id="expenseGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="5%"
+                        stopColor="#F97316"
+                        stopOpacity={0.18}
+                      />
                       <stop offset="95%" stopColor="#F97316" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="month" stroke="#9CA3AF" tickLine={false} axisLine={false} />
-                  <YAxis stroke="#9CA3AF" tickLine={false} axisLine={false} tickFormatter={formatCompact} />
+                  <XAxis
+                    dataKey="month"
+                    stroke="#9CA3AF"
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    stroke="#9CA3AF"
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={formatCompact}
+                  />
                   <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" name="Entradas" dataKey="income" stroke="#A3E635" fill="url(#incomeGradient)" strokeWidth={2} />
-                  <Area type="monotone" name="Saídas" dataKey="expense" stroke="#F97316" fill="url(#expenseGradient)" strokeWidth={2} />
+                  <Area
+                    type="monotone"
+                    name="Entradas"
+                    dataKey="income"
+                    stroke="#A3E635"
+                    fill="url(#incomeGradient)"
+                    strokeWidth={2}
+                  />
+                  <Area
+                    type="monotone"
+                    name="Saídas"
+                    dataKey="expense"
+                    stroke="#F97316"
+                    fill="url(#expenseGradient)"
+                    strokeWidth={2}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -447,19 +611,34 @@ export function DashboardPage() {
 
           <div className="rounded-2xl bg-bg-card p-5">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-sans text-xl font-bold">Gastos por Categoria</h2>
-              <Link to="/expenses" className="text-sm font-semibold text-accent-lime">Ver todas</Link>
+              <h2 className="font-sans text-xl font-bold">
+                Gastos por Categoria
+              </h2>
+              <Link
+                to="/expenses"
+                className="text-sm font-semibold text-accent-lime"
+              >
+                Ver todas
+              </Link>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               {dashboard.categories.slice(0, 6).map((category) => (
                 <div key={category.id} className="rounded-xl bg-bg-muted p-4">
                   <div className="flex items-center gap-3">
-                    <span className="grid h-10 w-10 place-items-center rounded-xl" style={{ backgroundColor: `${category.color}22` }}>
-                      <ReceiptText className="h-5 w-5" style={{ color: category.color }} />
+                    <span
+                      className="grid h-10 w-10 place-items-center rounded-xl"
+                      style={{ backgroundColor: `${category.color}22` }}
+                    >
+                      <ReceiptText
+                        className="h-5 w-5"
+                        style={{ color: category.color }}
+                      />
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold">{category.name}</p>
-                      <p className="text-sm text-text-secondary">{formatCurrency(category.amount)}</p>
+                      <p className="text-sm text-text-secondary">
+                        {formatCurrency(category.amount)}
+                      </p>
                     </div>
                   </div>
                   <div className="mt-4 h-2 rounded-full bg-bg-overlay">
@@ -478,27 +657,59 @@ export function DashboardPage() {
 
           <div className="rounded-2xl bg-bg-card p-5">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-sans text-xl font-bold">Últimas Transações</h2>
-              <Link to="/transactions" className="text-sm font-semibold text-accent-lime">Ver todas</Link>
+              <h2 className="font-sans text-xl font-bold">
+                Últimas Transações
+              </h2>
+              <Link
+                to="/transactions"
+                className="text-sm font-semibold text-accent-lime"
+              >
+                Ver todas
+              </Link>
             </div>
             <div className="divide-y divide-bg-muted">
               {dashboard.recentTransactions.map((transaction) => (
-                <div key={transaction.id} className="flex items-center gap-3 py-4">
-                  <span className="grid h-11 w-11 place-items-center rounded-xl" style={{ backgroundColor: `${transaction.categoryColor}22` }}>
+                <div
+                  key={transaction.id}
+                  className="flex items-center gap-3 py-4"
+                >
+                  <span
+                    className="grid h-11 w-11 place-items-center rounded-xl"
+                    style={{
+                      backgroundColor: `${transaction.categoryColor}22`,
+                    }}
+                  >
                     {transaction.type === "INCOME" ? (
-                      <TrendingUp className="h-5 w-5" style={{ color: transaction.categoryColor }} />
+                      <TrendingUp
+                        className="h-5 w-5"
+                        style={{ color: transaction.categoryColor }}
+                      />
                     ) : (
-                      <TrendingDown className="h-5 w-5" style={{ color: transaction.categoryColor }} />
+                      <TrendingDown
+                        className="h-5 w-5"
+                        style={{ color: transaction.categoryColor }}
+                      />
                     )}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">{transaction.categoryName}</p>
+                    <p className="truncate font-semibold">
+                      {transaction.categoryName}
+                    </p>
                     <p className="truncate text-sm text-text-secondary">
-                      {transaction.description || "Sem descrição"} · {formatDate(transaction.date)}
+                      {transaction.description || "Sem descrição"} ·{" "}
+                      {formatDate(transaction.date)}
                     </p>
                   </div>
-                  <strong className={cn("text-sm", transaction.type === "INCOME" ? "text-accent-lime" : "text-accent-red")}>
-                    {transaction.type === "INCOME" ? "+" : "-"} {formatCurrency(transaction.amount)}
+                  <strong
+                    className={cn(
+                      "text-sm",
+                      transaction.type === "INCOME"
+                        ? "text-accent-lime"
+                        : "text-accent-red",
+                    )}
+                  >
+                    {transaction.type === "INCOME" ? "+" : "-"}{" "}
+                    {formatCurrency(transaction.amount)}
                   </strong>
                 </div>
               ))}
@@ -515,14 +726,22 @@ function SummaryCard({
   label,
   value,
   iconClassName,
+  onClick,
 }: {
   icon: typeof Wallet;
   label: string;
   value: string;
   iconClassName: string;
+  onClick?: () => void;
 }) {
   return (
-    <div className="rounded-2xl bg-bg-card p-4">
+    <div
+      onClick={onClick}
+      className={cn(
+        "rounded-2xl bg-bg-card p-4",
+        onClick && "cursor-pointer transition hover:bg-bg-muted",
+      )}
+    >
       <Icon className={cn("mb-4 h-6 w-6", iconClassName)} />
       <strong className="block text-xl">{value}</strong>
       <span className="text-sm text-text-secondary">{label}</span>

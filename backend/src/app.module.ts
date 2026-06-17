@@ -30,7 +30,7 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
       },
       inject: [ConfigService],
     }),
-    ThrottlerModule.forRoot({ ttl: 60, limit: 100 }),
+    ThrottlerModule.forRoot({ throttlers: [{ ttl: 60, limit: 100 }], default: { ttl: 60, limit: 100 } }),
     AuthModule,
     UsersModule,
     CategoriesModule,
