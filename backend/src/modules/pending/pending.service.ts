@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { PendingAccount, PendingAccountDocument } from './schemas/pending-account.schema';
@@ -43,14 +43,6 @@ export class PendingService {
       recorrencia: dto.recorrencia,
     });
     return created.save();
-  }
-    return this.pendingModel.create({
-      userId: new Types.ObjectId(userId),
-      title: dto.title,
-      value: dto.value,
-      dueDate: new Date(dto.dueDate),
-      description: dto.description,
-    });
   }
 
   async findAll(userId: string, paid?: boolean) {

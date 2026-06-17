@@ -75,6 +75,12 @@ export function PendingPage() {
     value: "",
     dueDate: "",
     description: "",
+    isParcelada: false,
+    isRecorrente: false,
+    categoria: "Outro",
+    formatoPagamento: "Outro",
+    parcelas: { totalParcelas: "", dataInicio: "", dataFim: "" },
+    recorrencia: { periodoRecorrencia: "Mensal", dataProxima: "" },
   });
 
   // ✅ state dos campos do formulário
@@ -82,6 +88,12 @@ export function PendingPage() {
   const [formValue, setFormValue] = useState("");
   const [formDueDate, setFormDueDate] = useState("");
   const [formDescription, setFormDescription] = useState("");
+  const [formIsParcelada, setFormIsParcelada] = useState(false);
+  const [formParcelas, setFormParcelas] = useState({ totalParcelas: "", dataInicio: "", dataFim: "" });
+  const [formIsRecorrente, setFormIsRecorrente] = useState(false);
+  const [formRecorrencia, setFormRecorrencia] = useState({ periodoRecorrencia: "Mensal", dataProxima: "" });
+  const [formCategoria, setFormCategoria] = useState("Outro");
+  const [formFormatoPagamento, setFormFormatoPagamento] = useState("Outro");
 
   const pendingQuery = useQuery<PendingItem[]>({
     queryKey: ["pending"],
@@ -185,6 +197,23 @@ export function PendingPage() {
         value: parseFloat(editFormData.value),
         dueDate: new Date(editFormData.dueDate).toISOString(),
         description: editFormData.description.trim() || undefined,
+        isParcelada: editFormData.isParcelada,
+        isRecorrente: editFormData.isRecorrente,
+        categoria: editFormData.categoria,
+        formatoPagamento: editFormData.formatoPagamento,
+        parcelas: editFormData.isParcelada
+          ? {
+              totalParcelas: Number(editFormData.parcelas.totalParcelas),
+              dataInicio: editFormData.parcelas.dataInicio,
+              dataFim: editFormData.parcelas.dataFim,
+            }
+          : undefined,
+        recorrencia: editFormData.isRecorrente
+          ? {
+              periodoRecorrencia: editFormData.recorrencia.periodoRecorrencia,
+              dataProxima: editFormData.recorrencia.dataProxima,
+            }
+          : undefined,
       },
     });
   }
@@ -202,6 +231,23 @@ export function PendingPage() {
         value: parseFloat(formValue),
         dueDate: new Date(formDueDate).toISOString(),
         description: formDescription.trim() || undefined,
+        isParcelada: formIsParcelada,
+        isRecorrente: formIsRecorrente,
+        categoria: formCategoria,
+        formatoPagamento: formFormatoPagamento,
+        parcelas: formIsParcelada
+          ? {
+              totalParcelas: Number(formParcelas.totalParcelas),
+              dataInicio: formParcelas.dataInicio,
+              dataFim: formParcelas.dataFim,
+            }
+          : undefined,
+        recorrencia: formIsRecorrente
+          ? {
+              periodoRecorrencia: formRecorrencia.periodoRecorrencia,
+              dataProxima: formRecorrencia.dataProxima,
+            }
+          : undefined,
       });
     },
     onSuccess: async () => {

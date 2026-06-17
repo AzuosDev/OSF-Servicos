@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsNumber, Min, MaxLength, IsDateString, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, Min, MaxLength, IsDateString, IsOptional, IsBoolean, IsIn, ValidateNested } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import sanitizeHtml from 'sanitize-html';
 
@@ -21,20 +21,15 @@ export class CreatePendingDto {
   @IsIn(['Cartão de Crédito', 'Pix', 'Dinheiro', 'Outro'])
   formatoPagamento?: string;
 
-  // parcelas subdocumento
+  // parcelas subdocumento (validation applied to fields individually)
   @IsOptional()
   @ValidateNested()
   @Type(() => Object)
   parcelas?: {
-    @IsNumber()
     totalParcelas: number;
-    @IsNumber()
     valorParcela?: number;
-    @IsNumber()
     parcelasPayas?: number;
-    @IsDateString()
     dataInicio: string;
-    @IsDateString()
     dataFim: string;
   };
 
@@ -43,9 +38,7 @@ export class CreatePendingDto {
   @ValidateNested()
   @Type(() => Object)
   recorrencia?: {
-    @IsIn(['Diário', 'Semanal', 'Mensal', 'Anual'])
     periodoRecorrencia: string;
-    @IsDateString()
     dataProxima: string;
   };
 

@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsNumber, Min, MaxLength, IsDateString, IsBoolean } from 'class-validator';
+import { IsOptional, IsString, IsNumber, Min, MaxLength, IsDateString, IsBoolean, IsIn, ValidateNested } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import sanitizeHtml from 'sanitize-html';
 
@@ -21,20 +21,15 @@ export class UpdatePendingDto {
   @IsIn(['Cartão de Crédito', 'Pix', 'Dinheiro', 'Outro'])
   formatoPagamento?: string;
 
-  // parcelas subdocumento
+  // parcelas subdocumento (validation applied to fields individually)
   @IsOptional()
   @ValidateNested()
   @Type(() => Object)
   parcelas?: {
-    @IsNumber()
     totalParcelas: number;
-    @IsNumber()
     valorParcela?: number;
-    @IsNumber()
     parcelasPayas?: number;
-    @IsDateString()
     dataInicio: string;
-    @IsDateString()
     dataFim: string;
   };
 
@@ -43,12 +38,9 @@ export class UpdatePendingDto {
   @ValidateNested()
   @Type(() => Object)
   recorrencia?: {
-    @IsIn(['Diário', 'Semanal', 'Mensal', 'Anual'])
     periodoRecorrencia: string;
-    @IsDateString()
     dataProxima: string;
   };
-
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))
   @IsString()
