@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsNumber, Min, MaxLength, IsDateString, IsOptional, IsBoolean, IsIn, ValidateNested } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, Min, MaxLength, IsDateString, IsOptional, IsBoolean, IsIn, ValidateNested, ValidateIf } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import sanitizeHtml from 'sanitize-html';
 
@@ -23,6 +23,7 @@ export class CreatePendingDto {
 
   // parcelas subdocumento (validation applied to fields individually)
   @IsOptional()
+  @ValidateIf(o => o.isParcelada)
   @ValidateNested()
   @Type(() => Object)
   parcelas?: {
@@ -37,6 +38,7 @@ export class CreatePendingDto {
   @IsOptional()
   @ValidateNested()
   @Type(() => Object)
+  @ValidateIf(o => o.isRecorrente)
   recorrencia?: {
     periodoRecorrencia: string;
     dataProxima: string;

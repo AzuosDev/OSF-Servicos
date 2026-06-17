@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsNumber, Min, MaxLength, IsDateString, IsBoolean, IsIn, ValidateNested } from 'class-validator';
+import { IsOptional, IsString, IsNumber, Min, MaxLength, IsDateString, IsBoolean, IsIn, ValidateNested, ValidateIf } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import sanitizeHtml from 'sanitize-html';
 
@@ -23,6 +23,7 @@ export class UpdatePendingDto {
 
   // parcelas subdocumento (validation applied to fields individually)
   @IsOptional()
+  @ValidateIf(o => o.isParcelada)
   @ValidateNested()
   @Type(() => Object)
   parcelas?: {
