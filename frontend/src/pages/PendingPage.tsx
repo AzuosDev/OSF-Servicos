@@ -98,8 +98,10 @@ export function PendingPage() {
   const [formParcelas, setFormParcelas] = useState({ totalParcelas: "", dataInicio: "", dataFim: "" });
   const [formIsRecorrente, setFormIsRecorrente] = useState(false);
   const [formRecorrencia, setFormRecorrencia] = useState({ periodoRecorrencia: "Mensal", dataProxima: "" });
-  const [formCategoria, setFormCategoria] = useState("Outro");
-  const [formFormatoPagamento, setFormFormatoPagamento] = useState("Outro");
+  const [formCategoria, setFormCategoria] = useState("");
+  const [formFormatoPagamento, setFormFormatoPagamento] = useState("");
+  const [categoriaCustom, setCategoriaCustom] = useState("");
+  const [formaCustom, setFormaCustom] = useState("");
 
   const pendingQuery = useQuery<PendingItem[]>({
     queryKey: ["pending"],
@@ -239,8 +241,8 @@ export function PendingPage() {
         description: formDescription.trim() || undefined,
         isParcelada: formIsParcelada,
         isRecorrente: formIsRecorrente,
-        categoria: formCategoria,
-        formatoPagamento: formFormatoPagamento,
+        categoria: formCategoria && formCategoria !== "Outro" ? formCategoria : categoriaCustom,
+        formatoPagamento: formFormatoPagamento && formFormatoPagamento !== "Outro" ? formFormatoPagamento : formaCustom,
         parcelas: formIsParcelada
           ? {
               totalParcelas: Number(formParcelas.totalParcelas),
@@ -428,43 +430,73 @@ export function PendingPage() {
             </p>
             <div className="mt-4 space-y-3">
               {/* ✅ inputs controlados com state */}
-                {/* Checkbox Parcelada */}
-                <div className="flex items-center space-x-2">
-                  <input
-                    id="isParcelada"
-                    type="checkbox"
-                    checked={formIsParcelada}
-                    onChange={(e) => setFormIsParcelada(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-accent-lime focus:ring-accent-lime"
-                  />
-                  <label htmlFor="isParcelada" className="text-sm text-white">É parcelada?</label>
+                {/* Segmented control for account type */}
+                <div className="flex space-x-1 rounded-xl bg-bg-muted p-1 mb-4">
+                  {['Não parcelada', 'Parcelada', 'Recorrente'].map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      className={`flex-1 rounded px-3 py-2 text-sm font-medium ${
+                        (formIsParcelada && type === 'Parcelada') ||
+                        (formIsRecorrente && type === 'Recorrente') ||
+                        (!formIsParcelada && !formIsRecorrente && type === 'Não parcelada')
+                          ? 'bg-accent-lime text-black'
+                          : 'text-white'
+                      }`}
+                      onClick={() => {
+                        setFormIsParcelada(type === 'Parcelada');
+                        setFormIsRecorrente(type === 'Recorrente');
+                      }}
+                    >
+                      {type}
+                    </button>
+                  ))}
                 </div>
+                {/* Conditional fields */}
                 {formIsParcelada && (
-                  <div className="mt-2 space-y-2">
+                  <div className="space-y-2 mb-4">
+                    <label className="block text-sm text-white">Valor total</label>
                     <input
                       type="number"
-                      min="1"
-                      placeholder="Quantas parcelas?"
+                      placeholder="Valor total"
                       className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                      value={formValue}
+                      onChange={(e) => setFormValue(e.target.value)}
+                    />
+                    <label className="block text-sm text-white">Quantidade de parcelas</label>
+                    <select
                       value={formParcelas.totalParcelas}
                       onChange={(e) => setFormParcelas(prev => ({ ...prev, totalParcelas: e.target.value }))}
-                    />
-                    {/* Valor total já está no campo Valor acima */}
+                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                    >
+                      <option value="">Selecione</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="6">6</option>
+                      <option value="12">12</option>
+                      <option value="24">24</option>
+                      <option value="Outro">Outro</option>
+                    </select>
+                    {formParcelas.totalParcelas === 'Outro' && (
+                      <input
+                        type="number"
+                        placeholder="Outras parcelas"
+                        className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                        value={formParcelas.totalParcelas}
+                        onChange={(e) => setFormParcelas(prev => ({ ...prev, totalParcelas: e.target.value }))}
+                      />
+                    )}
+                    {/* Valor da parcela (readonly) */}
+                    {formParcelas.totalParcelas && formValue && (
+                      <p className="text-sm text-text-secondary">
+                        Valor da parcela: {(parseFloat(formValue) / Number(formParcelas.totalParcelas)).toFixed(2)}
+                      </p>
+                    )}
                   </div>
                 )}
-                {/* Checkbox Recorrente */}
-                <div className="flex items-center space-x-2 mt-2">
-                  <input
-                    id="isRecorrente"
-                    type="checkbox"
-                    checked={formIsRecorrente}
-                    onChange={(e) => setFormIsRecorrente(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-accent-lime focus:ring-accent-lime"
-                  />
-                  <label htmlFor="isRecorrente" className="text-sm text-white">É recorrente?</label>
-                </div>
                 {formIsRecorrente && (
-                  <div className="mt-2 space-y-2">
+                  <div className="space-y-2 mb-4">
+                    <label className="block text-sm text-white">Período de recorrência</label>
                     <select
                       value={formRecorrencia.periodoRecorrencia}
                       onChange={(e) => setFormRecorrencia(prev => ({ ...prev, periodoRecorrencia: e.target.value }))}
@@ -475,21 +507,27 @@ export function PendingPage() {
                       <option value="Mensal">Mensal</option>
                       <option value="Anual">Anual</option>
                     </select>
+                    <label className="block text-sm text-white">Próxima data</label>
                     <input
                       type="date"
-                      placeholder="Próxima data"
                       className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
                       value={formRecorrencia.dataProxima}
                       onChange={(e) => setFormRecorrencia(prev => ({ ...prev, dataProxima: e.target.value }))}
                     />
                   </div>
                 )}
-                {/* Dropdown Categoria */}
+                {/* Categoria with label and optional custom field */}
+                <label className="block text-sm text-white mt-2">Categoria</label>
                 <select
                   value={formCategoria}
-                  onChange={(e) => setFormCategoria(e.target.value)}
-                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white mt-2"
+                  onChange={(e) => {
+                    setFormCategoria(e.target.value);
+                    if (e.target.value !== 'Outro') setCategoriaCustom('');
+                  }}
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
                 >
+                  <option value="">Selecione</option>
+                  <option value="Moradia">Moradia</option>
                   <option value="Alimentação">Alimentação</option>
                   <option value="Transporte">Transporte</option>
                   <option value="Saúde">Saúde</option>
@@ -497,46 +535,39 @@ export function PendingPage() {
                   <option value="Lazer">Lazer</option>
                   <option value="Outro">Outro</option>
                 </select>
-                {/* Dropdown Forma de pagamento */}
+                {formCategoria === 'Outro' && (
+                  <input
+                    type="text"
+                    placeholder="Digite a categoria personalizada"
+                    className="mt-1 w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                    value={categoriaCustom}
+                    onChange={(e) => setCategoriaCustom(e.target.value)}
+                  />
+                )}
+                {/* Forma de pagamento with label and optional custom field */}
+                <label className="block text-sm text-white mt-2">Forma de pagamento</label>
                 <select
                   value={formFormatoPagamento}
-                  onChange={(e) => setFormFormatoPagamento(e.target.value)}
-                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white mt-2"
+                  onChange={(e) => {
+                    setFormFormatoPagamento(e.target.value);
+                    if (e.target.value !== 'Outro') setFormaCustom('');
+                  }}
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
                 >
+                  <option value="">Selecione</option>
                   <option value="Cartão de Crédito">Cartão de Crédito</option>
                   <option value="Pix">Pix</option>
                   <option value="Dinheiro">Dinheiro</option>
                   <option value="Outro">Outro</option>
                 </select>
-                {/* Checkbox Parcelada */}
-                <div className="flex items-center space-x-2">
+                {formFormatoPagamento === 'Outro' && (
                   <input
-                    id="isParcelada"
-                    type="checkbox"
-                    checked={formIsParcelada}
-                    onChange={(e) => setFormIsParcelada(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-accent-lime focus:ring-accent-lime"
+                    type="text"
+                    placeholder="Digite a forma de pagamento personalizada"
+                    className="mt-1 w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                    value={formaCustom}
+                    onChange={(e) => setFormaCustom(e.target.value)}
                   />
-                  <label htmlFor="isParcelada" className="text-sm text-white">É parcelada?</label>
-                </div>
-                {formIsParcelada && (
-                  <div className="mt-2 space-y-2">
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="Quantas parcelas?"
-                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                      value={formParcelas.totalParcelas}
-                      onChange={(e) => setFormParcelas(prev => ({ ...prev, totalParcelas: e.target.value }))}
-                    />
-                    <input
-                      type="number"
-                      placeholder="Valor total"
-                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                      value={formValue}
-                      onChange={(e) => setFormValue(e.target.value)}
-                    />
-                  </div>
                 )}
               <input
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
