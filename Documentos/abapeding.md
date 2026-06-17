@@ -92,7 +92,7 @@ Estenda o schema com EXATAMENTE estes novos campos:
    - parcelasPayas: number (default: 0)
    - dataInicio: Date
    - dataFim: Date
-6. Se isRecorrente === true, adicione SUBFILA:
+   ILA:
    - periodoRecorrencia: string (enum: ['Diário', 'Semanal', 'Mensal', 'Anual'], default: 'Mensal')
    - dataProxima: Date (próxima ocorrência)
 
