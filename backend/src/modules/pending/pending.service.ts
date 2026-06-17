@@ -10,6 +10,40 @@ export class PendingService {
   constructor(@InjectModel(PendingAccount.name) private pendingModel: Model<PendingAccountDocument>) {}
 
   async create(userId: string, dto: CreatePendingDto) {
+    // validações condicionais para novos campos
+    if (dto.isParcelada) {
+      if (!dto.parcelas) {
+        throw new BadRequestException('Parcelas são obrigatórias quando isParcelada = true');
+      }
+      const { totalParcelas, dataInicio, dataFim } = dto.parcelas;
+      if (totalParcelas <= 0) {
+        throw new BadRequestException('totalParcelas deve ser maior que zero');
+      }
+      // calcula valor da parcela
+      dto.parcelas.valorParcela = Number((dto.value / totalParcelas).toFixed(2));
+    }
+    if (dto.isRecorrente) {
+      if (!dto.recorrencia) {
+        throw new BadRequestException('Recorrência é obrigatória quando isRecorrente = true');
+      }
+    }
+    // cria documento com todos os campos
+    const created = new this.pendingModel({
+      userId: new Types.ObjectId(userId),
+      title: dto.title,
+      value: dto.value,
+      dueDate: new Date(dto.dueDate),
+      description: dto.description,
+      paid: false,
+      isParcelada: dto.isParcelada,
+      isRecorrente: dto.isRecorrente,
+      categoria: dto.categoria,
+      formatoPagamento: dto.formatoPagamento,
+      parcelas: dto.parcelas,
+      recorrencia: dto.recorrencia,
+    });
+    return created.save();
+  }
     return this.pendingModel.create({
       userId: new Types.ObjectId(userId),
       title: dto.title,
