@@ -89,6 +89,49 @@ export type PendingAccount = MongoDocument & {
     dataProxima: string; // ISO date
   };
 
+  /**
+   * Indica se a conta é parcelada.
+   * @default false
+   */
+  isParcelada?: boolean;
+
+  /**
+   * Indica se a conta é recorrente.
+   * @default false
+   */
+  isRecorrente?: boolean;
+
+  /**
+   * Categoria da conta.
+   * @default 'Outro'
+   */
+  categoria?: 'Alimentação' | 'Transporte' | 'Saúde' | 'Educação' | 'Lazer' | 'Outro';
+
+  /**
+   * Forma de pagamento.
+   * @default 'Outro'
+   */
+  formatoPagamento?: 'Cartão de Crédito' | 'Pix' | 'Dinheiro' | 'Outro';
+
+  /**
+   * Sub‑documento de parcelas – presente somente se isParcelada = true.
+   */
+  parcelas?: {
+    totalParcelas: number;
+    valorParcela: number;
+    parcelasPayas?: number;
+    dataInicio: string; // ISO date
+    dataFim: string;    // ISO date
+  };
+
+  /**
+   * Sub‑documento de recorrência – presente somente se isRecorrente = true.
+   */
+  recorrencia?: {
+    periodoRecorrencia: 'Diário' | 'Semanal' | 'Mensal' | 'Anual';
+    dataProxima: string; // ISO date
+  };
+
   userId: ApiId;
   title: string;
   value: number;
