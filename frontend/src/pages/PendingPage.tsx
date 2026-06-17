@@ -10,6 +10,12 @@ import { ConfirmDeleteModal } from "../components/modals/ConfirmDeleteModal";
 import type { PendingAccount } from "../types/api";
 
 type PendingItem = {
+  isParcelada?: boolean;
+  isRecorrente?: boolean;
+  categoria?: string;
+  formatoPagamento?: string;
+  parcelas?: { totalParcelas?: number; valorParcela?: number; dataInicio?: string; dataFim?: string; };
+  recorrencia?: { periodoRecorrencia?: string; dataProxima?: string; };
   id: string;
   title: string;
   value: number;
@@ -327,6 +333,21 @@ export function PendingPage() {
                 )}
               >
                 <div className="flex items-start gap-3">
+                    {/* Ícones de Parcelada e Recorrente */}
+                    {item.isParcelada && (
+                      <span className="ml-2 rounded-full bg-accent-lime px-2.5 py-0.5 text-xs font-medium text-white">Parcelada</span>
+                    )}
+                    {item.isRecorrente && (
+                      <span className="ml-2 rounded-full bg-accent-blue px-2.5 py-0.5 text-xs font-medium text-white">Recorrente</span>
+                    )}
+                    {/* Categoria */}
+                    {item.categoria && (
+                      <span className="ml-2 rounded-full bg-bg-muted px-2.5 py-0.5 text-xs font-medium text-white">{item.categoria}</span>
+                    )}
+                    {/* Forma de pagamento */}
+                    {item.formatoPagamento && (
+                      <span className="ml-2 rounded-full bg-bg-muted px-2.5 py-0.5 text-xs font-medium text-white">{item.formatoPagamento}</span>
+                    )}
                   <div className="rounded-2xl bg-bg-muted p-3">
                     <Clock className="h-5 w-5 text-accent-lime" />
                   </div>
@@ -407,6 +428,116 @@ export function PendingPage() {
             </p>
             <div className="mt-4 space-y-3">
               {/* ✅ inputs controlados com state */}
+                {/* Checkbox Parcelada */}
+                <div className="flex items-center space-x-2">
+                  <input
+                    id="isParcelada"
+                    type="checkbox"
+                    checked={formIsParcelada}
+                    onChange={(e) => setFormIsParcelada(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-accent-lime focus:ring-accent-lime"
+                  />
+                  <label htmlFor="isParcelada" className="text-sm text-white">É parcelada?</label>
+                </div>
+                {formIsParcelada && (
+                  <div className="mt-2 space-y-2">
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Quantas parcelas?"
+                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                      value={formParcelas.totalParcelas}
+                      onChange={(e) => setFormParcelas(prev => ({ ...prev, totalParcelas: e.target.value }))}
+                    />
+                    {/* Valor total já está no campo Valor acima */}
+                  </div>
+                )}
+                {/* Checkbox Recorrente */}
+                <div className="flex items-center space-x-2 mt-2">
+                  <input
+                    id="isRecorrente"
+                    type="checkbox"
+                    checked={formIsRecorrente}
+                    onChange={(e) => setFormIsRecorrente(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-accent-lime focus:ring-accent-lime"
+                  />
+                  <label htmlFor="isRecorrente" className="text-sm text-white">É recorrente?</label>
+                </div>
+                {formIsRecorrente && (
+                  <div className="mt-2 space-y-2">
+                    <select
+                      value={formRecorrencia.periodoRecorrencia}
+                      onChange={(e) => setFormRecorrencia(prev => ({ ...prev, periodoRecorrencia: e.target.value }))}
+                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                    >
+                      <option value="Diário">Diário</option>
+                      <option value="Semanal">Semanal</option>
+                      <option value="Mensal">Mensal</option>
+                      <option value="Anual">Anual</option>
+                    </select>
+                    <input
+                      type="date"
+                      placeholder="Próxima data"
+                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                      value={formRecorrencia.dataProxima}
+                      onChange={(e) => setFormRecorrencia(prev => ({ ...prev, dataProxima: e.target.value }))}
+                    />
+                  </div>
+                )}
+                {/* Dropdown Categoria */}
+                <select
+                  value={formCategoria}
+                  onChange={(e) => setFormCategoria(e.target.value)}
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white mt-2"
+                >
+                  <option value="Alimentação">Alimentação</option>
+                  <option value="Transporte">Transporte</option>
+                  <option value="Saúde">Saúde</option>
+                  <option value="Educação">Educação</option>
+                  <option value="Lazer">Lazer</option>
+                  <option value="Outro">Outro</option>
+                </select>
+                {/* Dropdown Forma de pagamento */}
+                <select
+                  value={formFormatoPagamento}
+                  onChange={(e) => setFormFormatoPagamento(e.target.value)}
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white mt-2"
+                >
+                  <option value="Cartão de Crédito">Cartão de Crédito</option>
+                  <option value="Pix">Pix</option>
+                  <option value="Dinheiro">Dinheiro</option>
+                  <option value="Outro">Outro</option>
+                </select>
+                {/* Checkbox Parcelada */}
+                <div className="flex items-center space-x-2">
+                  <input
+                    id="isParcelada"
+                    type="checkbox"
+                    checked={formIsParcelada}
+                    onChange={(e) => setFormIsParcelada(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-accent-lime focus:ring-accent-lime"
+                  />
+                  <label htmlFor="isParcelada" className="text-sm text-white">É parcelada?</label>
+                </div>
+                {formIsParcelada && (
+                  <div className="mt-2 space-y-2">
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Quantas parcelas?"
+                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                      value={formParcelas.totalParcelas}
+                      onChange={(e) => setFormParcelas(prev => ({ ...prev, totalParcelas: e.target.value }))}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Valor total"
+                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                      value={formValue}
+                      onChange={(e) => setFormValue(e.target.value)}
+                    />
+                  </div>
+                )}
               <input
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
                 placeholder="Título"
