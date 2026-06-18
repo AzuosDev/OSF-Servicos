@@ -1,23 +1,26 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
-import helmet from 'helmet';
-import { ConfigService } from '@nestjs/config';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import dns from "dns";
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
+
+import { NestFactory } from "@nestjs/core";
+import { AppModule } from "./app.module";
+import { ValidationPipe } from "@nestjs/common";
+import helmet from "helmet";
+import { ConfigService } from "@nestjs/config";
+import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
-  const configuredOrigins = (configService.get<string>('FRONTEND_URL') ?? '')
-    .split(',')
-    .map((origin) => origin.trim().replace(/\/$/, ''))
+  const configuredOrigins = (configService.get<string>("FRONTEND_URL") ?? "")
+    .split(",")
+    .map((origin) => origin.trim().replace(/\/$/, ""))
     .filter(Boolean);
 
   const allowedOrigins = new Set([
     ...configuredOrigins,
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'https://meugasto.vercel.app'
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://meugasto.vercel.app",
   ]);
 
   app.use(helmet());
@@ -28,8 +31,9 @@ async function bootstrap() {
         return;
       }
 
-      const normalizedOrigin = origin.replace(/\/$/, '');
-      const isGithubDevOrigin = /^https:\/\/[a-z0-9-]+\.app\.github\.dev$/i.test(normalizedOrigin);
+      const normalizedOrigin = origin.replace(/\/$/, "");
+      const isGithubDevOrigin =
+        /^https:\/\/[a-z0-9-]+\.app\.github\.dev$/i.test(normalizedOrigin);
 
       if (allowedOrigins.has(normalizedOrigin) || isGithubDevOrigin) {
         callback(null, true);
@@ -49,16 +53,19 @@ async function bootstrap() {
     }),
   );
 
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== "production") {
     const swaggerConfig = new DocumentBuilder()
-      .setTitle('ContaCerta API')
-      .setDescription('ContaCerta backend API')
-      .setVersion('1.0')
-      .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'Authorization')
+      .setTitle("ContaCerta API")
+      .setDescription("ContaCerta backend API")
+      .setVersion("1.0")
+      .addBearerAuth(
+        { type: "http", scheme: "bearer", bearerFormat: "JWT" },
+        "Authorization",
+      )
       .build();
 
     const document = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup('api/docs', app, document);
+    SwaggerModule.setup("api/docs", app, document);
   }
 
   await app.listen(3000);
