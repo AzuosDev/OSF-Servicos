@@ -7,6 +7,7 @@ export function ModalShell({
   icon,
   onClose,
   children,
+  footer,
   containerClassName = "",
 }: {
   open: boolean;
@@ -14,6 +15,7 @@ export function ModalShell({
   icon: ReactNode;
   onClose: () => void;
   children: ReactNode;
+  footer?: ReactNode;
   containerClassName?: string;
 }) {
   if (!open) {
@@ -21,28 +23,36 @@ export function ModalShell({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm">
-      <div className={`max-h-[90vh] w-full max-w-lg flex flex-col rounded-2xl border border-bg-muted bg-bg-card p-5 shadow-2xl ${containerClassName}`}>
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              {icon}
-              <h2 className="font-sans text-xl font-bold text-white">{title}</h2>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="grid h-9 w-9 place-items-center rounded-xl text-text-secondary hover:bg-bg-overlay hover:text-white"
-              aria-label="Fechar modal"
-            >
-              <X className="h-5 w-5" />
-            </button>
+    <div className="fixed inset-0 z-50 flex justify-center items-start overflow-y-auto bg-black/60 backdrop-blur-sm p-4">
+      <div
+        className={`relative w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl border border-bg-muted bg-bg-card shadow-2xl ${containerClassName}`}
+      >
+        {/* Cabeçalho fixo */}
+        <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 shrink-0">
+          <div className="flex items-center gap-3">
+            {icon}
+            <h2 className="font-sans text-lg font-bold text-white">{title}</h2>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-9 w-9 place-items-center rounded-xl text-text-secondary hover:bg-bg-overlay hover:text-white"
+            aria-label="Fechar modal"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
 
-        {children}
+        {/* Corpo com scroll */}
+        <div className="flex-1 overflow-y-auto px-5 py-3">{children}</div>
+
+        {/* Footer fixo (se fornecido) */}
+        {footer && (
+          <div className="shrink-0 border-t border-bg-muted px-5 py-3">
+            {footer}
+          </div>
+        )}
       </div>
-    </div>
     </div>
   );
 }
-

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { Loader2, Wallet } from "lucide-react";
 
 import { api } from "../../lib/api";
 import { getApiErrorMessages, setFieldErrorsFromApi } from "../../lib/errors";
@@ -39,6 +39,9 @@ export function PendingFormModal({
   const [formDueDate, setFormDueDate] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formParcelas, setFormParcelas] = useState<{ totalParcelas?: string }>({});
+  // State to keep a custom parcel count when user selects "Outro"
+  const [customParcelCount, setCustomParcelCount] = useState<string>("");
+  const [customParcelCount, setCustomParcelCount] = useState<string>("");
   const [formRecorrencia, setFormRecorrencia] = useState<{
     periodoRecorrencia?: string;
     dataProxima?: string;
@@ -90,9 +93,78 @@ export function PendingFormModal({
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      await api.post("/api/pending", {
+      console.log('Payload enviado:', {
+          title: formTitle,
+          value: (() => {
+            const cleaned = formValue
+              .replace(/[R$\s,]/g, "")
+              .replace(",", ".");
+            return cleaned ? Number(cleaned) : undefined;
+          })(),
+          dueDate: formDueDate,
+          description: formDescription,
+          isParcelada: formIsParcelada,
+          isRecorrente: formIsRecorrente,
+          categoria:
+            formCategoria && formCategoria !== "Outro"
+              ? formCategoria
+              : categoriaCustom || undefined,
+          formatoPagamento:
+            formForma && formForma !== "Outro" ? formForma : formaCustom || undefined,
+          parcelas: formIsParcelada
+            ? {
+                totalParcelas:
+                  formParcelas.totalParcelas === "Outro"
+                    ? Number(customParcelCount)
+                    : Number(formParcelas.totalParcelas),
+              }
+            : undefined,
+          recorrencia: formIsRecorrente
+            ? {
+                periodoRecorrencia: formRecorrencia.periodoRecorrencia,
+                dataProxima: formRecorrencia.dataProxima,
+              }
+            : undefined,
+        });
+        console.log('Payload enviado:', {
+          title: formTitle,
+          value: (() => {
+            const cleaned = formValue
+              .replace(/[R$\s,]/g, "")
+              .replace(",", ".");
+            return cleaned ? Number(cleaned) : undefined;
+          })(),
+          dueDate: formDueDate,
+          description: formDescription,
+          isParcelada: formIsParcelada,
+          isRecorrente: formIsRecorrente,
+          categoria:
+            formCategoria && formCategoria !== "Outro"
+              ? formCategoria
+              : categoriaCustom || undefined,
+          formatoPagamento:
+            formForma && formForma !== "Outro" ? formForma : formaCustom || undefined,
+          parcelas: formIsParcelada
+            ? {
+                totalParcelas:
+                  formParcelas.totalParcelas === "Outro"
+                    ? Number(customParcelCount)
+                    : Number(formParcelas.totalParcelas),
+              }
+            : undefined,
+          recorrencia: formIsRecorrente
+            ? {
+                periodoRecorrencia: formRecorrencia.periodoRecorrencia,
+                dataProxima: formRecorrencia.dataProxima,
+              }
+            : undefined,
+        });
+        await api.post("/api/pending", {
         title: formTitle,
-        value: Number(formValue),
+        value: (() => {
+          const cleaned = formValue.replace(/[R$\s,]/g, "").replace(",", ".");
+          return cleaned ? Number(cleaned) : undefined;
+        })(),
         dueDate: formDueDate,
         description: formDescription,
         isParcelada: formIsParcelada,
@@ -100,11 +172,15 @@ export function PendingFormModal({
         categoria:
           formCategoria && formCategoria !== "Outro"
             ? formCategoria
-            : categoriaCustom,
+            : categoriaCustom || undefined,
         formatoPagamento:
           formForma && formForma !== "Outro" ? formForma : formaCustom,
         parcelas: formIsParcelada
-          ? { totalParcelas: Number(formParcelas.totalParcelas) }
+          ? {
+              totalParcelas: formParcelas.totalParcelas === "Outro"
+                ? Number(customParcelCount)
+                : Number(formParcelas.totalParcelas)
+            }
           : undefined,
         recorrencia: formIsRecorrente
           ? {
@@ -121,16 +197,23 @@ export function PendingFormModal({
       onSuccess?.();
     },
     onError: (error) => {
+      // exibe no console a mensagem completa do backend
+      console.error('Erro ao salvar conta pendente:', error);
+      const msg = error?.response?.data?.message || error?.message || 'Erro desconhecido';
+      alert(msg);
+      setFieldErrorsFromApi(error, (field, msg) => console.error(field, msg));
       setFieldErrorsFromApi(error, (field, msg) => console.error(field, msg));
     },
   });
 
   const editMutation = useMutation({
     mutationFn: async () => {
-      if (!editAccount) return;
-      await api.patch(`/api/pending/${editAccount.id}`, {
+      await api.put(`/api/pending/${editAccount?.id}`, {
         title: formTitle,
-        value: Number(formValue),
+        value: (() => {
+          const cleaned = formValue.replace(/[R$\s,]/g, "").replace(",", ".");
+          return cleaned ? Number(cleaned) : undefined;
+        })(),
         dueDate: formDueDate,
         description: formDescription,
         isParcelada: formIsParcelada,
@@ -138,11 +221,15 @@ export function PendingFormModal({
         categoria:
           formCategoria && formCategoria !== "Outro"
             ? formCategoria
-            : categoriaCustom,
+            : categoriaCustom || undefined,
         formatoPagamento:
           formForma && formForma !== "Outro" ? formForma : formaCustom,
         parcelas: formIsParcelada
-          ? { totalParcelas: Number(formParcelas.totalParcelas) }
+          ? {
+              totalParcelas: formParcelas.totalParcelas === "Outro"
+                ? Number(customParcelCount)
+                : Number(formParcelas.totalParcelas)
+            }
           : undefined,
         recorrencia: formIsRecorrente
           ? {
@@ -159,20 +246,51 @@ export function PendingFormModal({
       onSuccess?.();
     },
     onError: (error) => {
+      console.error('Erro ao atualizar conta pendente:', error);
+      const msg = error?.response?.data?.message || error?.message || 'Erro desconhecido';
+      alert(msg);
       setFieldErrorsFromApi(error, (field, msg) => console.error(field, msg));
     },
   });
 
   const isSaving = createMutation.isPending || editMutation.isPending;
+  const title = editAccount ? "Editar conta pendente" : "Nova conta pendente";
 
   return (
-    <ModalShell
-      open={open}
-      onClose={onClose}
-      title={editAccount ? "Editar Conta Pendentes" : "Nova Conta Pendentes"}
-      >
-      {/* Segmented control */}
-      <div className="flex space-x-1 rounded-xl bg-bg-muted p-1 mb-4">
+    <ModalShell 
+      open={open} 
+      onClose={onClose} 
+      title={title} 
+      icon={<Wallet className="h-6 w-6 text-accent-lime" />}
+      footer={
+        <div className="flex gap-3">
+          <button
+            type="button"
+            disabled={isSaving}
+            className="flex-1 rounded-xl border border-bg-muted bg-transparent px-5 py-3 text-sm font-bold text-white transition hover:bg-bg-overlay disabled:cursor-not-allowed disabled:opacity-70"
+            onClick={onClose}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={isSaving}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+            onClick={() => (editAccount ? editMutation.mutate() : createMutation.mutate())}
+          >
+            {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {editAccount ? "Atualizar" : "Salvar"}
+          </button>
+        </div>
+      }
+    >
+      {/* Descrição */}
+      <p className="mb-4 text-sm text-text-secondary">
+        Cadastre uma conta para acompanhar o pagamento.
+      </p>
+
+      {/* Segmented Control */}
+      <div className="mb-6 flex gap-2">
         {["Não parcelada", "Parcelada", "Recorrente"].map((type) => (
           <button
             key={type}
@@ -225,7 +343,10 @@ export function PendingFormModal({
           <label className="block text-sm text-white">Quantidade de parcelas</label>
           <select
             value={formParcelas.totalParcelas ?? ""}
-            onChange={(e) => setFormParcelas({ totalParcelas: e.target.value })}
+            onChange={(e) => {
+              setFormParcelas({ totalParcelas: e.target.value });
+              setCustomParcelCount(""); // reset custom when changing option
+            }}
             className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
           >
             <option value="">Selecione</option>
@@ -241,8 +362,8 @@ export function PendingFormModal({
               type="number"
               placeholder="Outras parcelas"
               className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-              value={formParcelas.totalParcelas}
-              onChange={(e) => setFormParcelas({ totalParcelas: e.target.value })}
+              value={customParcelCount}
+              onChange={(e) => setCustomParcelCount(e.target.value)}
             />
           )}
           {formParcelas.totalParcelas && formValue && (
@@ -363,16 +484,6 @@ export function PendingFormModal({
           ))}
         </div>
       )}
-
-      <button
-        type="button"
-        disabled={isSaving}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 mt-4"
-        onClick={() => (editAccount ? editMutation.mutate() : createMutation.mutate())}
-      >
-        {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-        {editAccount ? "Atualizar" : "Salvar"}
-      </button>
     </ModalShell>
   );
 }

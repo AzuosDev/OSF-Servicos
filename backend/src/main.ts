@@ -19,6 +19,7 @@ async function bootstrap() {
   const allowedOrigins = new Set([
     ...configuredOrigins,
     "http://localhost:5173",
+    "http://localhost:5175",
     "http://127.0.0.1:5173",
     "https://meugasto.vercel.app",
   ]);
