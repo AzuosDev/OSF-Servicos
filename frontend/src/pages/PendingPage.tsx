@@ -79,6 +79,98 @@ function statusLabel(item: PendingItem) {
   return { label: "Pendente", className: "bg-bg-muted text-text-secondary" };
 }
 
+type PendingDisplayItem = PendingItem & {
+  displayDate: string;
+  displayValue: number;
+  installmentLabel?: string;
+};
+
+type PendingMonthGroup = {
+  key: string;
+  label: string;
+  items: PendingDisplayItem[];
+};
+
+function parseDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function addMonths(date: Date, months: number) {
+  const nextDate = new Date(date);
+  nextDate.setMonth(nextDate.getMonth() + months);
+  return nextDate;
+}
+
+function monthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthLabel(date: Date) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+function sortMonthGroups(a: PendingMonthGroup, b: PendingMonthGroup) {
+  return a.key.localeCompare(b.key);
+}
+
+const monthOptions = [
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
+];
+
+function expandPendingItem(item: PendingItem): PendingDisplayItem[] {
+  const totalParcelas = Number(item.parcelas?.totalParcelas ?? 0);
+  const dataInicio = item.parcelas?.dataInicio ?? item.dueDate;
+
+  if (item.isParcelada && totalParcelas > 0) {
+    const baseDate = parseDate(dataInicio) ?? parseDate(item.dueDate);
+    if (!baseDate) {
+      return [
+        {
+          ...item,
+          displayDate: item.dueDate,
+          displayValue: item.parcelas?.valorParcela ?? item.value,
+        },
+      ];
+    }
+
+    const valorParcela =
+      item.parcelas?.valorParcela ?? Number((item.value / totalParcelas).toFixed(2));
+
+    return Array.from({ length: totalParcelas }, (_, index) => {
+      const installmentDate = addMonths(baseDate, index);
+      return {
+        ...item,
+        displayDate: installmentDate.toISOString(),
+        displayValue: valorParcela,
+        installmentLabel: `parcela ${index + 1}/${totalParcelas}`,
+      };
+    });
+  }
+
+  return [
+    {
+      ...item,
+      displayDate: item.dueDate,
+      displayValue: item.value,
+    },
+  ];
+}
+
 export function PendingPage() {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
@@ -125,6 +217,37 @@ export function PendingPage() {
   });
 
   const items = pendingQuery.data ?? [];
+  const currentYear = new Date().getFullYear();
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const years = useMemo(() => Array.from({ length: 4 }, (_, index) => currentYear - index), [currentYear]);
+
+  const filteredItems = useMemo(() => {
+    return items
+      .flatMap((item) => expandPendingItem(item))
+      .filter((item) => {
+        const date = parseDate(item.displayDate);
+        return !!date && date.getMonth() + 1 === selectedMonth && date.getFullYear() === selectedYear;
+      });
+  }, [items, selectedMonth, selectedYear]);
+
+  const displayGroups = useMemo(() => {
+    const grouped = new Map<string, PendingMonthGroup>();
+
+    for (const item of filteredItems) {
+      const date = parseDate(item.displayDate);
+      if (!date) continue;
+      const key = monthKey(date);
+      const current = grouped.get(key);
+      if (current) current.items.push(item);
+      else grouped.set(key, { key, label: monthLabel(date), items: [item] });
+    }
+
+    return Array.from(grouped.values()).sort(sortMonthGroups).map((group) => ({
+      ...group,
+      items: group.items.sort((a, b) => a.displayDate.localeCompare(b.displayDate)),
+    }));
+  }, [filteredItems]);
 
   const totals = useMemo(() => {
     const pendingTotal = items
@@ -323,19 +446,43 @@ export function PendingPage() {
 
   return (
     <section className="space-y-5">
-      <header className="flex items-center justify-between gap-3">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm text-text-secondary">Itens em aberto</p>
           <h1 className="text-3xl font-bold">Contas Pendentes</h1>
         </div>
-        <button
-          type="button"
-          onClick={() => setCreating(true)}
-          className="flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black"
-        >
-          <Plus className="h-4 w-4" />
-          Nova
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className="flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black"
+          >
+            <Plus className="h-4 w-4" />
+            Nova
+          </button>
+          <select
+            value={selectedMonth}
+            onChange={(event) => setSelectedMonth(Number(event.target.value))}
+            className="rounded-xl border border-bg-muted bg-bg-card px-4 py-3 text-sm text-white outline-none transition focus:border-accent-lime"
+          >
+            {monthOptions.map((label, index) => (
+              <option key={label} value={index + 1}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={selectedYear}
+            onChange={(event) => setSelectedYear(Number(event.target.value))}
+            className="rounded-xl border border-bg-muted bg-bg-card px-4 py-3 text-sm text-white outline-none transition focus:border-accent-lime"
+          >
+            {years.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </div>
       </header>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -362,108 +509,83 @@ export function PendingPage() {
           Carregando contas...
         </div>
       ) : (
-        <div className="space-y-3">
-          {items.map((item) => {
-            const status = statusLabel(item);
-            const dueDate = new Date(item.dueDate);
+        <div className="space-y-6">
+          {displayGroups.map((group) => (
+            <section key={group.key} className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-white">{group.label}</h2>
+                <span className="text-sm text-text-secondary">{group.items.length} item(ns)</span>
+              </div>
+              <div className="space-y-3">
+                {group.items.map((item) => {
+                  const original = items.find((entry) => entry.id === item.id) ?? item;
+                  const status = statusLabel(original);
+                  const dueDate = new Date(item.displayDate);
 
-            return (
-              <article
-                key={item.id}
-                className={cn(
-                  "rounded-2xl border bg-bg-card p-4 transition",
-                  item.paid && "opacity-60",
-                  dueDate < new Date() && !item.paid
-                    ? "border-accent-red/50"
-                    : "border-bg-muted",
-                  dueDate.toDateString() === new Date().toDateString() &&
-                    !item.paid
-                    ? "border-accent-yellow/50"
-                    : "",
-                )}
-              >
-                <div className="flex items-start gap-3">
-                    {/* Ícones de Parcelada e Recorrente */}
-                    {item.isParcelada && (
-                      <span className="ml-2 rounded-full bg-accent-lime px-2.5 py-0.5 text-xs font-medium text-white">Parcelada</span>
-                    )}
-                    {item.isRecorrente && (
-                      <span className="ml-2 rounded-full bg-accent-blue px-2.5 py-0.5 text-xs font-medium text-white">Recorrente</span>
-                    )}
-                    {/* Categoria */}
-                    {item.categoria && (
-                      <span className="ml-2 rounded-full bg-bg-muted px-2.5 py-0.5 text-xs font-medium text-white">{item.categoria}</span>
-                    )}
-                    {/* Forma de pagamento */}
-                    {item.formatoPagamento && (
-                      <span className="ml-2 rounded-full bg-bg-muted px-2.5 py-0.5 text-xs font-medium text-white">{item.formatoPagamento}</span>
-                    )}
-                  <div className="rounded-2xl bg-bg-muted p-3">
-                    <Clock className="h-5 w-5 text-accent-lime" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-base font-semibold text-white">
-                        {item.title}
-                      </h2>
-                      <span
-                        className={cn(
-                          "rounded-full px-2.5 py-1 text-[11px] font-semibold",
-                          status.className,
-                        )}
-                      >
-                        {status.label}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-sm text-text-secondary">
-                      {item.description ?? "Conta pendente"}
-                    </p>
-                    <p className="mt-2 text-xs text-text-muted">
-                      Vence em {dueDate.toLocaleDateString("pt-BR")}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-white">
-                      {formatCurrency(item.value)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {!item.paid && (
-                    <button
-                      type="button"
-                      onClick={() => markPaid.mutate(item.id)}
-                      disabled={markPaid.isPending}
-                      className="inline-flex items-center gap-2 rounded-xl bg-accent-lime/10 px-3 py-2 text-sm font-semibold text-accent-lime hover:bg-accent-lime/20 disabled:opacity-60"
-                    >
-                      {markPaid.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Check className="h-4 w-4" />
+                  return (
+                    <article
+                      key={`${item.id}-${item.displayDate}`}
+                      className={cn(
+                        "rounded-2xl border bg-bg-card p-4 transition",
+                        original.paid && "opacity-60",
+                        dueDate < new Date() && !original.paid ? "border-accent-red/50" : "border-bg-muted",
+                        dueDate.toDateString() === new Date().toDateString() && !original.paid ? "border-accent-yellow/50" : "",
                       )}
-                      Marcar como pago
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => abrirModalEdicao(item)}
-                    className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-white"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => confirmarDeletar(item.id, item.title)}
-                    disabled={deletePending.isPending}
-                    className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-accent-red"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </article>
-            );
-          })}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="rounded-2xl bg-bg-muted p-3">
+                          <Clock className="h-5 w-5 text-accent-lime" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="text-base font-semibold text-white">{item.title}</h2>
+                            {item.installmentLabel && (
+                              <span className="rounded-full bg-accent-lime/10 px-2.5 py-1 text-[11px] font-semibold text-accent-lime">{item.installmentLabel}</span>
+                            )}
+                            <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold", status.className)}>{status.label}</span>
+                          </div>
+                          <p className="mt-1 text-sm text-text-secondary">{item.description ?? "Conta pendente"}</p>
+                          <p className="mt-2 text-xs text-text-muted">Vence em {dueDate.toLocaleDateString("pt-BR")}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-white">{formatCurrency(item.displayValue)}</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {!original.paid && (
+                          <button
+                            type="button"
+                            onClick={() => markPaid.mutate(original.id)}
+                            disabled={markPaid.isPending}
+                            className="inline-flex items-center gap-2 rounded-xl bg-accent-lime/10 px-3 py-2 text-sm font-semibold text-accent-lime hover:bg-accent-lime/20 disabled:opacity-60"
+                          >
+                            {markPaid.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                            Marcar como pago
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => abrirModalEdicao(original)}
+                          className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-white"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => confirmarDeletar(original.id, original.title)}
+                          disabled={deletePending.isPending}
+                          className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-accent-red"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
         </div>
       )}
 
@@ -766,3 +888,10 @@ export function PendingPage() {
       </section>
   );
 }
+
+
+
+
+
+
+
