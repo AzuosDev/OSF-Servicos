@@ -39,9 +39,6 @@ export function PendingFormModal({
   const [formDueDate, setFormDueDate] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formParcelas, setFormParcelas] = useState<{ totalParcelas?: string }>({});
-  // State to keep a custom parcel count when user selects "Outro"
-  const [customParcelCount, setCustomParcelCount] = useState<string>("");
-  const [customParcelCount, setCustomParcelCount] = useState<string>("");
   const [formRecorrencia, setFormRecorrencia] = useState<{
     periodoRecorrencia?: string;
     dataProxima?: string;
@@ -93,73 +90,7 @@ export function PendingFormModal({
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      console.log('Payload enviado:', {
-          title: formTitle,
-          value: (() => {
-            const cleaned = formValue
-              .replace(/[R$\s,]/g, "")
-              .replace(",", ".");
-            return cleaned ? Number(cleaned) : undefined;
-          })(),
-          dueDate: formDueDate,
-          description: formDescription,
-          isParcelada: formIsParcelada,
-          isRecorrente: formIsRecorrente,
-          categoria:
-            formCategoria && formCategoria !== "Outro"
-              ? formCategoria
-              : categoriaCustom || undefined,
-          formatoPagamento:
-            formForma && formForma !== "Outro" ? formForma : formaCustom || undefined,
-          parcelas: formIsParcelada
-            ? {
-                totalParcelas:
-                  formParcelas.totalParcelas === "Outro"
-                    ? Number(customParcelCount)
-                    : Number(formParcelas.totalParcelas),
-              }
-            : undefined,
-          recorrencia: formIsRecorrente
-            ? {
-                periodoRecorrencia: formRecorrencia.periodoRecorrencia,
-                dataProxima: formRecorrencia.dataProxima,
-              }
-            : undefined,
-        });
-        console.log('Payload enviado:', {
-          title: formTitle,
-          value: (() => {
-            const cleaned = formValue
-              .replace(/[R$\s,]/g, "")
-              .replace(",", ".");
-            return cleaned ? Number(cleaned) : undefined;
-          })(),
-          dueDate: formDueDate,
-          description: formDescription,
-          isParcelada: formIsParcelada,
-          isRecorrente: formIsRecorrente,
-          categoria:
-            formCategoria && formCategoria !== "Outro"
-              ? formCategoria
-              : categoriaCustom || undefined,
-          formatoPagamento:
-            formForma && formForma !== "Outro" ? formForma : formaCustom || undefined,
-          parcelas: formIsParcelada
-            ? {
-                totalParcelas:
-                  formParcelas.totalParcelas === "Outro"
-                    ? Number(customParcelCount)
-                    : Number(formParcelas.totalParcelas),
-              }
-            : undefined,
-          recorrencia: formIsRecorrente
-            ? {
-                periodoRecorrencia: formRecorrencia.periodoRecorrencia,
-                dataProxima: formRecorrencia.dataProxima,
-              }
-            : undefined,
-        });
-        await api.post("/api/pending", {
+      const payload = {
         title: formTitle,
         value: (() => {
           const cleaned = formValue.replace(/[R$\s,]/g, "").replace(",", ".");
@@ -177,9 +108,7 @@ export function PendingFormModal({
           formForma && formForma !== "Outro" ? formForma : formaCustom,
         parcelas: formIsParcelada
           ? {
-              totalParcelas: formParcelas.totalParcelas === "Outro"
-                ? Number(customParcelCount)
-                : Number(formParcelas.totalParcelas)
+              totalParcelas: Number(formParcelas.totalParcelas),
             }
           : undefined,
         recorrencia: formIsRecorrente
@@ -188,7 +117,16 @@ export function PendingFormModal({
               dataProxima: formRecorrencia.dataProxima,
             }
           : undefined,
-      });
+      };
+
+      console.log("[PendingFormModal] create payload", payload);
+      try {
+        const response = await api.post("/api/pending", payload);
+        console.log("[PendingFormModal] create response", response.data);
+      } catch (error) {
+        console.error("[PendingFormModal] create error", error);
+        throw error;
+      }
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["pending"] });
@@ -226,9 +164,7 @@ export function PendingFormModal({
           formForma && formForma !== "Outro" ? formForma : formaCustom,
         parcelas: formIsParcelada
           ? {
-              totalParcelas: formParcelas.totalParcelas === "Outro"
-                ? Number(customParcelCount)
-                : Number(formParcelas.totalParcelas)
+              totalParcelas: Number(formParcelas.totalParcelas),
             }
           : undefined,
         recorrencia: formIsRecorrente
@@ -341,31 +277,17 @@ export function PendingFormModal({
       {formIsParcelada && (
         <div className="space-y-2 mb-4 mt-2">
           <label className="block text-sm text-white">Quantidade de parcelas</label>
-          <select
+          <input
+            type="number"
+            min={1}
+            step={1}
+            placeholder="ex:2"
             value={formParcelas.totalParcelas ?? ""}
             onChange={(e) => {
               setFormParcelas({ totalParcelas: e.target.value });
-              setCustomParcelCount(""); // reset custom when changing option
             }}
             className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-          >
-            <option value="">Selecione</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="6">6</option>
-            <option value="12">12</option>
-            <option value="24">24</option>
-            <option value="Outro">Outro</option>
-          </select>
-          {formParcelas.totalParcelas === "Outro" && (
-            <input
-              type="number"
-              placeholder="Outras parcelas"
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-              value={customParcelCount}
-              onChange={(e) => setCustomParcelCount(e.target.value)}
-            />
-          )}
+          />
           {formParcelas.totalParcelas && formValue && (
             <p className="text-sm text-text-secondary">
               Valor da parcela: {(parseFloat(formValue) / Number(formParcelas.totalParcelas)).toFixed(2)}

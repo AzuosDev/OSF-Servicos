@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Clock, Loader2, Plus, Trash2 } from "lucide-react";
 
@@ -22,6 +22,19 @@ type PendingItem = {
   dueDate: string;
   paid: boolean;
   description?: string;
+};
+
+type PendingFormData = {
+  title: string;
+  value: string;
+  dueDate: string;
+  description: string;
+  isParcelada: boolean;
+  isRecorrente: boolean;
+  categoria: string;
+  formatoPagamento: string;
+  parcelas: { totalParcelas: string; dataInicio: string; dataFim: string };
+  recorrencia: { periodoRecorrencia: string; dataProxima: string };
 };
 
 function normalizePending(data: unknown): PendingItem[] {
@@ -76,7 +89,7 @@ export function PendingPage() {
   const [selectedAccount, setSelectedAccount] = useState<PendingItem | null>(
     null,
   );
-  const [editFormData, setEditFormData] = useState({
+  const [editFormData, setEditFormData] = useState<PendingFormData>({
     title: "",
     value: "",
     dueDate: "",
@@ -148,6 +161,12 @@ export function PendingPage() {
         dueDate?: string;
         description?: string;
         paid?: boolean;
+        isParcelada?: boolean;
+        isRecorrente?: boolean;
+        categoria?: string;
+        formatoPagamento?: string;
+        parcelas?: { totalParcelas?: number; dataInicio?: string; dataFim?: string };
+        recorrencia?: { periodoRecorrencia?: string; dataProxima?: string };
       };
     }) => api.patch<PendingAccount>(`/api/pending/${id}`, payload),
     onSuccess: async () => {
@@ -180,6 +199,19 @@ export function PendingPage() {
       value: String(item.value),
       dueDate: item.dueDate.slice(0, 10),
       description: item.description ?? "",
+      isParcelada: !!item.isParcelada,
+      isRecorrente: !!item.isRecorrente,
+      categoria: item.categoria ?? "Outro",
+      formatoPagamento: item.formatoPagamento ?? "Outro",
+      parcelas: {
+        totalParcelas: item.parcelas?.totalParcelas?.toString() ?? "",
+        dataInicio: item.parcelas?.dataInicio?.slice(0, 10) ?? "",
+        dataFim: item.parcelas?.dataFim?.slice(0, 10) ?? "",
+      },
+      recorrencia: {
+        periodoRecorrencia: item.recorrencia?.periodoRecorrencia ?? "Mensal",
+        dataProxima: item.recorrencia?.dataProxima?.slice(0, 10) ?? "",
+      },
     });
     setIsEditModalOpen(true);
   }
@@ -192,6 +224,12 @@ export function PendingPage() {
       value: "",
       dueDate: "",
       description: "",
+      isParcelada: false,
+      isRecorrente: false,
+      categoria: "Outro",
+      formatoPagamento: "Outro",
+      parcelas: { totalParcelas: "", dataInicio: "", dataFim: "" },
+      recorrencia: { periodoRecorrencia: "Mensal", dataProxima: "" },
     });
   }
 
@@ -234,15 +272,16 @@ export function PendingPage() {
   // ✅ mutation para criar conta pendente
   const createPending = useMutation({
     mutationFn: async () => {
-      await api.post("/api/pending", {
+      const payload = {
         title: formTitle.trim(),
         value: parseFloat(formValue),
-        dueDate: new Date(formDueDate).toISOString(),
+        dueDate: formIsParcelada ? formParcelas.dataFim : formDueDate,
         description: formDescription.trim() || undefined,
         isParcelada: formIsParcelada,
         isRecorrente: formIsRecorrente,
-        categoria: formCategoria && formCategoria !== "Outro" ? formCategoria : categoriaCustom,
-        formatoPagamento: formFormatoPagamento && formFormatoPagamento !== "Outro" ? formFormatoPagamento : formaCustom,
+        categoria: formCategoria && formCategoria !== "Outro" ? formCategoria : categoriaCustom || "Outro",
+        formatoPagamento:
+          formFormatoPagamento && formFormatoPagamento !== "Outro" ? formFormatoPagamento : formaCustom || "Outro",
         parcelas: formIsParcelada
           ? {
               totalParcelas: Number(formParcelas.totalParcelas),
@@ -256,7 +295,16 @@ export function PendingPage() {
               dataProxima: formRecorrencia.dataProxima,
             }
           : undefined,
-      });
+      };
+
+      console.log("[PendingPage] create payload", payload);
+      try {
+        const response = await api.post("/api/pending", payload);
+        console.log("[PendingPage] create response", response.data);
+      } catch (error) {
+        console.error("[PendingPage] create error", error);
+        throw error;
+      }
     },
     onSuccess: async () => {
       await Promise.all([
@@ -421,14 +469,14 @@ export function PendingPage() {
 
       {creating && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-bg-muted bg-bg-card p-5">
+          <div className="flex w-full max-w-md max-h-[90vh] flex-col overflow-hidden rounded-2xl border border-bg-muted bg-bg-card">
             <h2 className="text-lg font-bold text-white">
               Nova conta pendente
             </h2>
             <p className="mt-1 text-sm text-text-secondary">
               Cadastre uma conta para acompanhar o pagamento.
             </p>
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 flex-1 overflow-y-auto px-5 pb-3 space-y-3">
               {/* ✅ inputs controlados com state */}
                 {/* Segmented control for account type */}
                 <div className="flex space-x-1 rounded-xl bg-bg-muted p-1 mb-4">
@@ -464,34 +512,35 @@ export function PendingPage() {
                       onChange={(e) => setFormValue(e.target.value)}
                     />
                     <label className="block text-sm text-white">Quantidade de parcelas</label>
-                    <select
-                      value={formParcelas.totalParcelas}
-                      onChange={(e) => setFormParcelas(prev => ({ ...prev, totalParcelas: e.target.value }))}
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      placeholder="ex:2"
                       className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                    >
-                      <option value="">Selecione</option>
-                      <option value="2">2</option>
-                      <option value="3">3</option>
-                      <option value="6">6</option>
-                      <option value="12">12</option>
-                      <option value="24">24</option>
-                      <option value="Outro">Outro</option>
-                    </select>
-                    {formParcelas.totalParcelas === 'Outro' && (
-                      <input
-                        type="number"
-                        placeholder="Outras parcelas"
-                        className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                        value={formParcelas.totalParcelas}
-                        onChange={(e) => setFormParcelas(prev => ({ ...prev, totalParcelas: e.target.value }))}
-                      />
-                    )}
+                      value={formParcelas.totalParcelas}
+                      onChange={(e) => setFormParcelas((prev) => ({ ...prev, totalParcelas: e.target.value }))}
+                    />
                     {/* Valor da parcela (readonly) */}
                     {formParcelas.totalParcelas && formValue && (
                       <p className="text-sm text-text-secondary">
                         Valor da parcela: {(parseFloat(formValue) / Number(formParcelas.totalParcelas)).toFixed(2)}
                       </p>
                     )}
+                    <label className="block text-sm text-white">Data de início</label>
+                    <input
+                      type="date"
+                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                      value={formParcelas.dataInicio}
+                      onChange={(e) => setFormParcelas((prev) => ({ ...prev, dataInicio: e.target.value }))}
+                    />
+                    <label className="block text-sm text-white">Data de fim</label>
+                    <input
+                      type="date"
+                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                      value={formParcelas.dataFim}
+                      onChange={(e) => setFormParcelas((prev) => ({ ...prev, dataFim: e.target.value }))}
+                    />
                   </div>
                 )}
                 {formIsRecorrente && (
@@ -582,12 +631,14 @@ export function PendingPage() {
                 value={formValue}
                 onChange={(e) => setFormValue(e.target.value)}
               />
-              <input
-                type="date"
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                value={formDueDate}
-                onChange={(e) => setFormDueDate(e.target.value)}
-              />
+              {!formIsParcelada && (
+                <input
+                  type="date"
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                  value={formDueDate}
+                  onChange={(e) => setFormDueDate(e.target.value)}
+                />
+              )}
               <textarea
                 rows={3}
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
@@ -596,7 +647,7 @@ export function PendingPage() {
                 onChange={(e) => setFormDescription(e.target.value)}
               />
             </div>
-            <div className="mt-4 flex justify-end gap-2">
+            <div className="flex shrink-0 justify-end gap-2 border-t border-bg-muted px-5 py-3">
               <button
                 type="button"
                 onClick={() => setCreating(false)}
@@ -623,14 +674,14 @@ export function PendingPage() {
 
       {isEditModalOpen && selectedAccount && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-bg-muted bg-bg-card p-5">
+          <div className="flex w-full max-w-md max-h-[90vh] flex-col overflow-hidden rounded-2xl border border-bg-muted bg-bg-card">
             <h2 className="text-lg font-bold text-white">
               Editar conta pendente
             </h2>
             <p className="mt-1 text-sm text-text-secondary">
               Atualize os dados da conta selecionada.
             </p>
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 flex-1 overflow-y-auto px-5 pb-3 space-y-3">
               <input
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
                 placeholder="Título"
@@ -678,7 +729,7 @@ export function PendingPage() {
                 }
               />
             </div>
-            <div className="mt-4 flex justify-end gap-2">
+            <div className="flex shrink-0 justify-end gap-2 border-t border-bg-muted px-5 py-3">
               <button
                 type="button"
                 onClick={fecharModal}
