@@ -9,6 +9,12 @@ import { UpdatePendingDto } from './dto/update-pending.dto';
 export class PendingService {
   constructor(@InjectModel(PendingAccount.name) private pendingModel: Model<PendingAccountDocument>) {}
 
+  private addMonths(date: Date, months: number) {
+    const nextDate = new Date(date);
+    nextDate.setMonth(nextDate.getMonth() + months);
+    return nextDate;
+  }
+
   async create(userId: string, dto: CreatePendingDto) {
     if (dto.isParcelada) {
       if (!dto.parcelas) {
@@ -18,8 +24,40 @@ export class PendingService {
       if (totalParcelas <= 0) {
         throw new BadRequestException('totalParcelas deve ser maior que zero');
       }
-      dto.parcelas.valorParcela = Number((dto.value / totalParcelas).toFixed(2));
-      dto.parcelas.parcelasPagas = Number(dto.parcelas.parcelasPagas ?? 0);
+
+      const baseDate = new Date(dto.dueDate);
+      const valorParcela = Number((dto.value / totalParcelas).toFixed(2));
+      const grupoParceladoId = new Types.ObjectId().toString();
+      const docs = Array.from({ length: totalParcelas }, (_, index) => {
+        const numeroParcela = index + 1;
+        const dueDate = this.addMonths(baseDate, index);
+        return {
+          userId: new Types.ObjectId(userId),
+          title: dto.title,
+          value: valorParcela,
+          dueDate,
+          description: dto.description,
+          paid: false,
+          paidAt: undefined,
+          isParcelada: true,
+          isRecorrente: dto.isRecorrente,
+          categoria: dto.categoria,
+          formatoPagamento: dto.formatoPagamento,
+          numeroParcela,
+          grupoParceladoId,
+          parcelas: {
+            totalParcelas,
+            valorParcela,
+            parcelasPayas: 0,
+            parcelasPagas: [],
+            dataInicio: baseDate,
+            dataFim: this.addMonths(baseDate, totalParcelas - 1),
+          },
+          recorrencia: dto.recorrencia,
+        };
+      });
+
+      return this.pendingModel.insertMany(docs);
     }
 
     if (dto.isRecorrente && !dto.recorrencia) {
@@ -37,7 +75,6 @@ export class PendingService {
       isRecorrente: dto.isRecorrente,
       categoria: dto.categoria,
       formatoPagamento: dto.formatoPagamento,
-      parcelas: dto.parcelas ? { ...dto.parcelas, parcelasPagas: 0 } : undefined,
       recorrencia: dto.recorrencia,
     });
 
@@ -71,11 +108,8 @@ export class PendingService {
         if (!pending.parcelas) {
           throw new BadRequestException('Parcelas inexistentes');
         }
-        pending.parcelas.parcelasPagas = Math.min((pending.parcelas.parcelasPagas ?? 0) + 1, pending.parcelas.totalParcelas);
-        pending.paid = pending.parcelas.parcelasPagas >= pending.parcelas.totalParcelas;
-        if (pending.paid) {
-          pending.paidAt = pending.paidAt ?? new Date();
-        }
+        pending.paid = true;
+        pending.paidAt = pending.paidAt ?? new Date();
       } else {
         pending.paid = dto.paid;
         if (dto.paid) {

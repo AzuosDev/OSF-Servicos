@@ -5,7 +5,87 @@ import { Loader2, Wallet } from "lucide-react";
 import { api } from "../../lib/api";
 import { getApiErrorMessages, setFieldErrorsFromApi } from "../../lib/errors";
 import { ModalShell } from "./ModalShell";
-import { useCategories } from "./TransactionFormFields";
+
+
+const PENDING_CATEGORIES = ["Alimenta??o", "Transporte", "Sa?de", "Educa??o", "Lazer", "Outro"] as const;
+const PAYMENT_FORMATS = ["Cart?o de Cr?dito", "Pix", "Dinheiro", "Outro"] as const;
+
+type PendingCategory = (typeof PENDING_CATEGORIES)[number];
+type PaymentFormat = (typeof PAYMENT_FORMATS)[number];
+
+function isPendingCategory(value: string): value is PendingCategory {
+  return (PENDING_CATEGORIES as readonly string[]).includes(value);
+}
+
+function isPaymentFormat(value: string): value is PaymentFormat {
+  return (PAYMENT_FORMATS as readonly string[]).includes(value);
+}
+
+function toIsoDate(value: string) {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
+function addMonths(date: Date, months: number) {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + months);
+  return next;
+}
+
+function buildPendingPayload({
+  title,
+  value,
+  dueDate,
+  description,
+  isParcelada,
+  isRecorrente,
+  categoria,
+  formatoPagamento,
+  parcelas,
+  recorrencia,
+}: {
+  title: string;
+  value: string;
+  dueDate: string;
+  description: string;
+  isParcelada: boolean;
+  isRecorrente: boolean;
+  categoria: string;
+  formatoPagamento: string;
+  parcelas: { totalParcelas?: string };
+  recorrencia: { periodoRecorrencia?: string; dataProxima?: string };
+}) {
+  const normalizedValue = Number(String(value).replace(/[^\d,-]/g, "").replace(",", "."));
+  const baseDate = dueDate ? new Date(dueDate) : undefined;
+  const totalParcelas = Number(parcelas.totalParcelas);
+
+  return {
+    title: title.trim(),
+    value: Number.isFinite(normalizedValue) ? normalizedValue : undefined,
+    dueDate: toIsoDate(dueDate),
+    description: description.trim() || undefined,
+    isParcelada,
+    isRecorrente,
+    categoria: isPendingCategory(categoria) ? categoria : undefined,
+    formatoPagamento: isPaymentFormat(formatoPagamento) ? formatoPagamento : undefined,
+    parcelas: isParcelada && baseDate && Number.isFinite(totalParcelas) && totalParcelas > 0
+      ? {
+          totalParcelas,
+          valorParcela: Number((normalizedValue / totalParcelas).toFixed(2)),
+          parcelasPagas: 0,
+          dataInicio: baseDate.toISOString(),
+          dataFim: addMonths(baseDate, totalParcelas - 1).toISOString(),
+        }
+      : undefined,
+    recorrencia: isRecorrente && recorrencia.periodoRecorrencia && recorrencia.dataProxima
+      ? {
+          periodoRecorrencia: recorrencia.periodoRecorrencia,
+          dataProxima: toIsoDate(recorrencia.dataProxima),
+        }
+      : undefined,
+  };
+}
 
 type PendingFormModalProps = {
   open: boolean;
@@ -48,7 +128,6 @@ export function PendingFormModal({
   const [formForma, setFormForma] = useState(""); // id or 'Outro'
   const [formaCustom, setFormaCustom] = useState("");
 
-  const { data: categoriesData, isLoading: categoriesLoading } = useCategories();
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -90,34 +169,18 @@ export function PendingFormModal({
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const payload = buildPendingPayload({
         title: formTitle,
-        value: (() => {
-          const cleaned = formValue.replace(/[R$\s,]/g, "").replace(",", ".");
-          return cleaned ? Number(cleaned) : undefined;
-        })(),
+        value: formValue,
         dueDate: formDueDate,
         description: formDescription,
         isParcelada: formIsParcelada,
         isRecorrente: formIsRecorrente,
-        categoria:
-          formCategoria && formCategoria !== "Outro"
-            ? formCategoria
-            : categoriaCustom || undefined,
-        formatoPagamento:
-          formForma && formForma !== "Outro" ? formForma : formaCustom,
-        parcelas: formIsParcelada
-          ? {
-              totalParcelas: Number(formParcelas.totalParcelas),
-            }
-          : undefined,
-        recorrencia: formIsRecorrente
-          ? {
-              periodoRecorrencia: formRecorrencia.periodoRecorrencia,
-              dataProxima: formRecorrencia.dataProxima,
-            }
-          : undefined,
-      };
+        categoria: formCategoria && formCategoria !== "Outro" ? formCategoria : categoriaCustom,
+        formatoPagamento: formForma && formForma !== "Outro" ? formForma : formaCustom,
+        parcelas: formParcelas,
+        recorrencia: formRecorrencia,
+      });
 
       console.log("[PendingFormModal] create payload", payload);
       try {
@@ -140,40 +203,23 @@ export function PendingFormModal({
       const msg = error?.response?.data?.message || error?.message || 'Erro desconhecido';
       alert(msg);
       setFieldErrorsFromApi(error, (field, msg) => console.error(field, msg));
-      setFieldErrorsFromApi(error, (field, msg) => console.error(field, msg));
     },
   });
 
   const editMutation = useMutation({
     mutationFn: async () => {
-      await api.put(`/api/pending/${editAccount?.id}`, {
+      await api.patch(`/api/pending/${editAccount?.id}`, buildPendingPayload({
         title: formTitle,
-        value: (() => {
-          const cleaned = formValue.replace(/[R$\s,]/g, "").replace(",", ".");
-          return cleaned ? Number(cleaned) : undefined;
-        })(),
+        value: formValue,
         dueDate: formDueDate,
         description: formDescription,
         isParcelada: formIsParcelada,
         isRecorrente: formIsRecorrente,
-        categoria:
-          formCategoria && formCategoria !== "Outro"
-            ? formCategoria
-            : categoriaCustom || undefined,
-        formatoPagamento:
-          formForma && formForma !== "Outro" ? formForma : formaCustom,
-        parcelas: formIsParcelada
-          ? {
-              totalParcelas: Number(formParcelas.totalParcelas),
-            }
-          : undefined,
-        recorrencia: formIsRecorrente
-          ? {
-              periodoRecorrencia: formRecorrencia.periodoRecorrencia,
-              dataProxima: formRecorrencia.dataProxima,
-            }
-          : undefined,
-      });
+        categoria: formCategoria && formCategoria !== "Outro" ? formCategoria : categoriaCustom,
+        formatoPagamento: formForma && formForma !== "Outro" ? formForma : formaCustom,
+        parcelas: formParcelas,
+        recorrencia: formRecorrencia,
+      }));
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["pending"] });
@@ -334,10 +380,9 @@ export function PendingFormModal({
         className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
       >
         <option value="">Selecione</option>
-        {categoriesLoading && <option>Carregando...</option>}
-        {categoriesData?.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
+        {PENDING_CATEGORIES.map((category) => (
+          <option key={category} value={category}>
+            {category}
           </option>
         ))}
         <option value="Outro">Outro</option>
@@ -363,10 +408,11 @@ export function PendingFormModal({
         className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
       >
         <option value="">Selecione</option>
-        <option value="Cartão de crédito">Cartão de crédito</option>
-        <option value="Pix">Pix</option>
-        <option value="Dinheiro">Dinheiro</option>
-        <option value="Outro">Outro</option>
+        {PAYMENT_FORMATS.map((format) => (
+          <option key={format} value={format}>
+            {format}
+          </option>
+        ))}
       </select>
       {formForma === "Outro" && (
         <input

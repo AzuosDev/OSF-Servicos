@@ -1,4 +1,4 @@
-ï»¿import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { isAxiosError } from "axios";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Clock, Loader2, Plus, Trash2 } from "lucide-react";
@@ -16,7 +16,9 @@ type PendingItem = {
   isRecorrente?: boolean;
   categoria?: string;
   formatoPagamento?: string;
-  parcelas?: { totalParcelas?: number; valorParcela?: number; parcelasPagas?: number; dataInicio?: string; dataFim?: string; };
+  parcelas?: { totalParcelas?: number; valorParcela?: number; parcelasPagas?: number[]; dataInicio?: string; dataFim?: string; };
+  numeroParcela?: number;
+  grupoParceladoId?: string;
   recorrencia?: { periodoRecorrencia?: string; dataProxima?: string; };
   id: string;
   title: string;
@@ -25,6 +27,70 @@ type PendingItem = {
   paid: boolean;
   description?: string;
 };
+
+
+const PENDING_CATEGORIES = ["Alimenta??o", "Transporte", "Sa?de", "Educa??o", "Lazer", "Outro"] as const;
+const PAYMENT_FORMATS = ["Cart?o de Cr?dito", "Pix", "Dinheiro", "Outro"] as const;
+
+type PendingCategory = (typeof PENDING_CATEGORIES)[number];
+type PaymentFormat = (typeof PAYMENT_FORMATS)[number];
+
+function isPendingCategory(value: string): value is PendingCategory {
+  return (PENDING_CATEGORIES as readonly string[]).includes(value);
+}
+
+function isPaymentFormat(value: string): value is PaymentFormat {
+  return (PAYMENT_FORMATS as readonly string[]).includes(value);
+}
+
+function toIsoDate(value: string) {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
+function buildPendingPayload(data: {
+  title: string;
+  value: string;
+  dueDate: string;
+  description: string;
+  isParcelada: boolean;
+  isRecorrente: boolean;
+  categoria: string;
+  formatoPagamento: string;
+  parcelas: { totalParcelas: string; dataInicio: string; dataFim: string };
+  recorrencia: { periodoRecorrencia: string; dataProxima: string };
+}) {
+  const normalizedValue = Number(String(data.value).replace(/[^\d,-]/g, "").replace(",", "."));
+  const totalParcelas = Number(data.parcelas.totalParcelas);
+  const baseDate = data.parcelas.dataInicio || data.dueDate;
+
+  return {
+    title: data.title.trim(),
+    value: Number.isFinite(normalizedValue) ? normalizedValue : undefined,
+    dueDate: toIsoDate(data.dueDate),
+    description: data.description.trim() || undefined,
+    isParcelada: data.isParcelada,
+    isRecorrente: data.isRecorrente,
+    categoria: isPendingCategory(data.categoria) ? data.categoria : undefined,
+    formatoPagamento: isPaymentFormat(data.formatoPagamento) ? data.formatoPagamento : undefined,
+    parcelas: data.isParcelada && baseDate && Number.isFinite(totalParcelas) && totalParcelas > 0
+      ? {
+          totalParcelas,
+          dataInicio: toIsoDate(data.parcelas.dataInicio ?? data.dueDate),
+          dataFim: toIsoDate(data.parcelas.dataFim ?? data.dueDate),
+          valorParcela: Number((normalizedValue / totalParcelas).toFixed(2)),
+          parcelasPagas: 0,
+        }
+      : undefined,
+    recorrencia: data.isRecorrente && data.recorrencia.periodoRecorrencia && data.recorrencia.dataProxima
+      ? {
+          periodoRecorrencia: data.recorrencia.periodoRecorrencia,
+          dataProxima: toIsoDate(data.recorrencia.dataProxima),
+        }
+      : undefined,
+  };
+}
 
 type PendingFormData = {
   title: string;
@@ -55,6 +121,8 @@ function normalizePending(data: unknown): PendingItem[] {
         dataInicio: item.parcelas.dataInicio,
         dataFim: item.parcelas.dataFim,
       } : undefined,
+      numeroParcela: item.numeroParcela,
+      grupoParceladoId: item.grupoParceladoId,
     }));
   }
 
@@ -89,10 +157,7 @@ function statusLabel(item: PendingItem) {
 }
 
 type PendingDisplayItem = PendingItem & {
-  displayDate: string;
-  displayValue: number;
   installmentLabel?: string;
-  installmentNumber?: number;
 };
 
 type PendingMonthGroup = {
@@ -104,7 +169,7 @@ type PendingMonthGroup = {
 function parseDate(value: string) {
   if (!value) return null;
 
-  const isDateOnly = /^\\d{4}-\\d{2}-\\d{2}$/.test(value);
+  const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
   const date = isDateOnly ? new Date(`${value}T12:00:00`) : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
@@ -145,46 +210,6 @@ const monthOptions = [
   "Dez",
 ];
 
-function expandPendingItem(item: PendingItem): PendingDisplayItem[] {
-  const totalParcelas = Number(item.parcelas?.totalParcelas ?? 0);
-  const dataInicio = item.parcelas?.dataInicio ?? item.dueDate;
-
-  if (item.isParcelada && totalParcelas > 0) {
-    const baseDate = parseDate(dataInicio) ?? parseDate(item.dueDate);
-    if (!baseDate) {
-      return [
-        {
-          ...item,
-          displayDate: item.dueDate,
-          displayValue: item.parcelas?.valorParcela ?? item.value,
-        },
-      ];
-    }
-
-    const valorParcela =
-      item.parcelas?.valorParcela ?? Number((item.value / totalParcelas).toFixed(2));
-
-    return Array.from({ length: totalParcelas }, (_, index) => {
-      const installmentDate = addMonths(baseDate, index);
-      return {
-        ...item,
-        displayDate: installmentDate.toISOString(),
-        displayValue: valorParcela,
-        installmentLabel: `parcela ${index + 1}/${totalParcelas}`,
-        installmentNumber: index + 1,
-      };
-    });
-  }
-
-  return [
-    {
-      ...item,
-      displayDate: item.dueDate,
-      displayValue: item.value,
-    },
-  ];
-}
-
 export function PendingPage() {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
@@ -210,7 +235,7 @@ export function PendingPage() {
     recorrencia: { periodoRecorrencia: "Mensal", dataProxima: "" },
   });
 
-  // âœ… state dos campos do formulÃ¡rio
+  // ? state dos campos do formulário
   const [formTitle, setFormTitle] = useState("");
   const [formValue, setFormValue] = useState("");
   const [formDueDate, setFormDueDate] = useState("");
@@ -224,6 +249,12 @@ export function PendingPage() {
   const [categoriaCustom, setCategoriaCustom] = useState("");
   const [formaCustom, setFormaCustom] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!createError) return;
+    const timer = window.setTimeout(() => setCreateError(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [createError]);
 
   const pendingQuery = useQuery<PendingItem[]>({
     queryKey: ["pending"],
@@ -240,12 +271,10 @@ export function PendingPage() {
   const years = useMemo(() => Array.from({ length: 30 }, (_, index) => currentYear + 10 - index), [currentYear]);
 
   const filteredItems = useMemo(() => {
-    return items
-      .flatMap((item) => expandPendingItem(item))
-      .filter((item) => {
-        const date = parseDate(item.displayDate);
-        return !!date && date.getMonth() + 1 === selectedMonth && date.getFullYear() === selectedYear;
-      });
+    return items.filter((item) => {
+      const date = parseDate(item.dueDate);
+      return !!date && date.getMonth() + 1 === selectedMonth && date.getFullYear() === selectedYear;
+    });
   }, [items, selectedMonth, selectedYear]);
 
   const visibleItems = filteredItems;
@@ -255,7 +284,7 @@ export function PendingPage() {
     const grouped = new Map<string, PendingMonthGroup>();
 
     for (const item of visibleItems) {
-      const date = parseDate(item.displayDate);
+      const date = parseDate(item.dueDate);
       if (!date) continue;
       const key = monthKey(date);
       const current = grouped.get(key);
@@ -265,7 +294,7 @@ export function PendingPage() {
 
     return Array.from(grouped.values()).sort(sortMonthGroups).map((group) => ({
       ...group,
-      items: group.items.sort((a, b) => a.displayDate.localeCompare(b.displayDate)),
+      items: group.items.sort((a, b) => a.dueDate.localeCompare(b.dueDate)),
     }));
   }, [visibleItems]);
 
@@ -281,7 +310,7 @@ export function PendingPage() {
 
   const markPaid = useMutation({
     mutationFn: async ({ id, numeroParcela }: { id: string; numeroParcela?: number }) =>
-      api.patch<PendingAccount>(`/api/pending/${id}`, numeroParcela ? { paid: true, numeroParcela } : { paid: true }),
+      api.patch<PendingAccount>(`/api/pending/${id}`, { paid: true, numeroParcela }),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["pending"] }),
@@ -291,7 +320,7 @@ export function PendingPage() {
       setParcelStatusOpen(false);
       setSelectedParcelItem(null);
     },
-    onError: () => addToast("NÃ£o foi possÃ­vel atualizar a conta.", "error"),
+    onError: () => addToast("Não foi possível atualizar a conta.", "error"),
   });
 
   const editPending = useMutation({
@@ -322,7 +351,7 @@ export function PendingPage() {
       addToast("Conta atualizada com sucesso.", "success");
       fecharModal();
     },
-    onError: () => addToast("NÃ£o foi possÃ­vel editar a conta.", "error"),
+    onError: () => addToast("Não foi possível editar a conta.", "error"),
   });
 
   const deletePending = useMutation({
@@ -334,7 +363,7 @@ export function PendingPage() {
       ]);
       addToast("Conta apagada com sucesso.", "success");
     },
-    onError: () => addToast("NÃ£o foi possÃ­vel apagar a conta.", "error"),
+    onError: () => addToast("Não foi possível apagar a conta.", "error"),
   });
 
   function abrirModalEdicao(item: PendingItem) {
@@ -386,23 +415,23 @@ export function PendingPage() {
       payload: {
         title: editFormData.title.trim(),
         value: parseFloat(editFormData.value),
-        dueDate: new Date(editFormData.dueDate).toISOString(),
+        dueDate: toIsoDate(editFormData.dueDate),
         description: editFormData.description.trim() || undefined,
         isParcelada: editFormData.isParcelada,
         isRecorrente: editFormData.isRecorrente,
-        categoria: editFormData.categoria,
-        formatoPagamento: editFormData.formatoPagamento,
+        categoria: isPendingCategory(editFormData.categoria) ? editFormData.categoria : undefined,
+        formatoPagamento: isPaymentFormat(editFormData.formatoPagamento) ? editFormData.formatoPagamento : undefined,
         parcelas: editFormData.isParcelada
           ? {
               totalParcelas: Number(editFormData.parcelas.totalParcelas),
-              dataInicio: editFormData.parcelas.dataInicio,
-              dataFim: editFormData.parcelas.dataFim,
+              dataInicio: toIsoDate(editFormData.parcelas.dataInicio),
+              dataFim: toIsoDate(editFormData.parcelas.dataFim),
             }
           : undefined,
         recorrencia: editFormData.isRecorrente
           ? {
               periodoRecorrencia: editFormData.recorrencia.periodoRecorrencia,
-              dataProxima: editFormData.recorrencia.dataProxima,
+              dataProxima: toIsoDate(editFormData.recorrencia.dataProxima),
             }
           : undefined,
       },
@@ -419,33 +448,22 @@ export function PendingPage() {
     setDeleteModalOpen(true);
   }
 
-  // âœ… mutation para criar conta pendente
+  // ? mutation para criar conta pendente
   const createPending = useMutation({
     mutationFn: async () => {
-      const payload = {
-        title: formTitle.trim(),
-        value: parseFloat(formValue),
-        dueDate: formIsParcelada ? (formParcelas.dataInicio || formParcelas.dataFim || new Date(selectedYear, selectedMonth - 1, 1).toISOString()) : (formDueDate || new Date(selectedYear, selectedMonth - 1, 1).toISOString()),
-        description: formDescription.trim() || undefined,
+      setCreateError(null);
+      const payload = buildPendingPayload({
+        title: formTitle,
+        value: formValue,
+        dueDate: formIsParcelada ? (formParcelas.dataInicio || formDueDate) : formDueDate,
+        description: formDescription,
         isParcelada: formIsParcelada,
         isRecorrente: formIsRecorrente,
-        categoria: formCategoria && formCategoria !== "Outro" ? formCategoria : categoriaCustom || "Outro",
-        formatoPagamento:
-          formFormatoPagamento && formFormatoPagamento !== "Outro" ? formFormatoPagamento : formaCustom || "Outro",
-        parcelas: formIsParcelada
-          ? {
-              totalParcelas: Number(formParcelas.totalParcelas),
-              dataInicio: formParcelas.dataInicio,
-              dataFim: formParcelas.dataFim,
-            }
-          : undefined,
-        recorrencia: formIsRecorrente
-          ? {
-              periodoRecorrencia: formRecorrencia.periodoRecorrencia,
-              dataProxima: formRecorrencia.dataProxima,
-            }
-          : undefined,
-      };
+        categoria: formCategoria && formCategoria !== "Outro" ? formCategoria : categoriaCustom,
+        formatoPagamento: formFormatoPagamento && formFormatoPagamento !== "Outro" ? formFormatoPagamento : formaCustom,
+        parcelas: formParcelas,
+        recorrencia: formRecorrencia,
+      });
 
       console.log("[PendingPage] create payload", payload);
       try {
@@ -469,7 +487,7 @@ export function PendingPage() {
       setFormDescription("");
     },
     onError: (error) => {
-      const message = error instanceof Error ? error.message : "NÃ£o foi possÃ­vel salvar a conta.";
+      const message = error instanceof Error ? error.message : "Não foi possível salvar a conta.";
       setCreateError(message);
       addToast(message, "error");
     },
@@ -527,7 +545,7 @@ export function PendingPage() {
         </article>
         <article className="rounded-2xl border border-accent-lime/20 bg-bg-card p-5">
           <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-            Total pago no mÃªs
+            Total pago no mês
           </p>
           <p className="mt-3 text-3xl font-bold text-accent-lime">
             {formatCurrency(totals.paidTotal)}
@@ -536,8 +554,15 @@ export function PendingPage() {
       </div>
 
       {createError && (
-        <div className="rounded-2xl border border-accent-red/30 bg-accent-red/10 p-4 text-sm text-accent-red">
-          {createError}
+        <div className="rounded-2xl border border-accent-red/30 bg-accent-red/10 p-4 text-sm text-accent-red flex items-start justify-between gap-3">
+          <p>{createError}</p>
+          <button
+            type="button"
+            onClick={() => setCreateError(null)}
+            className="shrink-0 rounded-lg border border-accent-red/30 px-2 py-1 text-xs font-semibold text-accent-red transition hover:bg-accent-red/10"
+          >
+            Fechar
+          </button>
         </div>
       )}
 
@@ -555,18 +580,18 @@ export function PendingPage() {
               </div>
               <div className="space-y-3">
                 {group.items.map((item) => {
-                  const original = items.find((entry) => entry.id === item.id) ?? item;
-                  const status = statusLabel(original);
-                  const dueDate = new Date(item.displayDate);
+                  const status = statusLabel(item);
+                  const dueDate = new Date(item.dueDate);
+                  const installmentLabel = item.installmentLabel ?? (item.numeroParcela && item.parcelas?.totalParcelas ? `parcela ${item.numeroParcela}/${item.parcelas.totalParcelas}` : undefined);
 
                   return (
                     <article
-                      key={`${item.id}-${item.displayDate}`}
+                      key={`${item.id}-${item.dueDate}`}
                       className={cn(
                         "rounded-2xl border bg-bg-card p-4 transition",
-                        original.paid && "opacity-60",
-                        dueDate < new Date() && !original.paid ? "border-accent-red/50" : "border-bg-muted",
-                        dueDate.toDateString() === new Date().toDateString() && !original.paid ? "border-accent-yellow/50" : "",
+                        item.paid && "opacity-60",
+                        dueDate < new Date() && !item.paid ? "border-accent-red/50" : "border-bg-muted",
+                        dueDate.toDateString() === new Date().toDateString() && !item.paid ? "border-accent-yellow/50" : "",
                       )}
                     >
                       <div className="flex items-start gap-3">
@@ -576,8 +601,8 @@ export function PendingPage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <h2 className="text-base font-semibold text-white">{item.title}</h2>
-                            {item.installmentLabel && (
-                              <span className="rounded-full bg-accent-lime/10 px-2.5 py-1 text-[11px] font-semibold text-accent-lime">{item.installmentLabel}</span>
+                            {installmentLabel && (
+                              <span className="rounded-full bg-accent-lime/10 px-2.5 py-1 text-[11px] font-semibold text-accent-lime">{installmentLabel}</span>
                             )}
                             <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold", status.className)}>{status.label}</span>
                           </div>
@@ -585,15 +610,15 @@ export function PendingPage() {
                           <p className="mt-2 text-xs text-text-muted">Vence em {dueDate.toLocaleDateString("pt-BR")}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-semibold text-white">{formatCurrency(item.displayValue)}</p>
+                          <p className="text-sm font-semibold text-white">{formatCurrency(item.value)}</p>
                         </div>
                       </div>
 
                       <div className="mt-4 flex flex-wrap gap-2">
-                        {!original.paid && (
+                        {!item.paid && (
                           <button
                             type="button"
-                            onClick={() => markPaid.mutate({ id: original.id, numeroParcela: item.installmentNumber })}
+                            onClick={() => markPaid.mutate({ id: item.id, numeroParcela: item.numeroParcela })}
                             disabled={markPaid.isPending}
                             className="inline-flex items-center gap-2 rounded-xl bg-accent-lime/10 px-3 py-2 text-sm font-semibold text-accent-lime hover:bg-accent-lime/20 disabled:opacity-60"
                           >
@@ -610,14 +635,14 @@ export function PendingPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => abrirModalEdicao(original)}
+                          onClick={() => abrirModalEdicao(item)}
                           className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-white"
                         >
                           Editar
                         </button>
                         <button
                           type="button"
-                          onClick={() => confirmarDeletar(original.id, original.title)}
+                          onClick={() => confirmarDeletar(item.id, item.title)}
                           disabled={deletePending.isPending}
                           className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-accent-red"
                         >
@@ -643,17 +668,17 @@ export function PendingPage() {
               Cadastre uma conta para acompanhar o pagamento.
             </p>
             <div className="mt-4 flex-1 overflow-y-auto px-5 pb-3 space-y-3">
-              {/* âœ… inputs controlados com state */}
+              {/* ? inputs controlados com state */}
                 {/* Segmented control for account type */}
                 <div className="flex space-x-1 rounded-xl bg-bg-muted p-1 mb-4">
-                  {['NÃ£o parcelada', 'Parcelada', 'Recorrente'].map((type) => (
+                  {['Não parcelada', 'Parcelada', 'Recorrente'].map((type) => (
                     <button
                       key={type}
                       type="button"
                       className={`flex-1 rounded px-3 py-2 text-sm font-medium ${
                         (formIsParcelada && type === 'Parcelada') ||
                         (formIsRecorrente && type === 'Recorrente') ||
-                        (!formIsParcelada && !formIsRecorrente && type === 'NÃ£o parcelada')
+                        (!formIsParcelada && !formIsRecorrente && type === 'Não parcelada')
                           ? 'bg-accent-lime text-black'
                           : 'text-white'
                       }`}
@@ -693,7 +718,7 @@ export function PendingPage() {
                         Valor da parcela: {(parseFloat(formValue) / Number(formParcelas.totalParcelas)).toFixed(2)}
                       </p>
                     )}
-                    <label className="block text-sm text-white">Data de inÃ­cio</label>
+                    <label className="block text-sm text-white">Data de início</label>
                     <input
                       type="date"
                       className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
@@ -711,18 +736,18 @@ export function PendingPage() {
                 )}
                 {formIsRecorrente && (
                   <div className="space-y-2 mb-4">
-                    <label className="block text-sm text-white">PerÃ­odo de recorrÃªncia</label>
+                    <label className="block text-sm text-white">Período de recorrência</label>
                     <select
                       value={formRecorrencia.periodoRecorrencia}
                       onChange={(e) => setFormRecorrencia(prev => ({ ...prev, periodoRecorrencia: e.target.value }))}
                       className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
                     >
-                      <option value="DiÃ¡rio">DiÃ¡rio</option>
+                      <option value="Diário">Diário</option>
                       <option value="Semanal">Semanal</option>
                       <option value="Mensal">Mensal</option>
                       <option value="Anual">Anual</option>
                     </select>
-                    <label className="block text-sm text-white">PrÃ³xima data</label>
+                    <label className="block text-sm text-white">Próxima data</label>
                     <input
                       type="date"
                       className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
@@ -742,13 +767,11 @@ export function PendingPage() {
                   className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
                 >
                   <option value="">Selecione</option>
-                  <option value="Moradia">Moradia</option>
-                  <option value="AlimentaÃ§Ã£o">AlimentaÃ§Ã£o</option>
-                  <option value="Transporte">Transporte</option>
-                  <option value="SaÃºde">SaÃºde</option>
-                  <option value="EducaÃ§Ã£o">EducaÃ§Ã£o</option>
-                  <option value="Lazer">Lazer</option>
-                  <option value="Outro">Outro</option>
+                  {PENDING_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
                 </select>
                 {formCategoria === 'Outro' && (
                   <input
@@ -770,10 +793,11 @@ export function PendingPage() {
                   className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
                 >
                   <option value="">Selecione</option>
-                  <option value="CartÃ£o de CrÃ©dito">CartÃ£o de CrÃ©dito</option>
-                  <option value="Pix">Pix</option>
-                  <option value="Dinheiro">Dinheiro</option>
-                  <option value="Outro">Outro</option>
+                  {PAYMENT_FORMATS.map((format) => (
+                    <option key={format} value={format}>
+                      {format}
+                    </option>
+                  ))}
                 </select>
                 {formFormatoPagamento === 'Outro' && (
                   <input
@@ -786,7 +810,7 @@ export function PendingPage() {
                 )}
               <input
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="TÃ­tulo"
+                placeholder="Título"
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
               />
@@ -808,7 +832,7 @@ export function PendingPage() {
               <textarea
                 rows={3}
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="DescriÃ§Ã£o (opcional)"
+                placeholder="Descrição (opcional)"
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
               />
@@ -821,7 +845,7 @@ export function PendingPage() {
               >
                 Cancelar
               </button>
-              {/* âœ… onClick chama a mutation */}
+              {/* ? onClick chama a mutation */}
               <button
                 type="button"
                 onClick={() => createPending.mutate()}
@@ -850,7 +874,7 @@ export function PendingPage() {
             <div className="mt-4 flex-1 overflow-y-auto px-5 pb-3 space-y-3">
               <input
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="TÃ­tulo"
+                placeholder="Título"
                 value={editFormData.title}
                 onChange={(e) =>
                   setEditFormData((prev) => ({
@@ -885,7 +909,7 @@ export function PendingPage() {
               <textarea
                 rows={3}
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="DescriÃ§Ã£o (opcional)"
+                placeholder="Descrição (opcional)"
                 value={editFormData.description}
                 onChange={(e) =>
                   setEditFormData((prev) => ({
@@ -924,10 +948,10 @@ export function PendingPage() {
             <h2 className="text-lg font-bold text-white">Status das parcelas</h2>
             <p className="mt-1 text-sm text-text-secondary">{selectedParcelItem.title}</p>
             <div className="mt-4 space-y-2 text-sm text-white">
-              <p>Parcela: {selectedParcelItem.installmentLabel}</p>
-              <p>Valor: {formatCurrency(selectedParcelItem.displayValue)}</p>
-              <p>Vencimento: {new Date(selectedParcelItem.displayDate).toLocaleDateString("pt-BR")}</p>
-              <p>Status atual: {items.find((entry) => entry.id === selectedParcelItem.id)?.parcelas?.parcelasPagas ?? 0}/{items.find((entry) => entry.id === selectedParcelItem.id)?.parcelas?.totalParcelas ?? 0} pagas</p>
+              <p>Parcela: {selectedParcelItem.installmentLabel ?? (selectedParcelItem.numeroParcela && selectedParcelItem.parcelas?.totalParcelas ? `parcela ${selectedParcelItem.numeroParcela}/${selectedParcelItem.parcelas.totalParcelas}` : "")}</p>
+              <p>Valor: {formatCurrency(selectedParcelItem.value)}</p>
+              <p>Vencimento: {new Date(selectedParcelItem.dueDate).toLocaleDateString("pt-BR")}</p>
+              <p>Status atual: {(selectedParcelItem.parcelas?.parcelasPagas?.length ?? (selectedParcelItem.paid ? 1 : 0))}/{selectedParcelItem.parcelas?.totalParcelas ?? 0} pagas</p>
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => setParcelStatusOpen(false)} className="rounded-xl border border-bg-muted px-4 py-2 text-sm text-white">Fechar</button>
@@ -949,6 +973,7 @@ export function PendingPage() {
       </section>
   );
 }
+
 
 
 

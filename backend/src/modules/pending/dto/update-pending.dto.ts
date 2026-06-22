@@ -29,6 +29,7 @@ export class UpdatePendingDto {
     totalParcelas: number;
     valorParcela?: number;
     parcelasPayas?: number;
+    parcelasPagas?: number[];
     parcelasPagas?: number;
     dataInicio: string;
     dataFim: string;

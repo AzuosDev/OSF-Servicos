@@ -81,9 +81,12 @@ export type PendingAccount = MongoDocument & {
     totalParcelas: number;
     valorParcela: number;
     parcelasPayas?: number;
+    parcelasPagas?: number[];
     dataInicio: string; // ISO date
     dataFim: string;    // ISO date
   };
+  numeroParcela?: number;
+  grupoParceladoId?: string;
 
   /**
    * Sub‑documento de recorrência – presente somente se isRecorrente = true.

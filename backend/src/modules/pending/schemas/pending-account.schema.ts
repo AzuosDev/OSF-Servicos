@@ -41,13 +41,19 @@ export class PendingAccount {
   })
   formatoPagamento!: string;
 
+  @Prop({ type: Number })
+  numeroParcela?: number;
+
+  @Prop({ type: String })
+  grupoParceladoId?: string;
+
   // Subdocumento de parcelas (presente apenas se isParcelada = true)
   @Prop({
     type: {
       totalParcelas: { type: Number, required: true },
       valorParcela: { type: Number, required: true },
       parcelasPayas: { type: Number, default: 0 },
-      parcelasPagas: { type: Number, default: 0 },
+      parcelasPagas: { type: [Number], default: [] },
       dataInicio: { type: Date, required: true },
       dataFim: { type: Date, required: true },
     },
@@ -57,7 +63,7 @@ export class PendingAccount {
     totalParcelas: number;
     valorParcela: number;
     parcelasPayas: number;
-    parcelasPagas: number;
+    parcelasPagas: number[];
     dataInicio: Date;
     dataFim: Date;
   };
