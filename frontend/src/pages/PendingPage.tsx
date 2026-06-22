@@ -1,8 +1,10 @@
 ﻿import { useMemo, useState } from "react";
+import { isAxiosError } from "axios";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Clock, Loader2, Plus, Trash2 } from "lucide-react";
 
 import { api } from "../lib/api";
+
 import { formatCurrency } from "../lib/finance";
 import { cn } from "../lib/utils";
 import { useToast } from "../components/ui/Toast";
@@ -14,7 +16,7 @@ type PendingItem = {
   isRecorrente?: boolean;
   categoria?: string;
   formatoPagamento?: string;
-  parcelas?: { totalParcelas?: number; valorParcela?: number; dataInicio?: string; dataFim?: string; };
+  parcelas?: { totalParcelas?: number; valorParcela?: number; parcelasPagas?: number; dataInicio?: string; dataFim?: string; };
   recorrencia?: { periodoRecorrencia?: string; dataProxima?: string; };
   id: string;
   title: string;
@@ -46,6 +48,13 @@ function normalizePending(data: unknown): PendingItem[] {
       dueDate: item.dueDate,
       paid: item.paid,
       description: item.description,
+      parcelas: item.parcelas ? {
+        totalParcelas: item.parcelas.totalParcelas,
+        valorParcela: item.parcelas.valorParcela,
+        parcelasPagas: item.parcelas.parcelasPagas,
+        dataInicio: item.parcelas.dataInicio,
+        dataFim: item.parcelas.dataFim,
+      } : undefined,
     }));
   }
 
@@ -83,6 +92,7 @@ type PendingDisplayItem = PendingItem & {
   displayDate: string;
   displayValue: number;
   installmentLabel?: string;
+  installmentNumber?: number;
 };
 
 type PendingMonthGroup = {
@@ -92,7 +102,10 @@ type PendingMonthGroup = {
 };
 
 function parseDate(value: string) {
-  const date = new Date(value);
+  if (!value) return null;
+
+  const isDateOnly = /^\\d{4}-\\d{2}-\\d{2}$/.test(value);
+  const date = isDateOnly ? new Date(`${value}T12:00:00`) : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
@@ -158,6 +171,7 @@ function expandPendingItem(item: PendingItem): PendingDisplayItem[] {
         displayDate: installmentDate.toISOString(),
         displayValue: valorParcela,
         installmentLabel: `parcela ${index + 1}/${totalParcelas}`,
+        installmentNumber: index + 1,
       };
     });
   }
@@ -177,6 +191,8 @@ export function PendingPage() {
   const [creating, setCreating] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [parcelStatusOpen, setParcelStatusOpen] = useState(false);
+  const [selectedParcelItem, setSelectedParcelItem] = useState<PendingDisplayItem | null>(null);
   const [selectedDelete, setSelectedDelete] = useState<{ id: string; title: string } | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<PendingItem | null>(
     null,
@@ -207,6 +223,7 @@ export function PendingPage() {
   const [formFormatoPagamento, setFormFormatoPagamento] = useState("");
   const [categoriaCustom, setCategoriaCustom] = useState("");
   const [formaCustom, setFormaCustom] = useState("");
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const pendingQuery = useQuery<PendingItem[]>({
     queryKey: ["pending"],
@@ -220,7 +237,7 @@ export function PendingPage() {
   const currentYear = new Date().getFullYear();
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  const years = useMemo(() => Array.from({ length: 4 }, (_, index) => currentYear - index), [currentYear]);
+  const years = useMemo(() => Array.from({ length: 30 }, (_, index) => currentYear + 10 - index), [currentYear]);
 
   const filteredItems = useMemo(() => {
     return items
@@ -231,10 +248,13 @@ export function PendingPage() {
       });
   }, [items, selectedMonth, selectedYear]);
 
+  const visibleItems = filteredItems;
+
+
   const displayGroups = useMemo(() => {
     const grouped = new Map<string, PendingMonthGroup>();
 
-    for (const item of filteredItems) {
+    for (const item of visibleItems) {
       const date = parseDate(item.displayDate);
       if (!date) continue;
       const key = monthKey(date);
@@ -247,7 +267,7 @@ export function PendingPage() {
       ...group,
       items: group.items.sort((a, b) => a.displayDate.localeCompare(b.displayDate)),
     }));
-  }, [filteredItems]);
+  }, [visibleItems]);
 
   const totals = useMemo(() => {
     const pendingTotal = items
@@ -260,14 +280,16 @@ export function PendingPage() {
   }, [items]);
 
   const markPaid = useMutation({
-    mutationFn: async (id: string) =>
-      api.patch<PendingAccount>(`/api/pending/${id}`, { paid: true }),
+    mutationFn: async ({ id, numeroParcela }: { id: string; numeroParcela?: number }) =>
+      api.patch<PendingAccount>(`/api/pending/${id}`, numeroParcela ? { paid: true, numeroParcela } : { paid: true }),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["pending"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
       addToast("Conta marcada como paga com sucesso.", "success");
+      setParcelStatusOpen(false);
+      setSelectedParcelItem(null);
     },
     onError: () => addToast("Não foi possível atualizar a conta.", "error"),
   });
@@ -387,6 +409,11 @@ export function PendingPage() {
     });
   }
 
+  function abrirParcelStatus(item: PendingDisplayItem) {
+    setSelectedParcelItem(item);
+    setParcelStatusOpen(true);
+  }
+
   function confirmarDeletar(id: string, title: string) {
     setSelectedDelete({ id, title });
     setDeleteModalOpen(true);
@@ -398,7 +425,7 @@ export function PendingPage() {
       const payload = {
         title: formTitle.trim(),
         value: parseFloat(formValue),
-        dueDate: formIsParcelada ? formParcelas.dataFim : formDueDate,
+        dueDate: formIsParcelada ? (formParcelas.dataInicio || formParcelas.dataFim || new Date(selectedYear, selectedMonth - 1, 1).toISOString()) : (formDueDate || new Date(selectedYear, selectedMonth - 1, 1).toISOString()),
         description: formDescription.trim() || undefined,
         isParcelada: formIsParcelada,
         isRecorrente: formIsRecorrente,
@@ -441,7 +468,11 @@ export function PendingPage() {
       setFormDueDate("");
       setFormDescription("");
     },
-    onError: () => addToast("Não foi possível salvar a conta.", "error"),
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "Não foi possível salvar a conta.";
+      setCreateError(message);
+      addToast(message, "error");
+    },
   });
 
   return (
@@ -504,6 +535,12 @@ export function PendingPage() {
         </article>
       </div>
 
+      {createError && (
+        <div className="rounded-2xl border border-accent-red/30 bg-accent-red/10 p-4 text-sm text-accent-red">
+          {createError}
+        </div>
+      )}
+
       {pendingQuery.isLoading ? (
         <div className="rounded-2xl bg-bg-card p-5 text-sm text-text-secondary">
           Carregando contas...
@@ -556,7 +593,7 @@ export function PendingPage() {
                         {!original.paid && (
                           <button
                             type="button"
-                            onClick={() => markPaid.mutate(original.id)}
+                            onClick={() => markPaid.mutate({ id: original.id, numeroParcela: item.installmentNumber })}
                             disabled={markPaid.isPending}
                             className="inline-flex items-center gap-2 rounded-xl bg-accent-lime/10 px-3 py-2 text-sm font-semibold text-accent-lime hover:bg-accent-lime/20 disabled:opacity-60"
                           >
@@ -564,6 +601,13 @@ export function PendingPage() {
                             Marcar como pago
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => abrirParcelStatus(item)}
+                          className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-white"
+                        >
+                          Parcelas
+                        </button>
                         <button
                           type="button"
                           onClick={() => abrirModalEdicao(original)}
@@ -874,6 +918,23 @@ export function PendingPage() {
           </div>
         </div>
       )}
+      {parcelStatusOpen && selectedParcelItem && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-bg-muted bg-bg-card p-5">
+            <h2 className="text-lg font-bold text-white">Status das parcelas</h2>
+            <p className="mt-1 text-sm text-text-secondary">{selectedParcelItem.title}</p>
+            <div className="mt-4 space-y-2 text-sm text-white">
+              <p>Parcela: {selectedParcelItem.installmentLabel}</p>
+              <p>Valor: {formatCurrency(selectedParcelItem.displayValue)}</p>
+              <p>Vencimento: {new Date(selectedParcelItem.displayDate).toLocaleDateString("pt-BR")}</p>
+              <p>Status atual: {items.find((entry) => entry.id === selectedParcelItem.id)?.parcelas?.parcelasPagas ?? 0}/{items.find((entry) => entry.id === selectedParcelItem.id)?.parcelas?.totalParcelas ?? 0} pagas</p>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setParcelStatusOpen(false)} className="rounded-xl border border-bg-muted px-4 py-2 text-sm text-white">Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
       <ConfirmDeleteModal
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
@@ -888,6 +949,46 @@ export function PendingPage() {
       </section>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

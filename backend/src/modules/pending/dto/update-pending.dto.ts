@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsNumber, Min, MaxLength, IsDateString, IsBoolean, IsIn, ValidateNested, ValidateIf } from 'class-validator';
+﻿import { IsOptional, IsString, IsNumber, Min, MaxLength, IsDateString, IsBoolean, IsIn, ValidateNested, ValidateIf } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import sanitizeHtml from 'sanitize-html';
 
@@ -13,15 +13,14 @@ export class UpdatePendingDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(['Alimentação', 'Transporte', 'Saúde', 'Educação', 'Lazer', 'Outro'])
+  @IsIn(['AlimentaÃ§Ã£o', 'Transporte', 'SaÃºde', 'EducaÃ§Ã£o', 'Lazer', 'Outro'])
   categoria?: string;
 
   @IsOptional()
   @IsString()
-  @IsIn(['Cartão de Crédito', 'Pix', 'Dinheiro', 'Outro'])
+  @IsIn(['CartÃ£o de CrÃ©dito', 'Pix', 'Dinheiro', 'Outro'])
   formatoPagamento?: string;
 
-  // parcelas subdocumento (validation applied to fields individually)
   @IsOptional()
   @ValidateIf(o => o.isParcelada)
   @ValidateNested()
@@ -30,11 +29,16 @@ export class UpdatePendingDto {
     totalParcelas: number;
     valorParcela?: number;
     parcelasPayas?: number;
+    parcelasPagas?: number;
     dataInicio: string;
     dataFim: string;
   };
 
-  // recorrencia subdocumento
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  numeroParcela?: number;
+
   @IsOptional()
   @ValidateNested()
   @Type(() => Object)
@@ -42,6 +46,7 @@ export class UpdatePendingDto {
     periodoRecorrencia: string;
     dataProxima: string;
   };
+
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))
   @IsString()

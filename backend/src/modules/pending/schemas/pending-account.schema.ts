@@ -1,4 +1,4 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+﻿import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
 export type PendingAccountDocument = PendingAccount & Document;
@@ -6,14 +6,14 @@ export type PendingAccountDocument = PendingAccount & Document;
 @Schema({ timestamps: true })
 export class PendingAccount {
   /**
-   * Indica se a conta é parcelada.
+   * Indica se a conta Ã© parcelada.
    * @default false
    */
   @Prop({ type: Boolean, default: false })
   isParcelada!: boolean;
 
   /**
-   * Indica se a conta é recorrente.
+   * Indica se a conta Ã© recorrente.
    * @default false
    */
   @Prop({ type: Boolean, default: false })
@@ -25,7 +25,7 @@ export class PendingAccount {
    */
   @Prop({
     type: String,
-    enum: ['Alimentação', 'Transporte', 'Saúde', 'Educação', 'Lazer', 'Outro'],
+    enum: ['AlimentaÃ§Ã£o', 'Transporte', 'SaÃºde', 'EducaÃ§Ã£o', 'Lazer', 'Outro'],
     default: 'Outro',
   })
   categoria!: string;
@@ -36,7 +36,7 @@ export class PendingAccount {
    */
   @Prop({
     type: String,
-    enum: ['Cartão de Crédito', 'Pix', 'Dinheiro', 'Outro'],
+    enum: ['CartÃ£o de CrÃ©dito', 'Pix', 'Dinheiro', 'Outro'],
     default: 'Outro',
   })
   formatoPagamento!: string;
@@ -47,6 +47,7 @@ export class PendingAccount {
       totalParcelas: { type: Number, required: true },
       valorParcela: { type: Number, required: true },
       parcelasPayas: { type: Number, default: 0 },
+      parcelasPagas: { type: Number, default: 0 },
       dataInicio: { type: Date, required: true },
       dataFim: { type: Date, required: true },
     },
@@ -56,16 +57,17 @@ export class PendingAccount {
     totalParcelas: number;
     valorParcela: number;
     parcelasPayas: number;
+    parcelasPagas: number;
     dataInicio: Date;
     dataFim: Date;
   };
 
-  // Subdocumento de recorrência (presente apenas se isRecorrente = true)
+  // Subdocumento de recorrÃªncia (presente apenas se isRecorrente = true)
   @Prop({
     type: {
       periodoRecorrencia: {
         type: String,
-        enum: ['Diário', 'Semanal', 'Mensal', 'Anual'],
+        enum: ['DiÃ¡rio', 'Semanal', 'Mensal', 'Anual'],
         default: 'Mensal',
       },
       dataProxima: { type: Date, required: true },
@@ -102,3 +104,6 @@ export class PendingAccount {
 
 export const PendingAccountSchema = SchemaFactory.createForClass(PendingAccount);
 PendingAccountSchema.index({ userId: 1, dueDate: 1 });
+
+
+
