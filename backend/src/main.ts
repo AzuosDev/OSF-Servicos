@@ -25,6 +25,11 @@ async function bootstrap() {
   ]);
 
   app.use(helmet());
+  app.use((req, res, next) => {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    next();
+  });
+
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin) {
@@ -69,7 +74,11 @@ async function bootstrap() {
     SwaggerModule.setup("api/docs", app, document);
   }
 
-  await app.listen(3000);
+  await app.use((req, res, next) => {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  next();
+});
+app.listen(3000);
 }
 
 bootstrap();

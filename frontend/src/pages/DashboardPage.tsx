@@ -385,10 +385,7 @@ export function DashboardPage() {
   const { setOpen: setAddModalOpen } = useContext(TransactionModalContext);
 
 
-  const years = useMemo(
-    () => Array.from({ length: 4 }, (_, index) => currentYear - index),
-    [currentYear],
-  );
+  const years = useMemo(() => Array.from({ length: 11 }, (_, index) => 2035 - index), []);
 
   const dashboardQuery = useQuery({
     queryKey: ["dashboard", month, year],

@@ -29,8 +29,8 @@ type PendingItem = {
 };
 
 
-const PENDING_CATEGORIES = ["Alimenta??o", "Transporte", "Sa?de", "Educa??o", "Lazer", "Outro"] as const;
-const PAYMENT_FORMATS = ["Cart?o de Cr?dito", "Pix", "Dinheiro", "Outro"] as const;
+const PENDING_CATEGORIES = ["Alimentação", "Transporte", "Saúde", "Educação", "Lazer", "Outro"] as const;
+const PAYMENT_FORMATS = ["Cartão de Crédito", "Pix", "Dinheiro", "Outro"] as const;
 
 type PendingCategory = (typeof PENDING_CATEGORIES)[number];
 type PaymentFormat = (typeof PAYMENT_FORMATS)[number];
@@ -235,7 +235,7 @@ export function PendingPage() {
     recorrencia: { periodoRecorrencia: "Mensal", dataProxima: "" },
   });
 
-  // ? state dos campos do formul�rio
+  // ? state dos campos do formulário
   const [formTitle, setFormTitle] = useState("");
   const [formValue, setFormValue] = useState("");
   const [formDueDate, setFormDueDate] = useState("");
@@ -268,7 +268,7 @@ export function PendingPage() {
   const currentYear = new Date().getFullYear();
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  const years = useMemo(() => Array.from({ length: 30 }, (_, index) => currentYear + 10 - index), [currentYear]);
+  const years = useMemo(() => Array.from({ length: 11 }, (_, index) => 2035 - index), []);
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
@@ -320,7 +320,7 @@ export function PendingPage() {
       setParcelStatusOpen(false);
       setSelectedParcelItem(null);
     },
-    onError: () => addToast("N�o foi poss�vel atualizar a conta.", "error"),
+    onError: () => addToast("Não foi possível atualizar a conta.", "error"),
   });
 
   const editPending = useMutation({
@@ -351,7 +351,7 @@ export function PendingPage() {
       addToast("Conta atualizada com sucesso.", "success");
       fecharModal();
     },
-    onError: () => addToast("N�o foi poss�vel editar a conta.", "error"),
+    onError: () => addToast("Não foi possível editar a conta.", "error"),
   });
 
   const deletePending = useMutation({
@@ -504,7 +504,7 @@ export function PendingPage() {
       setFormDescription("");
     },
     onError: (error) => {
-      const message = error instanceof Error ? error.message : "N�o foi poss�vel salvar a conta.";
+      const message = error instanceof Error ? error.message : "Não foi possível salvar a conta.";
       setCreateError(message);
       addToast(message, "error");
     },
@@ -562,7 +562,7 @@ export function PendingPage() {
         </article>
         <article className="rounded-2xl border border-accent-lime/20 bg-bg-card p-5">
           <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-            Total pago no m�s
+            Total pago no mês
           </p>
           <p className="mt-3 text-3xl font-bold text-accent-lime">
             {formatCurrency(totals.paidTotal)}
@@ -688,14 +688,14 @@ export function PendingPage() {
               {/* ? inputs controlados com state */}
                 {/* Segmented control for account type */}
                 <div className="flex space-x-1 rounded-xl bg-bg-muted p-1 mb-4">
-                  {['N�o parcelada', 'Parcelada', 'Recorrente'].map((type) => (
+                  {['Não parcelada', 'Parcelada', 'Recorrente'].map((type) => (
                     <button
                       key={type}
                       type="button"
                       className={`flex-1 rounded px-3 py-2 text-sm font-medium ${
                         (formIsParcelada && type === 'Parcelada') ||
                         (formIsRecorrente && type === 'Recorrente') ||
-                        (!formIsParcelada && !formIsRecorrente && type === 'N�o parcelada')
+                        (!formIsParcelada && !formIsRecorrente && type === 'Não parcelada')
                           ? 'bg-accent-lime text-black'
                           : 'text-white'
                       }`}
@@ -735,7 +735,7 @@ export function PendingPage() {
                         Valor da parcela: {(parseFloat(formValue) / Number(formParcelas.totalParcelas)).toFixed(2)}
                       </p>
                     )}
-                    <label className="block text-sm text-white">Data de in�cio</label>
+                    <label className="block text-sm text-white">Data de Início</label>
                     <input
                       type="date"
                       className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
@@ -753,18 +753,18 @@ export function PendingPage() {
                 )}
                 {formIsRecorrente && (
                   <div className="space-y-2 mb-4">
-                    <label className="block text-sm text-white">Per�odo de recorr�ncia</label>
+                    <label className="block text-sm text-white">Período de recorrência</label>
                     <select
                       value={formRecorrencia.periodoRecorrencia}
                       onChange={(e) => setFormRecorrencia(prev => ({ ...prev, periodoRecorrencia: e.target.value }))}
                       className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
                     >
-                      <option value="Di�rio">Di�rio</option>
+                      <option value="Diário">Diário</option>
                       <option value="Semanal">Semanal</option>
                       <option value="Mensal">Mensal</option>
                       <option value="Anual">Anual</option>
                     </select>
-                    <label className="block text-sm text-white">Pr�xima data</label>
+                    <label className="block text-sm text-white">Próxima data</label>
                     <input
                       type="date"
                       className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
@@ -827,7 +827,7 @@ export function PendingPage() {
                 )}
               <input
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="T�tulo"
+                placeholder="Título"
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
               />
@@ -849,7 +849,7 @@ export function PendingPage() {
               <textarea
                 rows={3}
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="Descri��o (opcional)"
+                placeholder="Descrição (opcional)"
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
               />
@@ -891,7 +891,7 @@ export function PendingPage() {
             <div className="mt-4 flex-1 overflow-y-auto px-5 pb-3 space-y-3">
               <input
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="T�tulo"
+                placeholder="Título"
                 value={editFormData.title}
                 onChange={(e) =>
                   setEditFormData((prev) => ({
@@ -926,7 +926,7 @@ export function PendingPage() {
               <textarea
                 rows={3}
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="Descri��o (opcional)"
+                placeholder="Descrição (opcional)"
                 value={editFormData.description}
                 onChange={(e) =>
                   setEditFormData((prev) => ({
