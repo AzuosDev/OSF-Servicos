@@ -218,7 +218,7 @@ export function PendingPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [parcelStatusOpen, setParcelStatusOpen] = useState(false);
   const [selectedParcelItem, setSelectedParcelItem] = useState<PendingDisplayItem | null>(null);
-  const [selectedDelete, setSelectedDelete] = useState<{ id: string; title: string } | null>(null);
+  const [selectedDelete, setSelectedDelete] = useState<{ id: string; title: string; isParcel?: boolean; parcelLabel?: string; grupoParceladoId?: string } | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<PendingItem | null>(
     null,
   );
@@ -235,7 +235,7 @@ export function PendingPage() {
     recorrencia: { periodoRecorrencia: "Mensal", dataProxima: "" },
   });
 
-  // ? state dos campos do formulário
+  // ? state dos campos do formulï¿½rio
   const [formTitle, setFormTitle] = useState("");
   const [formValue, setFormValue] = useState("");
   const [formDueDate, setFormDueDate] = useState("");
@@ -320,7 +320,7 @@ export function PendingPage() {
       setParcelStatusOpen(false);
       setSelectedParcelItem(null);
     },
-    onError: () => addToast("Não foi possível atualizar a conta.", "error"),
+    onError: () => addToast("Nï¿½o foi possï¿½vel atualizar a conta.", "error"),
   });
 
   const editPending = useMutation({
@@ -351,7 +351,7 @@ export function PendingPage() {
       addToast("Conta atualizada com sucesso.", "success");
       fecharModal();
     },
-    onError: () => addToast("Não foi possível editar a conta.", "error"),
+    onError: () => addToast("Nï¿½o foi possï¿½vel editar a conta.", "error"),
   });
 
   const deletePending = useMutation({
@@ -363,9 +363,20 @@ export function PendingPage() {
       ]);
       addToast("Conta apagada com sucesso.", "success");
     },
-    onError: () => addToast("Não foi possível apagar a conta.", "error"),
+    onError: () => addToast("NÃ£o foi possÃ­vel apagar a conta.", "error"),
   });
 
+  const deleteGroupPending = useMutation({
+    mutationFn: async (grupoParceladoId: string) => api.delete(`/api/pending/group/${grupoParceladoId}`),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["pending"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
+      addToast("Conta apagada com sucesso.", "success");
+    },
+    onError: () => addToast("NÃ£o foi possÃ­vel apagar a conta.", "error"),
+  });
   function abrirModalEdicao(item: PendingItem) {
     setSelectedAccount(item);
     setEditFormData({
@@ -443,11 +454,17 @@ export function PendingPage() {
     setParcelStatusOpen(true);
   }
 
-  function confirmarDeletar(id: string, title: string) {
-    setSelectedDelete({ id, title });
+  function confirmarDeletar(item: PendingItem) {
+    const isParcel = !!item.grupoParceladoId && !!item.numeroParcela;
+    setSelectedDelete({
+      id: item.id,
+      title: item.title,
+      isParcel,
+      parcelLabel: isParcel && item.numeroParcela && item.parcelas?.totalParcelas ? `Parcela ${item.numeroParcela}/${item.parcelas.totalParcelas}` : undefined,
+      grupoParceladoId: item.grupoParceladoId,
+    });
     setDeleteModalOpen(true);
   }
-
   // ? mutation para criar conta pendente
   const createPending = useMutation({
     mutationFn: async () => {
@@ -487,7 +504,7 @@ export function PendingPage() {
       setFormDescription("");
     },
     onError: (error) => {
-      const message = error instanceof Error ? error.message : "Não foi possível salvar a conta.";
+      const message = error instanceof Error ? error.message : "Nï¿½o foi possï¿½vel salvar a conta.";
       setCreateError(message);
       addToast(message, "error");
     },
@@ -545,7 +562,7 @@ export function PendingPage() {
         </article>
         <article className="rounded-2xl border border-accent-lime/20 bg-bg-card p-5">
           <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-            Total pago no mês
+            Total pago no mï¿½s
           </p>
           <p className="mt-3 text-3xl font-bold text-accent-lime">
             {formatCurrency(totals.paidTotal)}
@@ -642,7 +659,7 @@ export function PendingPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => confirmarDeletar(item.id, item.title)}
+                          onClick={() => confirmarDeletar(item)}
                           disabled={deletePending.isPending}
                           className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-accent-red"
                         >
@@ -671,14 +688,14 @@ export function PendingPage() {
               {/* ? inputs controlados com state */}
                 {/* Segmented control for account type */}
                 <div className="flex space-x-1 rounded-xl bg-bg-muted p-1 mb-4">
-                  {['Não parcelada', 'Parcelada', 'Recorrente'].map((type) => (
+                  {['Nï¿½o parcelada', 'Parcelada', 'Recorrente'].map((type) => (
                     <button
                       key={type}
                       type="button"
                       className={`flex-1 rounded px-3 py-2 text-sm font-medium ${
                         (formIsParcelada && type === 'Parcelada') ||
                         (formIsRecorrente && type === 'Recorrente') ||
-                        (!formIsParcelada && !formIsRecorrente && type === 'Não parcelada')
+                        (!formIsParcelada && !formIsRecorrente && type === 'Nï¿½o parcelada')
                           ? 'bg-accent-lime text-black'
                           : 'text-white'
                       }`}
@@ -718,7 +735,7 @@ export function PendingPage() {
                         Valor da parcela: {(parseFloat(formValue) / Number(formParcelas.totalParcelas)).toFixed(2)}
                       </p>
                     )}
-                    <label className="block text-sm text-white">Data de início</label>
+                    <label className="block text-sm text-white">Data de inï¿½cio</label>
                     <input
                       type="date"
                       className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
@@ -736,18 +753,18 @@ export function PendingPage() {
                 )}
                 {formIsRecorrente && (
                   <div className="space-y-2 mb-4">
-                    <label className="block text-sm text-white">Período de recorrência</label>
+                    <label className="block text-sm text-white">Perï¿½odo de recorrï¿½ncia</label>
                     <select
                       value={formRecorrencia.periodoRecorrencia}
                       onChange={(e) => setFormRecorrencia(prev => ({ ...prev, periodoRecorrencia: e.target.value }))}
                       className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
                     >
-                      <option value="Diário">Diário</option>
+                      <option value="Diï¿½rio">Diï¿½rio</option>
                       <option value="Semanal">Semanal</option>
                       <option value="Mensal">Mensal</option>
                       <option value="Anual">Anual</option>
                     </select>
-                    <label className="block text-sm text-white">Próxima data</label>
+                    <label className="block text-sm text-white">Prï¿½xima data</label>
                     <input
                       type="date"
                       className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
@@ -810,7 +827,7 @@ export function PendingPage() {
                 )}
               <input
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="Título"
+                placeholder="Tï¿½tulo"
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
               />
@@ -832,7 +849,7 @@ export function PendingPage() {
               <textarea
                 rows={3}
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="Descrição (opcional)"
+                placeholder="Descriï¿½ï¿½o (opcional)"
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
               />
@@ -874,7 +891,7 @@ export function PendingPage() {
             <div className="mt-4 flex-1 overflow-y-auto px-5 pb-3 space-y-3">
               <input
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="Título"
+                placeholder="Tï¿½tulo"
                 value={editFormData.title}
                 onChange={(e) =>
                   setEditFormData((prev) => ({
@@ -909,7 +926,7 @@ export function PendingPage() {
               <textarea
                 rows={3}
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="Descrição (opcional)"
+                placeholder="Descriï¿½ï¿½o (opcional)"
                 value={editFormData.description}
                 onChange={(e) =>
                   setEditFormData((prev) => ({
@@ -962,13 +979,21 @@ export function PendingPage() {
       <ConfirmDeleteModal
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
-        onConfirm={() => {
+        onDeleteOne={() => {
           if (selectedDelete) {
             deletePending.mutate(selectedDelete.id);
           }
           setDeleteModalOpen(false);
         }}
+        onDeleteGroup={() => {
+          if (selectedDelete?.grupoParceladoId) {
+            deleteGroupPending.mutate(selectedDelete.grupoParceladoId);
+          }
+          setDeleteModalOpen(false);
+        }}
         accountName={selectedDelete?.title ?? ""}
+        isParcel={selectedDelete?.isParcel}
+        parcelLabel={selectedDelete?.parcelLabel}
       />
       </section>
   );

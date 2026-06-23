@@ -1,4 +1,4 @@
-﻿import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { PendingAccount, PendingAccountDocument } from './schemas/pending-account.schema';
@@ -128,5 +128,17 @@ export class PendingService {
       throw new NotFoundException('Pending account not found');
     }
     return { deleted: true };
+  }
+  async removeGroup(userId: string, grupoParceladoId: string) {
+    const result = await this.pendingModel.deleteMany({
+      userId: new Types.ObjectId(userId),
+      grupoParceladoId,
+    }).exec();
+
+    if (!result.deletedCount) {
+      throw new NotFoundException('Pending account not found');
+    }
+
+    return { deleted: true, count: result.deletedCount };
   }
 }
