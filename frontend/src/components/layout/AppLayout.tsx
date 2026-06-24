@@ -4,7 +4,6 @@ import {
   BarChart2,
   ChevronDown,
   ChevronLeft,
-  ChevronRight,
   Clock,
   Coins,
   Home,
@@ -149,18 +148,41 @@ function SidebarContent({
           collapsed ? "justify-center px-4" : "justify-between",
         )}
       >
-        <Link
-          to="/dashboard"
-          onClick={onNavigate}
-          className={cn(
-            "flex min-w-0 items-center gap-3 font-sans text-xl font-bold text-text-primary",
-            collapsed && "justify-center",
-          )}
-          title={collapsed ? "MeuGasto" : undefined}
-        >
-          <Coins className="h-7 w-7 shrink-0 text-accent-lime" />
-          {!collapsed && <span className="truncate">MeuGasto</span>}
-        </Link>
+        {onToggleCollapse ? (
+          <>
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="shrink-0 text-accent-lime transition hover:opacity-75"
+              aria-label={collapsed ? "Expandir menu lateral" : "Comprimir menu lateral"}
+              title={collapsed ? "Expandir menu" : "Comprimir menu"}
+            >
+              <Coins className="h-7 w-7" />
+            </button>
+            {!collapsed && (
+              <Link
+                to="/dashboard"
+                onClick={onNavigate}
+                className="truncate font-sans text-xl font-bold text-text-primary"
+              >
+                MeuGasto
+              </Link>
+            )}
+          </>
+        ) : (
+          <Link
+            to="/dashboard"
+            onClick={onNavigate}
+            className={cn(
+              "flex min-w-0 items-center gap-3 font-sans text-xl font-bold text-text-primary",
+              collapsed && "justify-center",
+            )}
+            title={collapsed ? "MeuGasto" : undefined}
+          >
+            <Coins className="h-7 w-7 shrink-0 text-accent-lime" />
+            {!collapsed && <span className="truncate">MeuGasto</span>}
+          </Link>
+        )}
 
         {onToggleCollapse && !collapsed && (
           <button
@@ -234,16 +256,6 @@ function SidebarContent({
           )}
         </div>
         <div className="mt-4 grid gap-1">
-          {collapsed && onToggleCollapse && (
-            <button
-              onClick={onToggleCollapse}
-              className="grid h-10 w-full place-items-center rounded-xl text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
-              aria-label="Expandir menu lateral"
-              title="Expandir menu"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          )}
           <ThemeToggleButton collapsed={collapsed} />
           <button
             onClick={onLogout}
