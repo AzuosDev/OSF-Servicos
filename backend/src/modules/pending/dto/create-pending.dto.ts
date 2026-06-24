@@ -7,6 +7,27 @@ export class ParcelasDto {
   @Min(2)
   @Type(() => Number)
   totalParcelas!: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  valorParcela?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  qtdParcelasPagas?: number;
+
+  @IsOptional()
+  parcelasPagas?: number[];
+
+  @IsOptional()
+  @IsDateString()
+  dataInicio?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dataFim?: string;
 }
 
 export class RecorrenciaDto {
