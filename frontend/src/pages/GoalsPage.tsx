@@ -145,11 +145,13 @@ function GoalFormModal({
   goal,
   mode,
   onClose,
+  onMockSubmit,
 }: {
   open: boolean;
   goal: GoalItem | null;
   mode: "create" | "edit";
   onClose: () => void;
+  onMockSubmit?: (values: GoalFormValues) => void;
 }) {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
@@ -216,7 +218,10 @@ function GoalFormModal({
       title={mode === "create" ? "Nova Meta" : "Editar Meta"}
       icon={<Target className="h-6 w-6 text-accent-lime" />}
     >
-      <form className="space-y-4" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
+      <form className="space-y-4" onSubmit={form.handleSubmit((values) => {
+        if (goal?.id.startsWith("mock-") && onMockSubmit) { onMockSubmit(values); return; }
+        mutation.mutate(values);
+      })}>
         <label className="block space-y-2">
           <span className="text-sm font-medium text-text-secondary">Nome da meta</span>
           <input
@@ -302,10 +307,12 @@ function GoalValueModal({
   open,
   goal,
   onClose,
+  onMockSubmit,
 }: {
   open: boolean;
   goal: GoalItem | null;
   onClose: () => void;
+  onMockSubmit?: (currentValue: number) => void;
 }) {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
@@ -358,7 +365,10 @@ function GoalValueModal({
       title="Atualizar Valor"
       icon={<CalendarDays className="h-6 w-6 text-accent-lime" />}
     >
-      <form className="space-y-4" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
+      <form className="space-y-4" onSubmit={form.handleSubmit((values) => {
+        if (goal?.id.startsWith("mock-") && onMockSubmit) { onMockSubmit(values.currentValue); return; }
+        mutation.mutate(values);
+      })}>
         <div className="rounded-2xl border border-bg-muted bg-bg-muted/70 p-4">
           <p className="text-sm text-text-secondary">Meta</p>
           <h3 className="mt-1 text-lg font-semibold text-white">{goal.name}</h3>
@@ -367,7 +377,7 @@ function GoalValueModal({
             <span className="font-semibold text-white">{formatCurrency(goal.targetValue)}</span>
           </p>
           <p className="mt-2 text-xs text-text-secondary">
-            Ao atingir ou ultrapassar o alvo, o backend marca a meta como concluída automaticamente.
+            Ao atingir ou ultrapassar o valor alvo, a meta é marcada como concluída automaticamente.
           </p>
         </div>
 
@@ -422,7 +432,14 @@ export function GoalsPage() {
   });
 
   const emptyGoals = useMemo<GoalItem[]>(() => [], []);
-  const goals = goalsQuery.data ?? emptyGoals;
+
+  const INITIAL_MOCK_GOALS: GoalItem[] = [
+    { id: "mock-1", name: "Reserva de emergência", targetValue: 15000, currentValue: 9500, deadline: "2026-12-31", completed: false, percentComplete: 63 },
+    { id: "mock-2", name: "Viagem para o Nordeste", targetValue: 5000, currentValue: 5000, deadline: "2026-07-15", completed: true, percentComplete: 100 },
+  ];
+  const [mockGoals, setMockGoals] = useState<GoalItem[]>(INITIAL_MOCK_GOALS);
+
+  const goals = goalsQuery.data?.length ? goalsQuery.data : mockGoals;
 
   const summary = useMemo(() => {
     const totalCurrent = goals.reduce((sum, goal) => sum + (goal.currentValue ?? 0), 0);
@@ -469,48 +486,77 @@ export function GoalsPage() {
     setDeleteGoalModalOpen(true);
   };
 
+  const handleMockEdit = (values: GoalFormValues) => {
+    if (!currentGoal) return;
+    const percent = values.targetValue > 0 ? Math.min(100, Math.round((values.currentValue / values.targetValue) * 100)) : 0;
+    setMockGoals((prev) => prev.map((g) =>
+      g.id === currentGoal.id
+        ? { ...g, name: values.name, targetValue: values.targetValue, currentValue: values.currentValue, deadline: values.deadline, percentComplete: percent, completed: values.currentValue >= values.targetValue }
+        : g
+    ));
+    addToast("Meta atualizada com sucesso.", "success");
+    closeModal();
+  };
+
+  const handleMockValueUpdate = (currentValue: number) => {
+    if (!currentGoal) return;
+    const target = currentGoal.targetValue;
+    const percent = target > 0 ? Math.min(100, Math.round((currentValue / target) * 100)) : 0;
+    setMockGoals((prev) => prev.map((g) =>
+      g.id === currentGoal.id
+        ? { ...g, currentValue, percentComplete: percent, completed: currentValue >= g.targetValue }
+        : g
+    ));
+    addToast("Valor da meta atualizado com sucesso.", "success");
+    closeModal();
+  };
+
+  const confirmDelete = () => {
+    if (!selectedGoal) return;
+    if (selectedGoal.id.startsWith("mock-")) {
+      setMockGoals((prev) => prev.filter((g) => g.id !== selectedGoal.id));
+      addToast("Meta excluída com sucesso.", "success");
+    } else {
+      deleteGoal.mutate(selectedGoal.id);
+    }
+    setDeleteGoalModalOpen(false);
+  };
+
   return (
     <section className="space-y-5">
-      <header className="flex flex-col gap-4 rounded-3xl border border-bg-muted bg-[radial-gradient(circle_at_top_left,_rgba(163,230,53,0.12),_transparent_40%),linear-gradient(180deg,_rgba(15,23,42,0.95),_rgba(2,6,23,0.98))] p-5 sm:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm text-text-secondary">Objetivos financeiros</p>
-            <h1 className="text-3xl font-bold text-white">Metas financeiras</h1>
-            <p className="mt-2 max-w-2xl text-sm text-text-secondary">
-              Aqui você cria, acompanha e ajusta suas metas. O frontend valida as mesmas regras que o backend já aplica
-              para evitar surpresas no envio.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
-          >
-            <Plus className="h-4 w-4" />
-            Nova Meta
-          </button>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm text-text-secondary">Objetivos financeiros</p>
+          <h1 className="font-sans text-3xl font-bold">Metas financeiras</h1>
         </div>
-
-        <div className="grid gap-3 md:grid-cols-4">
-          <article className="rounded-2xl border border-bg-muted bg-bg-card/80 p-4">
-            <p className="text-xs uppercase tracking-wide text-text-secondary">Total de metas</p>
-            <p className="mt-2 text-2xl font-bold text-white">{summary.totalGoals}</p>
-          </article>
-          <article className="rounded-2xl border border-bg-muted bg-bg-card/80 p-4">
-            <p className="text-xs uppercase tracking-wide text-text-secondary">Concluídas</p>
-            <p className="mt-2 text-2xl font-bold text-accent-lime">{summary.completedGoals}</p>
-          </article>
-          <article className="rounded-2xl border border-bg-muted bg-bg-card/80 p-4">
-            <p className="text-xs uppercase tracking-wide text-text-secondary">Acumulado</p>
-            <p className="mt-2 text-2xl font-bold text-white">{formatCurrency(summary.totalCurrent)}</p>
-          </article>
-          <article className="rounded-2xl border border-bg-muted bg-bg-card/80 p-4">
-            <p className="text-xs uppercase tracking-wide text-text-secondary">Progresso geral</p>
-            <p className="mt-2 text-2xl font-bold text-white">{summary.overallProgress}%</p>
-          </article>
-        </div>
+        <button
+          type="button"
+          onClick={openCreateModal}
+          className="inline-flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
+        >
+          <Plus className="h-4 w-4" />
+          Nova Meta
+        </button>
       </header>
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <article className="rounded-2xl bg-bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-text-secondary">Total de metas</p>
+          <p className="mt-2 text-2xl font-bold text-white">{summary.totalGoals}</p>
+        </article>
+        <article className="rounded-2xl bg-bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-text-secondary">Concluídas</p>
+          <p className="mt-2 text-2xl font-bold text-accent-lime">{summary.completedGoals}</p>
+        </article>
+        <article className="rounded-2xl bg-bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-text-secondary">Acumulado</p>
+          <p className="mt-2 text-2xl font-bold text-white">{formatCurrency(summary.totalCurrent)}</p>
+        </article>
+        <article className="rounded-2xl bg-bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-text-secondary">Progresso geral</p>
+          <p className="mt-2 text-2xl font-bold text-white">{summary.overallProgress}%</p>
+        </article>
+      </div>
 
       {goalsQuery.isLoading ? (
         <div className="rounded-2xl border border-bg-muted bg-bg-card p-5 text-sm text-text-secondary">Carregando metas...</div>
@@ -629,22 +675,19 @@ export function GoalsPage() {
         goal={currentGoal}
         mode={formMode}
         onClose={closeModal}
+        onMockSubmit={currentGoal?.id.startsWith("mock-") ? handleMockEdit : undefined}
       />
 
       <GoalValueModal
         open={activeAction?.type === "value"}
         goal={currentGoal}
         onClose={closeModal}
+        onMockSubmit={currentGoal?.id.startsWith("mock-") ? handleMockValueUpdate : undefined}
       />
     <ConfirmDeleteModal
         open={deleteGoalModalOpen}
         onClose={() => setDeleteGoalModalOpen(false)}
-        onDeleteOne={() => {
-          if (selectedGoal) {
-            deleteGoal.mutate(selectedGoal.id);
-          }
-          setDeleteGoalModalOpen(false);
-        }}
+        onDeleteOne={confirmDelete}
         accountName={selectedGoal?.name ?? ""}
       />
 </section>
