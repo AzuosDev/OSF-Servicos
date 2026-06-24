@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   BarChart2,
-  ChevronDown,
   ChevronLeft,
   Clock,
   Coins,
@@ -27,6 +26,8 @@ import { api } from "../../lib/api";
 import { cn } from "../../lib/utils";
 import type { User } from "../../types/api";
 import { useToast } from "../ui/Toast";
+import { useQuery } from "@tanstack/react-query";
+import { UserProfileModal } from "../modals/UserProfileModal";
 
 type NavItem = {
   to: string;
@@ -86,10 +87,28 @@ function getUserEmailFromToken() {
   }
 }
 
-function Avatar({ email }: { email: string }) {
+function Avatar({ email, name, avatarUrl }: { email: string; name?: string; avatarUrl?: string }) {
+  const [imgError, setImgError] = useState(false);
+  const letter = (name || email).charAt(0).toUpperCase();
+
+  useEffect(() => {
+    setImgError(false);
+  }, [avatarUrl]);
+
+  if (avatarUrl && !imgError) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={name || email}
+        className="h-10 w-10 shrink-0 rounded-full object-cover"
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
   return (
     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-bg-muted text-sm font-bold text-accent-lime">
-      {email.charAt(0).toUpperCase()}
+      {letter}
     </span>
   );
 }
@@ -125,8 +144,11 @@ type SidebarContentProps = {
   currentPath: string;
   currentUrl: string;
   email: string;
+  name?: string;
+  avatarUrl?: string;
   onLogout: () => void;
   onNavigate?: () => void;
+  onOpenProfile?: () => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
 };
@@ -135,8 +157,11 @@ function SidebarContent({
   currentPath,
   currentUrl,
   email,
+  name,
+  avatarUrl,
   onLogout,
   onNavigate,
+  onOpenProfile,
   collapsed = false,
   onToggleCollapse,
 }: SidebarContentProps) {
@@ -243,16 +268,26 @@ function SidebarContent({
             collapsed && "justify-center",
           )}
         >
-          <div className="relative" title={collapsed ? email : undefined}>
-            <Avatar email={email} />
-          </div>
+          <button
+            type="button"
+            onClick={onOpenProfile}
+            className="shrink-0 rounded-full transition hover:ring-2 hover:ring-accent-lime/50 focus:outline-none"
+            title={collapsed ? (name || email) : "Abrir perfil"}
+            aria-label="Abrir perfil do usuário"
+          >
+            <Avatar email={email} name={name} avatarUrl={avatarUrl} />
+          </button>
           {!collapsed && (
-            <div className="min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={onOpenProfile}
+              className="min-w-0 flex-1 text-left transition hover:opacity-80"
+            >
               <p className="truncate text-sm font-semibold text-text-primary">
-                Usuário
+                {name || email.split("@")[0]}
               </p>
               <p className="truncate text-xs text-text-secondary">{email}</p>
-            </div>
+            </button>
           )}
         </div>
         <div className="mt-4 grid gap-1">
@@ -286,22 +321,28 @@ export function AppLayout() {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [userProfileOpen, setUserProfileOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
-  const { theme, toggleTheme } = useTheme();
 
   const [email, setEmail] = useState(
     () => getUserEmailFromToken() ?? fallbackEmail,
   );
+  const userQuery = useQuery<User>({
+    queryKey: ["user-profile"],
+    queryFn: () => api.get<User>("/api/users/me").then((r) => r.data),
+    staleTime: 1000 * 60 * 5,
+    retry: false,
+  });
+  const name = userQuery.data?.name;
+  const avatarUrl = userQuery.data?.avatarUrl;
+
   const currentPath = location.pathname;
   const currentUrl = `${location.pathname}${location.search}`;
   const title = pageTitles[currentPath] ?? "MeuGasto";
-  const isDark = theme === "dark";
 
   useEffect(() => {
     setMobileSidebarOpen(false);
-    setUserMenuOpen(false);
   }, [location.pathname, location.search]);
 
   useEffect(() => {
@@ -363,7 +404,10 @@ export function AppLayout() {
           currentPath={currentPath}
           currentUrl={currentUrl}
           email={email}
+          name={name}
+          avatarUrl={avatarUrl}
           onLogout={handleLogout}
+          onOpenProfile={() => setUserProfileOpen(true)}
           collapsed={desktopSidebarCollapsed}
           onToggleCollapse={() =>
             setDesktopSidebarCollapsed((collapsed) => !collapsed)
@@ -392,7 +436,10 @@ export function AppLayout() {
               currentPath={currentPath}
               currentUrl={currentUrl}
               email={email}
+              name={name}
+              avatarUrl={avatarUrl}
               onLogout={handleLogout}
+              onOpenProfile={() => { setMobileSidebarOpen(false); setUserProfileOpen(true); }}
               onNavigate={() => setMobileSidebarOpen(false)}
             />
           </aside>
@@ -412,38 +459,13 @@ export function AppLayout() {
             {title}
           </h1>
         </div>
-        <div className="relative">
-          <button
-            onClick={() => setUserMenuOpen((open) => !open)}
-            className="flex items-center gap-2 rounded-full bg-bg-muted p-1 pr-2 text-text-secondary"
-            aria-label="Abrir menu do usuário"
-          >
-            <Avatar email={email} />
-            <ChevronDown className="h-4 w-4" />
-          </button>
-          {userMenuOpen && (
-            <div className="absolute right-0 mt-2 w-48 rounded-xl border border-border-default bg-bg-card p-2 shadow-xl">
-              <button
-                onClick={toggleTheme}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-text-secondary hover:bg-bg-overlay hover:text-text-primary"
-              >
-                {isDark ? (
-                  <Sun className="h-4 w-4" />
-                ) : (
-                  <Moon className="h-4 w-4" />
-                )}
-                {isDark ? "Tema claro" : "Tema escuro"}
-              </button>
-              <button
-                onClick={handleLogout}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-text-secondary hover:bg-bg-overlay hover:text-accent-red"
-              >
-                <LogOut className="h-4 w-4" />
-                Sair
-              </button>
-            </div>
-          )}
-        </div>
+        <button
+          onClick={() => setUserProfileOpen(true)}
+          className="rounded-full transition hover:ring-2 hover:ring-accent-lime/50 focus:outline-none"
+          aria-label="Abrir perfil do usuário"
+        >
+          <Avatar email={email} name={name} avatarUrl={avatarUrl} />
+        </button>
       </header>
 
       <main
@@ -546,6 +568,11 @@ export function AppLayout() {
           </div>
         </div>
       )}
+
+      <UserProfileModal
+        open={userProfileOpen}
+        onClose={() => setUserProfileOpen(false)}
+      />
     </div>
   </TransactionModalContext.Provider>
   );

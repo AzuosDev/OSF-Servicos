@@ -11,6 +11,9 @@ export type MongoDocument = {
 export type User = MongoDocument & {
   email: string;
   emailVerified: boolean;
+  name?: string;
+  avatarUrl?: string;
+  gravatarUrl?: string;
 };
 
 export type AuthTokens = {
