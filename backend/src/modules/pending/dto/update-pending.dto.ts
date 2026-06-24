@@ -1,4 +1,5 @@
 ﻿import { IsOptional, IsString, IsNumber, Min, MaxLength, IsDateString, IsBoolean, IsIn, IsObject, ValidateIf } from 'class-validator';
+
 import { Type, Transform } from 'class-transformer';
 import sanitizeHtml from 'sanitize-html';
 
@@ -13,7 +14,7 @@ export class UpdatePendingDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(['Alimentação', 'Transporte', 'Saúde', 'Educação', 'Lazer', 'Outro'])
+  @MaxLength(50)
   categoria?: string;
 
   @IsOptional()

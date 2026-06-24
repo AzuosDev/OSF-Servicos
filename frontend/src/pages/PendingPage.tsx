@@ -9,6 +9,7 @@ import { formatCurrency } from "../lib/finance";
 import { cn } from "../lib/utils";
 import { useToast } from "../components/ui/Toast";
 import { ConfirmDeleteModal } from "../components/modals/ConfirmDeleteModal";
+import { DynamicIcon } from "../components/DynamicIcon";
 import type { PendingAccount } from "../types/api";
 
 type PendingItem = {
@@ -31,6 +32,15 @@ type PendingItem = {
 
 const PENDING_CATEGORIES = ["Alimentação", "Transporte", "Saúde", "Educação", "Lazer", "Outro"] as const;
 const PAYMENT_FORMATS = ["Cartão de Crédito", "Pix", "Dinheiro", "Outro"] as const;
+
+const CATEGORY_META: Record<string, { icon: string; color: string }> = {
+  "Alimentação": { icon: "Utensils",      color: "#f97316" },
+  "Transporte":  { icon: "Car",           color: "#3b82f6" },
+  "Saúde":       { icon: "Heart",         color: "#ef4444" },
+  "Educação":    { icon: "BookOpen",      color: "#8b5cf6" },
+  "Lazer":       { icon: "Smile",         color: "#22c55e" },
+  "Outro":       { icon: "MoreHorizontal",color: "#6b7280" },
+};
 
 type PendingCategory = (typeof PENDING_CATEGORIES)[number];
 type PaymentFormat = (typeof PAYMENT_FORMATS)[number];
@@ -72,7 +82,7 @@ function buildPendingPayload(data: {
     description: data.description.trim() || undefined,
     isParcelada: data.isParcelada,
     isRecorrente: data.isRecorrente,
-    categoria: isPendingCategory(data.categoria) ? data.categoria : undefined,
+    categoria: data.categoria?.trim() || undefined,
     formatoPagamento: isPaymentFormat(data.formatoPagamento) ? data.formatoPagamento : undefined,
     parcelas: data.isParcelada && baseDate && Number.isFinite(totalParcelas) && totalParcelas > 0
       ? {
@@ -245,8 +255,8 @@ export function PendingPage() {
   const [formIsRecorrente, setFormIsRecorrente] = useState(false);
   const [formRecorrencia, setFormRecorrencia] = useState({ periodoRecorrencia: "Mensal", dataProxima: "" });
   const [formCategoria, setFormCategoria] = useState("");
-  const [formFormatoPagamento, setFormFormatoPagamento] = useState("");
   const [categoriaCustom, setCategoriaCustom] = useState("");
+  const [formFormatoPagamento, setFormFormatoPagamento] = useState("");
   const [formaCustom, setFormaCustom] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -486,7 +496,7 @@ export function PendingPage() {
         description: formDescription,
         isParcelada: formIsParcelada,
         isRecorrente: formIsRecorrente,
-        categoria: formCategoria && formCategoria !== "Outro" ? formCategoria : categoriaCustom,
+        categoria: formCategoria === "Outro" && categoriaCustom.trim() ? categoriaCustom.trim() : formCategoria,
         formatoPagamento: formFormatoPagamento && formFormatoPagamento !== "Outro" ? formFormatoPagamento : formaCustom,
         parcelas: formParcelas,
         recorrencia: formRecorrencia,
@@ -517,8 +527,8 @@ export function PendingPage() {
       setFormParcelas({ totalParcelas: "", dataInicio: "", dataFim: "" });
       setFormRecorrencia({ periodoRecorrencia: "Mensal", dataProxima: "" });
       setFormCategoria("");
-      setFormFormatoPagamento("");
       setCategoriaCustom("");
+      setFormFormatoPagamento("");
       setFormaCustom("");
     },
     onError: (error) => {
@@ -707,7 +717,7 @@ export function PendingPage() {
                   <button
                     key={type}
                     type="button"
-                    className={`flex-1 rounded px-3 py-2 text-sm font-medium transition ${
+                    className={`flex-1 rounded px-2 py-2 text-xs font-medium transition sm:px-3 sm:text-sm ${
                       (formIsParcelada && type === 'Parcelada') ||
                       (formIsRecorrente && type === 'Recorrente') ||
                       (!formIsParcelada && !formIsRecorrente && type === 'Não parcelada')
@@ -839,24 +849,42 @@ export function PendingPage() {
 
               {/* Categoria */}
               <div>
-                <label className="block text-sm text-text-secondary mb-2">Categoria</label>
-                <select
-                  value={formCategoria}
-                  onChange={(e) => {
-                    setFormCategoria(e.target.value);
-                    if (e.target.value !== 'Outro') setCategoriaCustom('');
-                  }}
-                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
-                >
-                  <option value="">Selecione</option>
-                  {PENDING_CATEGORIES.map((category) => (
-                    <option key={category} value={category}>{category}</option>
-                  ))}
-                </select>
-                {formCategoria === 'Outro' && (
+                <span className="mb-2 block text-sm text-text-secondary">Categoria</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {PENDING_CATEGORIES.map((cat) => {
+                    const meta = CATEGORY_META[cat];
+                    const active = formCategoria === cat;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          setFormCategoria(active ? "" : cat);
+                          if (active || cat !== "Outro") setCategoriaCustom("");
+                        }}
+                        className={cn(
+                          "flex flex-col items-center justify-center gap-1.5 rounded-xl border bg-bg-muted p-3 text-center text-xs font-semibold transition",
+                          active
+                            ? "border-accent-lime text-white"
+                            : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-white",
+                        )}
+                      >
+                        <span
+                          className="grid h-8 w-8 place-items-center rounded-xl"
+                          style={{ backgroundColor: `${meta.color}22` }}
+                        >
+                          <DynamicIcon name={meta.icon} className="h-4 w-4" style={{ color: meta.color }} />
+                        </span>
+                        <span className="leading-tight">{cat}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {formCategoria === "Outro" && (
                   <input
                     type="text"
-                    placeholder="Digite a categoria personalizada"
+                    placeholder="Qual categoria?"
+                    maxLength={50}
                     className="mt-2 w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
                     value={categoriaCustom}
                     onChange={(e) => setCategoriaCustom(e.target.value)}

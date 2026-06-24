@@ -23,11 +23,7 @@ export class PendingAccount {
    * Categoria da conta.
    * @default 'Outro'
    */
-  @Prop({
-    type: String,
-    enum: ['Alimentação', 'Transporte', 'Saúde', 'Educação', 'Lazer', 'Outro'],
-    default: 'Outro',
-  })
+  @Prop({ type: String, default: 'Outro' })
   categoria!: string;
 
   /**

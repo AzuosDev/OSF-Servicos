@@ -23,9 +23,9 @@ export function ModalShell({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-center items-start overflow-y-auto bg-black/60 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex justify-center items-start overflow-y-auto bg-black/60 backdrop-blur-sm p-3 sm:p-4">
       <div
-        className={`relative w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl border border-bg-muted bg-bg-card shadow-2xl ${containerClassName}`}
+        className={`relative my-auto w-full max-w-lg max-h-[92vh] flex flex-col rounded-2xl border border-bg-muted bg-bg-card shadow-2xl ${containerClassName}`}
       >
         {/* Cabeçalho fixo */}
         <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 shrink-0">

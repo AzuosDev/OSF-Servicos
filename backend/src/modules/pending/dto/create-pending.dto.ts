@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsNumber, Min, MaxLength, IsDateString, IsOptional, IsBoolean, IsIn, ValidateNested, ValidateIf, IsObject } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, Min, MaxLength, IsDateString, IsOptional, IsBoolean, IsIn, ValidateIf, IsObject } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import sanitizeHtml from 'sanitize-html';
 
@@ -12,9 +12,8 @@ export class CreatePendingDto {
   isRecorrente?: boolean;
 
   @IsOptional()
-  @IsOptional()
   @IsString()
-  @IsIn(['Alimentação', 'Transporte', 'Saúde', 'Educação', 'Lazer', 'Outro'])
+  @MaxLength(50)
   categoria?: string;
 
   @IsOptional()
