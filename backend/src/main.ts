@@ -7,6 +7,7 @@ import { ValidationPipe } from "@nestjs/common";
 import helmet from "helmet";
 import { ConfigService } from "@nestjs/config";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
+import type { Request, Response, NextFunction } from "express";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -25,7 +26,7 @@ async function bootstrap() {
   ]);
 
   app.use(helmet());
-  app.use((req, res, next) => {
+  app.use((_req: Request, res: Response, next: NextFunction) => {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     next();
   });
@@ -74,11 +75,7 @@ async function bootstrap() {
     SwaggerModule.setup("api/docs", app, document);
   }
 
-  await app.use((req, res, next) => {
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  next();
-});
-app.listen(3000);
+  await app.listen(3000);
 }
 
 bootstrap();

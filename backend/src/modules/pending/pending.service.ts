@@ -103,6 +103,10 @@ export class PendingService {
       throw new BadRequestException('numeroParcela so e valido para contas parceladas');
     }
 
+    if (dto.isRecorrente === true && !dto.recorrencia && !pending.recorrencia) {
+      throw new BadRequestException('Recorrencia e obrigatoria quando isRecorrente = true');
+    }
+
     if (typeof dto.paid !== 'undefined') {
       if (dto.paid && pending.isParcelada && typeof dto.numeroParcela === 'number') {
         if (!pending.parcelas) {

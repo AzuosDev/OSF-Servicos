@@ -256,6 +256,16 @@ export function PendingPage() {
     return () => window.clearTimeout(timer);
   }, [createError]);
 
+  useEffect(() => {
+    const total = Number(formParcelas.totalParcelas);
+    if (!formParcelas.dataInicio || !total || total <= 0) return;
+    const start = new Date(`${formParcelas.dataInicio}T12:00:00`);
+    if (Number.isNaN(start.getTime())) return;
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + total - 1);
+    setFormParcelas((prev) => ({ ...prev, dataFim: end.toISOString().slice(0, 10) }));
+  }, [formParcelas.dataInicio, formParcelas.totalParcelas]);
+
   const pendingQuery = useQuery<PendingItem[]>({
     queryKey: ["pending"],
     queryFn: async () => {
@@ -502,6 +512,14 @@ export function PendingPage() {
       setFormValue("");
       setFormDueDate("");
       setFormDescription("");
+      setFormIsParcelada(false);
+      setFormIsRecorrente(false);
+      setFormParcelas({ totalParcelas: "", dataInicio: "", dataFim: "" });
+      setFormRecorrencia({ periodoRecorrencia: "Mensal", dataProxima: "" });
+      setFormCategoria("");
+      setFormFormatoPagamento("");
+      setCategoriaCustom("");
+      setFormaCustom("");
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : "Não foi possível salvar a conta.";
@@ -745,9 +763,9 @@ export function PendingPage() {
                     <label className="block text-sm text-white">Data de fim</label>
                     <input
                       type="date"
-                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                      readOnly
+                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-text-secondary cursor-default"
                       value={formParcelas.dataFim}
-                      onChange={(e) => setFormParcelas((prev) => ({ ...prev, dataFim: e.target.value }))}
                     />
                   </div>
                 )}
@@ -959,23 +977,91 @@ export function PendingPage() {
           </div>
         </div>
       )}
-      {parcelStatusOpen && selectedParcelItem && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-bg-muted bg-bg-card p-5">
-            <h2 className="text-lg font-bold text-white">Status das parcelas</h2>
-            <p className="mt-1 text-sm text-text-secondary">{selectedParcelItem.title}</p>
-            <div className="mt-4 space-y-2 text-sm text-white">
-              <p>Parcela: {selectedParcelItem.installmentLabel ?? (selectedParcelItem.numeroParcela && selectedParcelItem.parcelas?.totalParcelas ? `parcela ${selectedParcelItem.numeroParcela}/${selectedParcelItem.parcelas.totalParcelas}` : "")}</p>
-              <p>Valor: {formatCurrency(selectedParcelItem.value)}</p>
-              <p>Vencimento: {new Date(selectedParcelItem.dueDate).toLocaleDateString("pt-BR")}</p>
-              <p>Status atual: {(selectedParcelItem.parcelas?.parcelasPagas?.length ?? (selectedParcelItem.paid ? 1 : 0))}/{selectedParcelItem.parcelas?.totalParcelas ?? 0} pagas</p>
-            </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={() => setParcelStatusOpen(false)} className="rounded-xl border border-bg-muted px-4 py-2 text-sm text-white">Fechar</button>
+      {parcelStatusOpen && selectedParcelItem && (() => {
+        const liveItem = items.find((i) => i.id === selectedParcelItem.id) ?? selectedParcelItem;
+        const grupoItems = liveItem.grupoParceladoId
+          ? items.filter((i) => i.grupoParceladoId === liveItem.grupoParceladoId).sort((a, b) => (a.numeroParcela ?? 0) - (b.numeroParcela ?? 0))
+          : [liveItem];
+        const totalParcelas = liveItem.parcelas?.totalParcelas ?? grupoItems.length;
+        const paidCount = grupoItems.filter((i) => i.paid).length;
+        const progressPercent = totalParcelas > 0 ? Math.round((paidCount / totalParcelas) * 100) : 0;
+
+        return (
+          <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl border border-bg-muted bg-bg-card p-6 space-y-5">
+              <div>
+                <h2 className="text-lg font-bold text-white">Status das parcelas</h2>
+                <p className="mt-1 text-sm text-text-secondary">{liveItem.title}</p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-text-secondary">Progresso</span>
+                  <span className="font-semibold text-accent-lime">{paidCount}/{totalParcelas} pagas</span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-accent-lime transition-all duration-300"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+                <p className="text-xs text-text-muted text-right">{progressPercent}% concluído</p>
+              </div>
+
+              {grupoItems.length > 1 && (
+                <div className="flex flex-wrap gap-2">
+                  {grupoItems.map((parcel) => (
+                    <div
+                      key={parcel.id}
+                      title={`Parcela ${parcel.numeroParcela} — ${parcel.paid ? "Paga" : "Pendente"}`}
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-lg text-xs font-semibold",
+                        parcel.paid ? "bg-accent-lime/20 text-accent-lime" : "bg-bg-muted text-text-secondary",
+                        parcel.id === liveItem.id && "ring-2 ring-accent-lime",
+                      )}
+                    >
+                      {parcel.numeroParcela}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="rounded-xl bg-bg-muted p-4 space-y-3 text-sm">
+                {liveItem.numeroParcela && (
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">Parcela atual</span>
+                    <span className="text-white font-medium">{liveItem.numeroParcela}/{totalParcelas}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-text-secondary">Valor da parcela</span>
+                  <span className="text-white font-medium">{formatCurrency(liveItem.value)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-text-secondary">Vencimento</span>
+                  <span className="text-white font-medium">{new Date(liveItem.dueDate).toLocaleDateString("pt-BR")}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-text-secondary">Status</span>
+                  <span className={cn("font-medium", liveItem.paid ? "text-accent-lime" : "text-accent-red")}>
+                    {liveItem.paid ? "Paga" : "Pendente"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setParcelStatusOpen(false)}
+                  className="rounded-xl border border-bg-muted px-4 py-2 text-sm text-white hover:bg-bg-muted transition"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
       <ConfirmDeleteModal
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}

@@ -639,7 +639,7 @@ export function GoalsPage() {
     <ConfirmDeleteModal
         open={deleteGoalModalOpen}
         onClose={() => setDeleteGoalModalOpen(false)}
-        onConfirm={() => {
+        onDeleteOne={() => {
           if (selectedGoal) {
             deleteGoal.mutate(selectedGoal.id);
           }

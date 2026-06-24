@@ -25,7 +25,7 @@ export class PendingAccount {
    */
   @Prop({
     type: String,
-    enum: ['AlimentaÃ§Ã£o', 'Transporte', 'SaÃºde', 'EducaÃ§Ã£o', 'Lazer', 'Outro'],
+    enum: ['Alimentação', 'Transporte', 'Saúde', 'Educação', 'Lazer', 'Outro'],
     default: 'Outro',
   })
   categoria!: string;
@@ -36,7 +36,7 @@ export class PendingAccount {
    */
   @Prop({
     type: String,
-    enum: ['CartÃ£o de CrÃ©dito', 'Pix', 'Dinheiro', 'Outro'],
+    enum: ['Cartão de Crédito', 'Pix', 'Dinheiro', 'Outro'],
     default: 'Outro',
   })
   formatoPagamento!: string;
@@ -73,7 +73,7 @@ export class PendingAccount {
     type: {
       periodoRecorrencia: {
         type: String,
-        enum: ['DiÃ¡rio', 'Semanal', 'Mensal', 'Anual'],
+        enum: ['Diário', 'Semanal', 'Mensal', 'Anual'],
         default: 'Mensal',
       },
       dataProxima: { type: Date, required: true },
