@@ -66,7 +66,7 @@ const pageTitles: Record<string, string> = {
   "/budget": "Orçamento",
 };
 
-const fallbackEmail = "usuario@contacerta.app";
+const fallbackEmail = "usuario@meugasto.app";
 
 function isEmail(value: unknown): value is string {
   return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -156,10 +156,10 @@ function SidebarContent({
             "flex min-w-0 items-center gap-3 font-sans text-xl font-bold text-text-primary",
             collapsed && "justify-center",
           )}
-          title={collapsed ? "ContaCerta" : undefined}
+          title={collapsed ? "MeuGasto" : undefined}
         >
           <Coins className="h-7 w-7 shrink-0 text-accent-lime" />
-          {!collapsed && <span className="truncate">ContaCerta</span>}
+          {!collapsed && <span className="truncate">MeuGasto</span>}
         </Link>
 
         {onToggleCollapse && !collapsed && (
@@ -284,7 +284,7 @@ export function AppLayout() {
   );
   const currentPath = location.pathname;
   const currentUrl = `${location.pathname}${location.search}`;
-  const title = pageTitles[currentPath] ?? "ContaCerta";
+  const title = pageTitles[currentPath] ?? "MeuGasto";
   const isDark = theme === "dark";
 
   useEffect(() => {
