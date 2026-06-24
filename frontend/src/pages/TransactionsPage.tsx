@@ -175,7 +175,13 @@ export function TransactionsPage() {
         </div>
         <button
           type="button"
-          onClick={() => setChoiceOpen(true)}
+          onClick={() => {
+            if (selectedType === "ALL") {
+              setChoiceOpen(true);
+            } else {
+              patchParams({ action: "create" });
+            }
+          }}
           className="flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
         >
           <Plus className="h-4 w-4" />

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -261,7 +262,7 @@ function GoalFormModal({
             maxLength={200}
             placeholder="Ex.: Reserva de emergência"
             {...form.register("name")}
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
           />
           {form.formState.errors.name?.message && (
             <p className="mt-1 text-xs text-accent-red">{form.formState.errors.name.message}</p>
@@ -277,7 +278,7 @@ function GoalFormModal({
               step="0.01"
               placeholder="R$"
               {...form.register("targetValue")}
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
             />
             {form.formState.errors.targetValue?.message && (
               <p className="mt-1 text-xs text-accent-red">{form.formState.errors.targetValue.message}</p>
@@ -291,7 +292,7 @@ function GoalFormModal({
               min={0}
               step="0.01"
               {...form.register("currentValue")}
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
             />
             {form.formState.errors.currentValue?.message && (
               <p className="mt-1 text-xs text-accent-red">{form.formState.errors.currentValue.message}</p>
@@ -304,7 +305,7 @@ function GoalFormModal({
           <input
             type="date"
             {...form.register("deadline")}
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
           />
           {form.formState.errors.deadline?.message && (
             <p className="mt-1 text-xs text-accent-red">{form.formState.errors.deadline.message}</p>
@@ -430,7 +431,7 @@ function GoalValueModal({
             min={0}
             step="0.01"
             {...form.register("currentValue")}
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
           />
           {form.formState.errors.currentValue?.message && (
             <p className="mt-1 text-xs text-accent-red">{form.formState.errors.currentValue.message}</p>
@@ -455,6 +456,19 @@ export function GoalsPage() {
   const [activeAction, setActiveAction] = useState<GoalAction | null>(null);
   const [deleteGoalModalOpen, setDeleteGoalModalOpen] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<{ id: string; name: string } | null>(null);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get("action") === "create") {
+      openCreateModal();
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("action");
+        return next;
+      }, { replace: true });
+    }
+  }, []);
 
   const goalsQuery = useQuery<GoalItem[]>({
     queryKey: ["goals"],

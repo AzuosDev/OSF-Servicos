@@ -7,8 +7,8 @@ import { getApiErrorMessages, setFieldErrorsFromApi } from "../../lib/errors";
 import { ModalShell } from "./ModalShell";
 
 
-const PENDING_CATEGORIES = ["Alimenta??o", "Transporte", "Sa?de", "Educa??o", "Lazer", "Outro"] as const;
-const PAYMENT_FORMATS = ["Cart?o de Cr?dito", "Pix", "Dinheiro", "Outro"] as const;
+const PENDING_CATEGORIES = ["Alimentação", "Transporte", "Saúde", "Educação", "Lazer", "Outro"] as const;
+const PAYMENT_FORMATS = ["Cartão de Crédito", "Pix", "Dinheiro", "Outro"] as const;
 
 type PendingCategory = (typeof PENDING_CATEGORIES)[number];
 type PaymentFormat = (typeof PAYMENT_FORMATS)[number];
@@ -123,9 +123,9 @@ export function PendingFormModal({
     periodoRecorrencia?: string;
     dataProxima?: string;
   }>({});
-  const [formCategoria, setFormCategoria] = useState(""); // id or 'Outro'
+  const [formCategoria, setFormCategoria] = useState("");
   const [categoriaCustom, setCategoriaCustom] = useState("");
-  const [formForma, setFormForma] = useState(""); // id or 'Outro'
+  const [formForma, setFormForma] = useState("");
   const [formaCustom, setFormaCustom] = useState("");
 
   const queryClient = useQueryClient();
@@ -198,7 +198,6 @@ export function PendingFormModal({
       onSuccess?.();
     },
     onError: (error) => {
-      // exibe no console a mensagem completa do backend
       console.error('Erro ao salvar conta pendente:', error);
       const msg = error?.response?.data?.message || error?.message || 'Erro desconhecido';
       alert(msg);
@@ -236,13 +235,13 @@ export function PendingFormModal({
   });
 
   const isSaving = createMutation.isPending || editMutation.isPending;
-  const title = editAccount ? "Editar conta pendente" : "Nova conta pendente";
+  const modalTitle = editAccount ? "Editar conta pendente" : "Nova conta pendente";
 
   return (
-    <ModalShell 
-      open={open} 
-      onClose={onClose} 
-      title={title} 
+    <ModalShell
+      open={open}
+      onClose={onClose}
+      title={modalTitle}
       icon={<Wallet className="h-6 w-6 text-accent-lime" />}
       footer={
         <div className="flex gap-3">
@@ -261,28 +260,28 @@ export function PendingFormModal({
             onClick={() => (editAccount ? editMutation.mutate() : createMutation.mutate())}
           >
             {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-            {editAccount ? "Atualizar" : "Salvar"}
+            {editAccount ? "Salvar Alterações" : "Criar Conta"}
           </button>
         </div>
       }
     >
-      {/* Descrição */}
       <p className="mb-4 text-sm text-text-secondary">
-        Cadastre uma conta para acompanhar o pagamento.
+        {editAccount
+          ? "Atualize as informações da conta pendente."
+          : "Cadastre uma conta para acompanhar o pagamento."}
       </p>
 
-      {/* Segmented Control */}
-      <div className="mb-6 flex gap-2">
+      <div className="mb-4 flex gap-1 rounded-xl bg-bg-muted p-1">
         {["Não parcelada", "Parcelada", "Recorrente"].map((type) => (
           <button
             key={type}
             type="button"
-            className={`flex-1 rounded px-3 py-2 text-sm font-medium ${
+            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
               (formIsParcelada && type === "Parcelada") ||
               (formIsRecorrente && type === "Recorrente") ||
               (!formIsParcelada && !formIsRecorrente && type === "Não parcelada")
                 ? "bg-accent-lime text-black"
-                : "text-white"
+                : "text-white hover:bg-bg-overlay"
             }`}
             onClick={() => {
               setFormIsParcelada(type === "Parcelada");
@@ -294,164 +293,169 @@ export function PendingFormModal({
         ))}
       </div>
 
-      {/* Título */}
-      <label className="block">
-        <span className="mb-1 block text-sm text-text-secondary">Título</span>
-        <input
-          type="text"
-          className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-          value={formTitle}
-          onChange={(e) => setFormTitle(e.target.value)}
-        />
-      </label>
+      <div className="space-y-4">
+        <label className="block">
+          <span className="mb-1 block text-sm text-text-secondary">Título</span>
+          <input
+            type="text"
+            placeholder="Ex.: Conta de luz"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+            value={formTitle}
+            onChange={(e) => setFormTitle(e.target.value)}
+          />
+        </label>
 
-      {/* Valor */}
-      <label className="block mt-2">
-        <span className="mb-1 block text-sm text-text-secondary">
-          {formIsParcelada ? "Valor total" : "Valor"}
-        </span>
-        <input
-          type="number"
-          placeholder="R$"
-          className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-          value={formValue}
-          onChange={(e) => setFormValue(e.target.value)}
-        />
-      </label>
-
-      {/* Condicionais */}
-      {formIsParcelada && (
-        <div className="space-y-2 mb-4 mt-2">
-          <label className="block text-sm text-white">Quantidade de parcelas</label>
+        <label className="block">
+          <span className="mb-1 block text-sm text-text-secondary">
+            {formIsParcelada ? "Valor total" : "Valor"}
+          </span>
           <input
             type="number"
-            min={1}
-            step={1}
-            placeholder="ex:2"
-            value={formParcelas.totalParcelas ?? ""}
-            onChange={(e) => {
-              setFormParcelas({ totalParcelas: e.target.value });
-            }}
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+            placeholder="R$"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+            value={formValue}
+            onChange={(e) => setFormValue(e.target.value)}
           />
-          {formParcelas.totalParcelas && formValue && (
-            <p className="text-sm text-text-secondary">
-              Valor da parcela: {(parseFloat(formValue) / Number(formParcelas.totalParcelas)).toFixed(2)}
-            </p>
+        </label>
+
+        {formIsParcelada && (
+          <label className="block">
+            <span className="mb-1 block text-sm text-text-secondary">Quantidade de parcelas</span>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              placeholder="Ex.: 2"
+              value={formParcelas.totalParcelas ?? ""}
+              onChange={(e) => setFormParcelas({ totalParcelas: e.target.value })}
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+            />
+            {formParcelas.totalParcelas && formValue && (
+              <p className="mt-1 text-xs text-text-secondary">
+                Valor da parcela: R$ {(parseFloat(formValue) / Number(formParcelas.totalParcelas)).toFixed(2)}
+              </p>
+            )}
+          </label>
+        )}
+
+        {formIsRecorrente && (
+          <>
+            <label className="block">
+              <span className="mb-1 block text-sm text-text-secondary">Período de recorrência</span>
+              <select
+                value={formRecorrencia.periodoRecorrencia ?? ""}
+                onChange={(e) =>
+                  setFormRecorrencia((prev) => ({ ...prev, periodoRecorrencia: e.target.value }))
+                }
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+              >
+                <option value="Diário">Diário</option>
+                <option value="Semanal">Semanal</option>
+                <option value="Mensal">Mensal</option>
+                <option value="Anual">Anual</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm text-text-secondary">Próxima data</span>
+              <input
+                type="date"
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+                value={formRecorrencia.dataProxima ?? ""}
+                onChange={(e) =>
+                  setFormRecorrencia((prev) => ({ ...prev, dataProxima: e.target.value }))
+                }
+              />
+            </label>
+          </>
+        )}
+
+        <div>
+          <span className="mb-1 block text-sm text-text-secondary">Categoria</span>
+          <select
+            value={formCategoria}
+            onChange={(e) => {
+              setFormCategoria(e.target.value);
+              if (e.target.value !== "Outro") setCategoriaCustom("");
+            }}
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+          >
+            <option value="">Selecione</option>
+            {PENDING_CATEGORIES.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+          {formCategoria === "Outro" && (
+            <input
+              type="text"
+              placeholder="Digite a categoria personalizada"
+              className="mt-2 w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+              value={categoriaCustom}
+              onChange={(e) => setCategoriaCustom(e.target.value)}
+            />
           )}
         </div>
-      )}
 
-      {formIsRecorrente && (
-        <div className="space-y-2 mb-4 mt-2">
-          <label className="block text-sm text-white">Período de recorrência</label>
+        <div>
+          <span className="mb-1 block text-sm text-text-secondary">Forma de pagamento</span>
           <select
-            value={formRecorrencia.periodoRecorrencia ?? ""}
-            onChange={(e) =>
-              setFormRecorrencia((prev) => ({ ...prev, periodoRecorrencia: e.target.value }))
-            }
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+            value={formForma}
+            onChange={(e) => {
+              setFormForma(e.target.value);
+              if (e.target.value !== "Outro") setFormaCustom("");
+            }}
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
           >
-            <option value="Diário">Diário</option>
-            <option value="Semanal">Semanal</option>
-            <option value="Mensal">Mensal</option>
-            <option value="Anual">Anual</option>
+            <option value="">Selecione</option>
+            {PAYMENT_FORMATS.map((format) => (
+              <option key={format} value={format}>
+                {format}
+              </option>
+            ))}
           </select>
-          <label className="block text-sm text-white">Próxima data</label>
+          {formForma === "Outro" && (
+            <input
+              type="text"
+              placeholder="Digite a forma de pagamento personalizada"
+              className="mt-2 w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+              value={formaCustom}
+              onChange={(e) => setFormaCustom(e.target.value)}
+            />
+          )}
+        </div>
+
+        <label className="block">
+          <span className="mb-1 block text-sm text-text-secondary">Data de vencimento</span>
           <input
             type="date"
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-            value={formRecorrencia.dataProxima ?? ""}
-            onChange={(e) =>
-              setFormRecorrencia((prev) => ({ ...prev, dataProxima: e.target.value }))
-            }
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+            value={formDueDate}
+            onChange={(e) => setFormDueDate(e.target.value)}
           />
-        </div>
-      )}
+        </label>
 
-      {/* Categoria */}
-      <label className="block text-sm text-white mt-2">Categoria</label>
-      <select
-        value={formCategoria}
-        onChange={(e) => {
-          setFormCategoria(e.target.value);
-          if (e.target.value !== "Outro") setCategoriaCustom("");
-        }}
-        className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-      >
-        <option value="">Selecione</option>
-        {PENDING_CATEGORIES.map((category) => (
-          <option key={category} value={category}>
-            {category}
-          </option>
-        ))}
-        <option value="Outro">Outro</option>
-      </select>
-      {formCategoria === "Outro" && (
-        <input
-          type="text"
-          placeholder="Digite a categoria personalizada"
-          className="mt-1 w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-          value={categoriaCustom}
-          onChange={(e) => setCategoriaCustom(e.target.value)}
-        />
-      )}
+        <label className="block">
+          <span className="mb-1 block text-sm text-text-secondary">Descrição (opcional)</span>
+          <textarea
+            rows={3}
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+            value={formDescription}
+            onChange={(e) => setFormDescription(e.target.value)}
+          />
+        </label>
 
-      {/* Forma de pagamento */}
-      <label className="block text-sm text-white mt-2">Forma de pagamento</label>
-      <select
-        value={formForma}
-        onChange={(e) => {
-          setFormForma(e.target.value);
-          if (e.target.value !== "Outro") setFormaCustom("");
-        }}
-        className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-      >
-        <option value="">Selecione</option>
-        {PAYMENT_FORMATS.map((format) => (
-          <option key={format} value={format}>
-            {format}
-          </option>
-        ))}
-      </select>
-      {formForma === "Outro" && (
-        <input
-          type="text"
-          placeholder="Digite a forma de pagamento personalizada"
-          className="mt-1 w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-          value={formaCustom}
-          onChange={(e) => setFormaCustom(e.target.value)}
-        />
-      )}
-
-      {/* Data de vencimento */}
-      <label className="block text-sm text-white mt-2">Data de vencimento</label>
-      <input
-        type="date"
-        className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-        value={formDueDate}
-        onChange={(e) => setFormDueDate(e.target.value)}
-      />
-
-      {/* Descrição */}
-      <label className="block text-sm text-white mt-2">Descrição (opcional)</label>
-      <textarea
-        rows={3}
-        className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-        value={formDescription}
-        onChange={(e) => setFormDescription(e.target.value)}
-      />
-
-      {(createMutation.isError || editMutation.isError) && (
-        <div className="rounded-xl bg-accent-red/10 p-3 text-sm text-accent-red mt-2">
-          {getApiErrorMessages(
-            createMutation.error || editMutation.error,
-            "Não foi possível salvar a conta pendente.",
-          ).map((msg) => (
-            <p key={msg}>{msg}</p>
-          ))}
-        </div>
-      )}
+        {(createMutation.isError || editMutation.isError) && (
+          <div className="rounded-xl bg-accent-red/10 p-3 text-sm text-accent-red">
+            {getApiErrorMessages(
+              createMutation.error || editMutation.error,
+              "Não foi possível salvar a conta pendente.",
+            ).map((msg) => (
+              <p key={msg}>{msg}</p>
+            ))}
+          </div>
+        )}
+      </div>
     </ModalShell>
   );
 }

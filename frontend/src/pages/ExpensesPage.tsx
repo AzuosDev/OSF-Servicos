@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, TrendingDown, TrendingUp } from "lucide-react";
+import { Loader2, Plus, TrendingDown, TrendingUp } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
+import { AddExpenseModal } from "../components/modals/AddExpenseModal";
 import { DynamicIcon } from "../components/DynamicIcon";
 import { api } from "../lib/api";
 import { formatCurrency, normalizeExpenseCategory } from "../lib/finance";
@@ -59,6 +60,7 @@ function CategoryRow({ category, onClick }: { category: CategoryExpense; onClick
 export function ExpensesPage() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<ExpensePeriod>("monthly");
+  const [addExpenseOpen, setAddExpenseOpen] = useState(false);
   const now = new Date();
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
@@ -92,9 +94,19 @@ export function ExpensesPage() {
 
   return (
     <section className="space-y-5">
-      <header>
-        <p className="text-sm text-text-secondary">Controle de gastos</p>
-        <h1 className="text-3xl font-bold">Gastos por categoria</h1>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm text-text-secondary">Controle de gastos</p>
+          <h1 className="font-sans text-3xl font-bold">Gastos por categoria</h1>
+        </div>
+        <button
+          type="button"
+          onClick={() => setAddExpenseOpen(true)}
+          className="flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
+        >
+          <Plus className="h-4 w-4" />
+          Nova
+        </button>
       </header>
 
       <div className="flex gap-2 overflow-x-auto rounded-2xl bg-bg-card p-2">
@@ -205,6 +217,7 @@ export function ExpensesPage() {
           </aside>
         </div>
       )}
+      <AddExpenseModal open={addExpenseOpen} onClose={() => setAddExpenseOpen(false)} />
     </section>
   );
 }

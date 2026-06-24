@@ -516,6 +516,20 @@ export function AppLayout() {
                 <TrendingUp className="h-5 w-5 text-accent-lime" />
                 <span className="font-semibold">Adicionar Ganho</span>
               </button>
+              <button
+                onClick={() => { setAddModalOpen(false); navigate("/pending?action=create"); }}
+                className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
+              >
+                <Clock className="h-5 w-5 text-accent-yellow" />
+                <span className="font-semibold">Nova Conta Pendente</span>
+              </button>
+              <button
+                onClick={() => { setAddModalOpen(false); navigate("/goals?action=create"); }}
+                className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
+              >
+                <Target className="h-5 w-5 text-accent-lime" />
+                <span className="font-semibold">Nova Meta</span>
+              </button>
             </div>
           </div>
         </div>
