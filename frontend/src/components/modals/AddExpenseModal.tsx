@@ -67,13 +67,11 @@ export function AddExpenseModal({
         buildTransactionPayload({ ...values, type: "EXPENSE" }),
       );
     },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
-        queryClient.invalidateQueries({ queryKey: ["transactions"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] }),
-        queryClient.invalidateQueries({ queryKey: ["goals"] }),
-      ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["goals"] });
       onClose();
     },
     onError: (error) => {

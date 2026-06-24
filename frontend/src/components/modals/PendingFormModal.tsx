@@ -191,9 +191,9 @@ export function PendingFormModal({
         throw error;
       }
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["pending"] });
-      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pending"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       onClose();
       onSuccess?.();
     },
@@ -221,9 +221,9 @@ export function PendingFormModal({
         recorrencia: formRecorrencia,
       }));
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["pending"] });
-      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pending"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       onClose();
       onSuccess?.();
     },

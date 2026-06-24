@@ -331,11 +331,9 @@ export function PendingPage() {
   const markPaid = useMutation({
     mutationFn: async ({ id, numeroParcela }: { id: string; numeroParcela?: number }) =>
       api.patch<PendingAccount>(`/api/pending/${id}`, { paid: true, numeroParcela }),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["pending"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
-      ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pending"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       addToast("Conta marcada como paga com sucesso.", "success");
       setParcelStatusOpen(false);
       setSelectedParcelItem(null);
@@ -363,11 +361,9 @@ export function PendingPage() {
         recorrencia?: { periodoRecorrencia?: string; dataProxima?: string };
       };
     }) => api.patch<PendingAccount>(`/api/pending/${id}`, payload),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["pending"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
-      ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pending"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       addToast("Conta atualizada com sucesso.", "success");
       fecharModal();
     },
@@ -376,11 +372,9 @@ export function PendingPage() {
 
   const deletePending = useMutation({
     mutationFn: async (id: string) => api.delete(`/api/pending/${id}`),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["pending"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
-      ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pending"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       addToast("Conta apagada com sucesso.", "success");
     },
     onError: () => addToast("Não foi possível apagar a conta.", "error"),
@@ -388,11 +382,9 @@ export function PendingPage() {
 
   const deleteGroupPending = useMutation({
     mutationFn: async (grupoParceladoId: string) => api.delete(`/api/pending/group/${grupoParceladoId}`),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["pending"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
-      ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pending"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       addToast("Conta apagada com sucesso.", "success");
     },
     onError: () => addToast("Não foi possível apagar a conta.", "error"),
@@ -511,11 +503,9 @@ export function PendingPage() {
         throw error;
       }
     },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["pending"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
-      ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pending"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       addToast("Conta adicionada com sucesso.", "success");
       setCreating(false);
       setFormTitle("");

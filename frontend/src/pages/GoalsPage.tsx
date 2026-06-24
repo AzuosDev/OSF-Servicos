@@ -198,15 +198,12 @@ function GoalFormModal({
 
       await api.post("/api/goals", payload);
     },
-    onSuccess: async () => {
-      const invalidations = [
-        queryClient.invalidateQueries({ queryKey: ["goals"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
-      ];
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["goals"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       if (mode === "create") {
-        invalidations.push(queryClient.invalidateQueries({ queryKey: ["categories"] }));
+        queryClient.invalidateQueries({ queryKey: ["categories"] });
       }
-      await Promise.all(invalidations);
       addToast(mode === "create" ? "Meta criada com sucesso." : "Meta atualizada com sucesso.", "success");
       onClose();
     },
@@ -225,65 +222,92 @@ function GoalFormModal({
       onClose={onClose}
       title={mode === "create" ? "Nova Meta" : "Editar Meta"}
       icon={<Target className="h-6 w-6 text-accent-lime" />}
+      footer={
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={mutation.isPending}
+            className="flex-1 rounded-xl border border-bg-muted bg-transparent px-5 py-3 text-sm font-bold text-white transition hover:bg-bg-overlay disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form="goal-form"
+            disabled={mutation.isPending}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            {mode === "create" ? "Criar Meta" : "Salvar Alterações"}
+          </button>
+        </div>
+      }
     >
-      <form className="space-y-4" onSubmit={form.handleSubmit((values) => {
+      <p className="mb-4 text-sm text-text-secondary">
+        {mode === "create"
+          ? "Defina um objetivo financeiro e acompanhe o progresso automaticamente via gastos."
+          : "Atualize as informações da sua meta financeira."}
+      </p>
+
+      <form id="goal-form" className="space-y-4" onSubmit={form.handleSubmit((values) => {
         if (goal?.id.startsWith("mock-") && onMockSubmit) { onMockSubmit(values); return; }
         mutation.mutate(values);
       })}>
-        <label className="block space-y-2">
-          <span className="text-sm font-medium text-text-secondary">Nome da meta</span>
+        <label className="block">
+          <span className="mb-1 block text-sm text-text-secondary">Nome da meta</span>
           <input
             type="text"
             maxLength={200}
             placeholder="Ex.: Reserva de emergência"
             {...form.register("name")}
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition placeholder:text-text-secondary/60 focus:border-accent-lime/60"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
           />
           {form.formState.errors.name?.message && (
-            <p className="text-xs text-accent-red">{form.formState.errors.name.message}</p>
+            <p className="mt-1 text-xs text-accent-red">{form.formState.errors.name.message}</p>
           )}
         </label>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-text-secondary">Valor da meta</span>
+          <label className="block">
+            <span className="mb-1 block text-sm text-text-secondary">Valor da meta</span>
             <input
               type="number"
               min={1}
               step="0.01"
+              placeholder="R$"
               {...form.register("targetValue")}
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition placeholder:text-text-secondary/60 focus:border-accent-lime/60"
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
             />
             {form.formState.errors.targetValue?.message && (
-              <p className="text-xs text-accent-red">{form.formState.errors.targetValue.message}</p>
+              <p className="mt-1 text-xs text-accent-red">{form.formState.errors.targetValue.message}</p>
             )}
           </label>
 
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-text-secondary">Valor atual</span>
+          <label className="block">
+            <span className="mb-1 block text-sm text-text-secondary">Valor atual</span>
             <input
               type="number"
               min={0}
               step="0.01"
               {...form.register("currentValue")}
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition placeholder:text-text-secondary/60 focus:border-accent-lime/60"
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
             />
             {form.formState.errors.currentValue?.message && (
-              <p className="text-xs text-accent-red">{form.formState.errors.currentValue.message}</p>
+              <p className="mt-1 text-xs text-accent-red">{form.formState.errors.currentValue.message}</p>
             )}
           </label>
         </div>
 
-        <label className="block space-y-2">
-          <span className="text-sm font-medium text-text-secondary">Prazo</span>
+        <label className="block">
+          <span className="mb-1 block text-sm text-text-secondary">Prazo (opcional)</span>
           <input
             type="date"
             {...form.register("deadline")}
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition placeholder:text-text-secondary/60 focus:border-accent-lime/60"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
           />
-          <p className="text-xs text-text-secondary">Opcional. Se preenchido, deve ser uma data válida.</p>
           {form.formState.errors.deadline?.message && (
-            <p className="text-xs text-accent-red">{form.formState.errors.deadline.message}</p>
+            <p className="mt-1 text-xs text-accent-red">{form.formState.errors.deadline.message}</p>
           )}
         </label>
 
@@ -297,15 +321,6 @@ function GoalFormModal({
             ))}
           </div>
         )}
-
-        <button
-          type="submit"
-          disabled={mutation.isPending}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-          {mode === "create" ? "Criar Meta" : "Salvar Alterações"}
-        </button>
       </form>
     </ModalShell>
   );
@@ -349,11 +364,9 @@ function GoalValueModal({
         currentValue: values.currentValue,
       });
     },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["goals"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
-      ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["goals"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       addToast("Valor da meta atualizado com sucesso.", "success");
       onClose();
     },
@@ -371,54 +384,66 @@ function GoalValueModal({
       open={open}
       onClose={onClose}
       title="Atualizar Valor"
-      icon={<CalendarDays className="h-6 w-6 text-accent-lime" />}
+      icon={<Target className="h-6 w-6 text-accent-lime" />}
+      footer={
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={mutation.isPending}
+            className="flex-1 rounded-xl border border-bg-muted bg-transparent px-5 py-3 text-sm font-bold text-white transition hover:bg-bg-overlay disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form="goal-value-form"
+            disabled={mutation.isPending}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            Salvar Valor
+          </button>
+        </div>
+      }
     >
-      <form className="space-y-4" onSubmit={form.handleSubmit((values) => {
+      <div className="mb-4 rounded-2xl border border-bg-muted bg-bg-muted/70 p-4">
+        <p className="text-sm text-text-secondary">Meta</p>
+        <h3 className="mt-1 text-lg font-semibold text-white">{goal.name}</h3>
+        <p className="mt-2 text-sm text-text-secondary">
+          Atual: <span className="font-semibold text-white">{formatCurrency(goal.currentValue)}</span> de{" "}
+          <span className="font-semibold text-white">{formatCurrency(goal.targetValue)}</span>
+        </p>
+        <p className="mt-2 text-xs text-text-secondary">
+          Ao atingir o valor alvo, a meta é marcada como concluída automaticamente.
+        </p>
+      </div>
+
+      <form id="goal-value-form" onSubmit={form.handleSubmit((values) => {
         if (goal?.id.startsWith("mock-") && onMockSubmit) { onMockSubmit(values.currentValue); return; }
         mutation.mutate(values);
       })}>
-        <div className="rounded-2xl border border-bg-muted bg-bg-muted/70 p-4">
-          <p className="text-sm text-text-secondary">Meta</p>
-          <h3 className="mt-1 text-lg font-semibold text-white">{goal.name}</h3>
-          <p className="mt-2 text-sm text-text-secondary">
-            Atual: <span className="font-semibold text-white">{formatCurrency(goal.currentValue)}</span> de{" "}
-            <span className="font-semibold text-white">{formatCurrency(goal.targetValue)}</span>
-          </p>
-          <p className="mt-2 text-xs text-text-secondary">
-            Ao atingir ou ultrapassar o valor alvo, a meta é marcada como concluída automaticamente.
-          </p>
-        </div>
-
-        <label className="block space-y-2">
-          <span className="text-sm font-medium text-text-secondary">Novo valor atual</span>
+        <label className="block">
+          <span className="mb-1 block text-sm text-text-secondary">Novo valor atual</span>
           <input
             type="number"
             min={0}
             step="0.01"
             {...form.register("currentValue")}
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition placeholder:text-text-secondary/60 focus:border-accent-lime/60"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
           />
           {form.formState.errors.currentValue?.message && (
-            <p className="text-xs text-accent-red">{form.formState.errors.currentValue.message}</p>
+            <p className="mt-1 text-xs text-accent-red">{form.formState.errors.currentValue.message}</p>
           )}
         </label>
 
         {mutation.isError && (
-          <div className="rounded-xl bg-accent-red/10 p-3 text-sm text-accent-red">
+          <div className="rounded-xl bg-accent-red/10 p-3 text-sm text-accent-red mt-4">
             {getApiErrorMessages(mutation.error, "Nao foi possivel atualizar a meta.").map((message) => (
               <p key={message}>{message}</p>
             ))}
           </div>
         )}
-
-        <button
-          type="submit"
-          disabled={mutation.isPending}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-          Salvar Valor
-        </button>
       </form>
     </ModalShell>
   );
@@ -468,11 +493,9 @@ export function GoalsPage() {
     mutationFn: async (goalId: string) => {
       await api.delete(`/api/goals/${goalId}`);
     },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["goals"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
-      ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["goals"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       addToast("Meta excluída com sucesso.", "success");
       setActiveAction(null);
     },

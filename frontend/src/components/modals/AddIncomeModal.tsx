@@ -63,12 +63,10 @@ export function AddIncomeModal({
         buildTransactionPayload({ ...values, type: "INCOME" }),
       );
     },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
-        queryClient.invalidateQueries({ queryKey: ["transactions"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] }),
-      ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
       onClose();
     },
     onError: (error) => {

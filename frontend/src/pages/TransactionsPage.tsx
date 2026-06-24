@@ -138,13 +138,11 @@ export function TransactionsPage() {
     mutationFn: async (transactionId: string) => {
       await api.delete(`/api/transactions/${transactionId}`);
     },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
-        queryClient.invalidateQueries({ queryKey: ["transactions"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] }),
-        queryClient.invalidateQueries({ queryKey: ["goals"] }),
-      ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["goals"] });
       setDeleting(null);
     },
   });
