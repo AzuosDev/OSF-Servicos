@@ -28,3 +28,4 @@ export class Goal {
 }
 
 export const GoalSchema = SchemaFactory.createForClass(Goal);
+GoalSchema.index({ userId: 1 });

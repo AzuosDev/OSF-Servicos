@@ -106,6 +106,7 @@ export class PendingAccount {
 
 export const PendingAccountSchema = SchemaFactory.createForClass(PendingAccount);
 PendingAccountSchema.index({ userId: 1, dueDate: 1 });
+PendingAccountSchema.index({ userId: 1, paid: 1, dueDate: 1 });
 
 
 

@@ -12,7 +12,7 @@ import { api } from "../lib/api";
 import { normalizeTransactionsResponse, readString } from "../lib/finance";
 import { cn } from "../lib/utils";
 import type { TransactionsResponse } from "../types/api";
-import type { Transaction, TransactionType } from "../types/finance";
+import type { Category, Transaction, TransactionType } from "../types/finance";
 
 const tabs: Array<{ label: string; value: "ALL" | TransactionType }> = [
   { label: "Todos", value: "ALL" },
@@ -118,6 +118,12 @@ export function TransactionsPage() {
 
         return matchesCategory && matchesPeriod;
       }) ?? [];
+
+  const categoriesMap = useMemo(() => {
+    const map = new Map<string, Category>();
+    (categoriesQuery.data ?? []).forEach((c) => map.set(c.id, c));
+    return map;
+  }, [categoriesQuery.data]);
 
   const groupedTransactions = useMemo(() => {
     const groups = new Map<string, Transaction[]>();
@@ -298,7 +304,7 @@ export function TransactionsPage() {
                     transaction={transaction}
                     onEdit={setEditing}
                     onDelete={setDeleting}
-                    categories={categoriesQuery.data ?? []}
+                    categoriesMap={categoriesMap}
                   />
                 ))}
               </div>

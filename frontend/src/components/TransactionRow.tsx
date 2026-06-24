@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Edit2, Trash2 } from "lucide-react";
 
 import { formatCurrency } from "../lib/finance";
@@ -19,22 +20,20 @@ function formatDate(value: string) {
   }).format(date);
 }
 
-export function TransactionRow({
+export const TransactionRow = memo(function TransactionRow({
   transaction,
   onEdit,
   onDelete,
-  categories,
+  categoriesMap,
 }: {
   transaction: Transaction;
   onEdit: (transaction: Transaction) => void;
   onDelete: (transaction: Transaction) => void;
-  categories?: Category[];
+  categoriesMap?: Map<string, Category>;
 }) {
-  const categoriesMap = new Map<string, Category>();
-  (categories ?? []).forEach((c) => categoriesMap.set(c.id, c));
-
   const resolvedCategory =
-    transaction.category ?? (transaction.categoryId ? categoriesMap.get(transaction.categoryId) : undefined);
+    transaction.category ??
+    (transaction.categoryId ? categoriesMap?.get(transaction.categoryId) : undefined);
 
   const category = resolvedCategory ?? {
     id: "uncategorized",
@@ -95,5 +94,4 @@ export function TransactionRow({
       </div>
     </div>
   );
-}
-
+});

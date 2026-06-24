@@ -150,13 +150,11 @@ function GoalFormModal({
   goal,
   mode,
   onClose,
-  onMockSubmit,
 }: {
   open: boolean;
   goal: GoalItem | null;
   mode: "create" | "edit";
   onClose: () => void;
-  onMockSubmit?: (values: GoalFormValues) => void;
 }) {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
@@ -252,7 +250,6 @@ function GoalFormModal({
       </p>
 
       <form id="goal-form" className="space-y-4" onSubmit={form.handleSubmit((values) => {
-        if (goal?.id.startsWith("mock-") && onMockSubmit) { onMockSubmit(values); return; }
         mutation.mutate(values);
       })}>
         <label className="block">
@@ -331,12 +328,10 @@ function GoalValueModal({
   open,
   goal,
   onClose,
-  onMockSubmit,
 }: {
   open: boolean;
   goal: GoalItem | null;
   onClose: () => void;
-  onMockSubmit?: (currentValue: number) => void;
 }) {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
@@ -421,7 +416,6 @@ function GoalValueModal({
       </div>
 
       <form id="goal-value-form" onSubmit={form.handleSubmit((values) => {
-        if (goal?.id.startsWith("mock-") && onMockSubmit) { onMockSubmit(values.currentValue); return; }
         mutation.mutate(values);
       })}>
         <label className="block">
@@ -480,13 +474,7 @@ export function GoalsPage() {
 
   const emptyGoals = useMemo<GoalItem[]>(() => [], []);
 
-  const INITIAL_MOCK_GOALS: GoalItem[] = [
-    { id: "mock-1", name: "Reserva de emergência", targetValue: 15000, currentValue: 9500, deadline: "2026-12-31", completed: false, percentComplete: 63 },
-    { id: "mock-2", name: "Viagem para o Nordeste", targetValue: 5000, currentValue: 5000, deadline: "2026-07-15", completed: true, percentComplete: 100 },
-  ];
-  const [mockGoals, setMockGoals] = useState<GoalItem[]>(INITIAL_MOCK_GOALS);
-
-  const goals = goalsQuery.data?.length ? goalsQuery.data : mockGoals;
+  const goals = goalsQuery.data ?? emptyGoals;
 
   const summary = useMemo(() => {
     const totalCurrent = goals.reduce((sum, goal) => sum + (goal.currentValue ?? 0), 0);
@@ -531,39 +519,9 @@ export function GoalsPage() {
     setDeleteGoalModalOpen(true);
   };
 
-  const handleMockEdit = (values: GoalFormValues) => {
-    if (!currentGoal) return;
-    const percent = values.targetValue > 0 ? Math.min(100, Math.round((values.currentValue / values.targetValue) * 100)) : 0;
-    setMockGoals((prev) => prev.map((g) =>
-      g.id === currentGoal.id
-        ? { ...g, name: values.name, targetValue: values.targetValue, currentValue: values.currentValue, deadline: values.deadline, percentComplete: percent, completed: values.currentValue >= values.targetValue }
-        : g
-    ));
-    addToast("Meta atualizada com sucesso.", "success");
-    closeModal();
-  };
-
-  const handleMockValueUpdate = (currentValue: number) => {
-    if (!currentGoal) return;
-    const target = currentGoal.targetValue;
-    const percent = target > 0 ? Math.min(100, Math.round((currentValue / target) * 100)) : 0;
-    setMockGoals((prev) => prev.map((g) =>
-      g.id === currentGoal.id
-        ? { ...g, currentValue, percentComplete: percent, completed: currentValue >= g.targetValue }
-        : g
-    ));
-    addToast("Valor da meta atualizado com sucesso.", "success");
-    closeModal();
-  };
-
   const confirmDelete = () => {
     if (!selectedGoal) return;
-    if (selectedGoal.id.startsWith("mock-")) {
-      setMockGoals((prev) => prev.filter((g) => g.id !== selectedGoal.id));
-      addToast("Meta excluída com sucesso.", "success");
-    } else {
-      deleteGoal.mutate(selectedGoal.id);
-    }
+    deleteGoal.mutate(selectedGoal.id);
     setDeleteGoalModalOpen(false);
   };
 
@@ -726,14 +684,12 @@ export function GoalsPage() {
         goal={currentGoal}
         mode={formMode}
         onClose={closeModal}
-        onMockSubmit={currentGoal?.id.startsWith("mock-") ? handleMockEdit : undefined}
       />
 
       <GoalValueModal
         open={activeAction?.type === "value"}
         goal={currentGoal}
         onClose={closeModal}
-        onMockSubmit={currentGoal?.id.startsWith("mock-") ? handleMockValueUpdate : undefined}
       />
     <ConfirmDeleteModal
         open={deleteGoalModalOpen}
