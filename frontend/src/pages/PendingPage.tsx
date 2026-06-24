@@ -22,6 +22,9 @@ type PendingItem = {
   numeroParcela?: number;
   grupoParceladoId?: string;
   recorrencia?: { periodoRecorrencia?: string; dataProxima?: string; };
+  recorrenciaTemplateId?: string;
+  isVirtual?: boolean;
+  templateId?: string;
   id: string;
   title: string;
   value: number;
@@ -94,10 +97,10 @@ function buildPendingPayload(data: {
           parcelasPagas: 0,
         }
       : undefined,
-    recorrencia: data.isRecorrente && data.recorrencia.periodoRecorrencia && data.recorrencia.dataProxima
+    recorrencia: data.isRecorrente && data.recorrencia.periodoRecorrencia
       ? {
           periodoRecorrencia: data.recorrencia.periodoRecorrencia,
-          dataProxima: toIsoDate(data.recorrencia.dataProxima),
+          dataProxima: toIsoDate(data.dueDate),
         }
       : undefined,
   };
@@ -119,12 +122,16 @@ type PendingFormData = {
 function normalizePending(data: unknown): PendingItem[] {
   if (Array.isArray(data)) {
     return data.map((item) => ({
-      id: item._id ?? item.id,
+      id: item.isVirtual ? (item.templateId ?? item._id ?? item.id) : (item._id ?? item.id),
       title: item.title,
       value: item.value,
       dueDate: item.dueDate,
       paid: item.paid,
       description: item.description,
+      isParcelada: item.isParcelada,
+      isRecorrente: item.isRecorrente,
+      categoria: item.categoria,
+      formatoPagamento: item.formatoPagamento,
       parcelas: item.parcelas ? {
         totalParcelas: item.parcelas.totalParcelas,
         valorParcela: item.parcelas.valorParcela,
@@ -134,6 +141,13 @@ function normalizePending(data: unknown): PendingItem[] {
       } : undefined,
       numeroParcela: item.numeroParcela,
       grupoParceladoId: item.grupoParceladoId,
+      recorrencia: item.recorrencia ? {
+        periodoRecorrencia: item.recorrencia.periodoRecorrencia,
+        dataProxima: item.recorrencia.dataProxima,
+      } : undefined,
+      recorrenciaTemplateId: item.recorrenciaTemplateId,
+      isVirtual: item.isVirtual,
+      templateId: item.templateId,
     }));
   }
 
@@ -242,7 +256,7 @@ export function PendingPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [parcelStatusOpen, setParcelStatusOpen] = useState(false);
   const [selectedParcelItem, setSelectedParcelItem] = useState<PendingDisplayItem | null>(null);
-  const [selectedDelete, setSelectedDelete] = useState<{ id: string; title: string; isParcel?: boolean; parcelLabel?: string; grupoParceladoId?: string } | null>(null);
+  const [selectedDelete, setSelectedDelete] = useState<{ id: string; title: string; isParcel?: boolean; parcelLabel?: string; grupoParceladoId?: string; isVirtual?: boolean } | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<PendingItem | null>(
     null,
   );
@@ -290,28 +304,26 @@ export function PendingPage() {
     setFormParcelas((prev) => ({ ...prev, dataFim: end.toISOString().slice(0, 10) }));
   }, [formParcelas.dataInicio, formParcelas.totalParcelas]);
 
+  const currentYear = new Date().getFullYear();
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const years = useMemo(() => {
+    const now = new Date().getFullYear();
+    return Array.from({ length: 11 }, (_, i) => now + 5 - i);
+  }, []);
+
   const pendingQuery = useQuery<PendingItem[]>({
-    queryKey: ["pending"],
+    queryKey: ["pending", selectedMonth, selectedYear],
     queryFn: async () => {
-      const { data } = await api.get<PendingAccount[]>("/api/pending");
+      const { data } = await api.get<PendingAccount[]>(
+        `/api/pending?month=${selectedMonth}&year=${selectedYear}`,
+      );
       return normalizePending(data);
     },
   });
 
   const items = pendingQuery.data ?? [];
-  const currentYear = new Date().getFullYear();
-  const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(currentYear);
-  const years = useMemo(() => Array.from({ length: 11 }, (_, index) => 2035 - index), []);
-
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      const date = parseDate(item.dueDate);
-      return !!date && date.getMonth() + 1 === selectedMonth && date.getFullYear() === selectedYear;
-    });
-  }, [items, selectedMonth, selectedYear]);
-
-  const visibleItems = filteredItems;
+  const visibleItems = items;
 
 
   const displayGroups = useMemo(() => {
@@ -343,8 +355,24 @@ export function PendingPage() {
   }, [items]);
 
   const markPaid = useMutation({
-    mutationFn: async ({ id, numeroParcela }: { id: string; numeroParcela?: number }) =>
-      api.patch<PendingAccount>(`/api/pending/${id}`, { paid: true, numeroParcela }),
+    mutationFn: async ({
+      id,
+      isVirtual,
+      numeroParcela,
+      month,
+      year,
+    }: {
+      id: string;
+      isVirtual?: boolean;
+      numeroParcela?: number;
+      month: number;
+      year: number;
+    }) => {
+      if (isVirtual) {
+        return api.post(`/api/pending/${id}/pay-month`, { month, year });
+      }
+      return api.patch<PendingAccount>(`/api/pending/${id}`, { paid: true, numeroParcela });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pending"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -488,6 +516,7 @@ export function PendingPage() {
       isParcel,
       parcelLabel: isParcel && item.numeroParcela && item.parcelas?.totalParcelas ? `Parcela ${item.numeroParcela}/${item.parcelas.totalParcelas}` : undefined,
       grupoParceladoId: item.grupoParceladoId,
+      isVirtual: item.isVirtual,
     });
     setDeleteModalOpen(true);
   }
@@ -653,6 +682,9 @@ export function PendingPage() {
                             {installmentLabel && (
                               <span className="rounded-full bg-accent-lime/10 px-2.5 py-1 text-[11px] font-semibold text-accent-lime">{installmentLabel}</span>
                             )}
+                            {(item.isRecorrente || item.isVirtual || item.recorrenciaTemplateId) && (
+                              <span className="rounded-full bg-blue-500/10 px-2.5 py-1 text-[11px] font-semibold text-blue-400">Recorrente</span>
+                            )}
                             <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold", status.className)}>{status.label}</span>
                           </div>
                           <p className="mt-1 text-sm text-text-secondary">{item.description ?? "Conta pendente"}</p>
@@ -667,7 +699,13 @@ export function PendingPage() {
                         {!item.paid && (
                           <button
                             type="button"
-                            onClick={() => markPaid.mutate({ id: item.id, numeroParcela: item.numeroParcela })}
+                            onClick={() => markPaid.mutate({
+                              id: item.id,
+                              isVirtual: item.isVirtual,
+                              numeroParcela: item.numeroParcela,
+                              month: selectedMonth,
+                              year: selectedYear,
+                            })}
                             disabled={markPaid.isPending}
                             className="inline-flex items-center gap-2 rounded-xl bg-accent-lime/10 px-3 py-2 text-sm font-semibold text-accent-lime hover:bg-accent-lime/20 disabled:opacity-60"
                           >
@@ -675,13 +713,15 @@ export function PendingPage() {
                             Marcar como pago
                           </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => abrirParcelStatus(item)}
-                          className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-white"
-                        >
-                          Parcelas
-                        </button>
+                        {item.isParcelada && (
+                          <button
+                            type="button"
+                            onClick={() => abrirParcelStatus(item)}
+                            className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-white"
+                          >
+                            Parcelas
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => abrirModalEdicao(item)}
@@ -801,29 +841,18 @@ export function PendingPage() {
 
               {/* Campos recorrente */}
               {formIsRecorrente && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm text-text-secondary mb-2">Período de recorrência</label>
-                    <select
-                      value={formRecorrencia.periodoRecorrencia}
-                      onChange={(e) => setFormRecorrencia((prev) => ({ ...prev, periodoRecorrencia: e.target.value }))}
-                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
-                    >
-                      <option value="Diário">Diário</option>
-                      <option value="Semanal">Semanal</option>
-                      <option value="Mensal">Mensal</option>
-                      <option value="Anual">Anual</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm text-text-secondary mb-2">Próxima data</label>
-                    <input
-                      type="date"
-                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
-                      value={formRecorrencia.dataProxima}
-                      onChange={(e) => setFormRecorrencia((prev) => ({ ...prev, dataProxima: e.target.value }))}
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm text-text-secondary mb-2">Período de recorrência</label>
+                  <select
+                    value={formRecorrencia.periodoRecorrencia}
+                    onChange={(e) => setFormRecorrencia((prev) => ({ ...prev, periodoRecorrencia: e.target.value }))}
+                    className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
+                  >
+                    <option value="Diário">Diário</option>
+                    <option value="Semanal">Semanal</option>
+                    <option value="Mensal">Mensal</option>
+                    <option value="Anual">Anual</option>
+                  </select>
                 </div>
               )}
 

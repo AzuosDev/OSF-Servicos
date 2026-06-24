@@ -14,8 +14,9 @@ export class RecorrenciaDto {
   @IsIn(['Diário', 'Semanal', 'Mensal', 'Anual'])
   periodoRecorrencia!: string;
 
+  @IsOptional()
   @IsDateString()
-  dataProxima!: string;
+  dataProxima?: string;
 }
 
 export class CreatePendingDto {

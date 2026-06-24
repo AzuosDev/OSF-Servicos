@@ -72,15 +72,18 @@ export class PendingAccount {
         enum: ['Diário', 'Semanal', 'Mensal', 'Anual'],
         default: 'Mensal',
       },
-      dataProxima: { type: Date, required: true },
+      dataProxima: { type: Date, required: false },
     },
     required: false,
   })
   recorrencia?: {
     periodoRecorrencia: string;
-    dataProxima: Date;
+    dataProxima?: Date;
   };
 
+  // ID do molde recorrente — presente apenas em instâncias geradas ao pagar
+  @Prop({ type: String })
+  recorrenciaTemplateId?: string;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   userId!: Types.ObjectId;
@@ -107,6 +110,7 @@ export class PendingAccount {
 export const PendingAccountSchema = SchemaFactory.createForClass(PendingAccount);
 PendingAccountSchema.index({ userId: 1, dueDate: 1 });
 PendingAccountSchema.index({ userId: 1, paid: 1, dueDate: 1 });
+PendingAccountSchema.index({ userId: 1, recorrenciaTemplateId: 1, dueDate: 1 });
 
 
 
