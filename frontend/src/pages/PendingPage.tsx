@@ -11,6 +11,7 @@ import { cn } from "../lib/utils";
 import { useToast } from "../components/ui/Toast";
 import { ConfirmDeleteModal } from "../components/modals/ConfirmDeleteModal";
 import { DynamicIcon } from "../components/DynamicIcon";
+import { useCategories } from "../components/modals/TransactionFormFields";
 import type { PendingAccount } from "../types/api";
 
 type PendingItem = {
@@ -34,24 +35,9 @@ type PendingItem = {
 };
 
 
-const PENDING_CATEGORIES = ["Alimentação", "Transporte", "Saúde", "Educação", "Lazer", "Outro"] as const;
 const PAYMENT_FORMATS = ["Cartão de Crédito", "Pix", "Dinheiro", "Outro"] as const;
 
-const CATEGORY_META: Record<string, { icon: string; color: string }> = {
-  "Alimentação": { icon: "Utensils",      color: "#f97316" },
-  "Transporte":  { icon: "Car",           color: "#3b82f6" },
-  "Saúde":       { icon: "Heart",         color: "#ef4444" },
-  "Educação":    { icon: "BookOpen",      color: "#8b5cf6" },
-  "Lazer":       { icon: "Smile",         color: "#22c55e" },
-  "Outro":       { icon: "MoreHorizontal",color: "#6b7280" },
-};
-
-type PendingCategory = (typeof PENDING_CATEGORIES)[number];
 type PaymentFormat = (typeof PAYMENT_FORMATS)[number];
-
-function isPendingCategory(value: string): value is PendingCategory {
-  return (PENDING_CATEGORIES as readonly string[]).includes(value);
-}
 
 function isPaymentFormat(value: string): value is PaymentFormat {
   return (PAYMENT_FORMATS as readonly string[]).includes(value);
@@ -238,6 +224,7 @@ const monthOptions = [
 export function PendingPage() {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
+  const categoriesQuery = useCategories();
   const [creating, setCreating] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -519,7 +506,7 @@ export function PendingPage() {
         description: editFormData.description.trim() || undefined,
         isParcelada: editFormData.isParcelada,
         isRecorrente: editFormData.isRecorrente,
-        categoria: isPendingCategory(editFormData.categoria) ? editFormData.categoria : undefined,
+        categoria: editFormData.categoria?.trim() || undefined,
         formatoPagamento: isPaymentFormat(editFormData.formatoPagamento) ? editFormData.formatoPagamento : undefined,
         parcelas: editFormData.isParcelada
           ? {
@@ -925,34 +912,48 @@ export function PendingPage() {
               <div>
                 <span className="mb-2 block text-sm text-text-secondary">Categoria</span>
                 <div className="grid grid-cols-3 gap-2">
-                  {PENDING_CATEGORIES.map((cat) => {
-                    const meta = CATEGORY_META[cat];
-                    const active = formCategoria === cat;
-                    return (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => {
-                          setFormCategoria(active ? "" : cat);
-                          if (active || cat !== "Outro") setCategoriaCustom("");
-                        }}
-                        className={cn(
-                          "flex flex-col items-center justify-center gap-1.5 rounded-xl border bg-bg-muted p-3 text-center text-xs font-semibold transition",
-                          active
-                            ? "border-accent-lime text-white"
-                            : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-white",
-                        )}
-                      >
-                        <span
-                          className="grid h-8 w-8 place-items-center rounded-xl"
-                          style={{ backgroundColor: `${meta.color}22` }}
-                        >
-                          <DynamicIcon name={meta.icon} className="h-4 w-4" style={{ color: meta.color }} />
-                        </span>
-                        <span className="leading-tight">{cat}</span>
-                      </button>
-                    );
-                  })}
+                  {categoriesQuery.isLoading
+                    ? Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="h-20 animate-pulse rounded-xl bg-bg-muted" />
+                      ))
+                    : (categoriesQuery.data ?? []).map((cat) => {
+                        const active = formCategoria === cat.name;
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => { setFormCategoria(active ? "" : cat.name); setCategoriaCustom(""); }}
+                            className={cn(
+                              "flex flex-col items-center justify-center gap-1.5 rounded-xl border bg-bg-muted p-3 text-center text-xs font-semibold transition",
+                              active
+                                ? "border-accent-lime text-white"
+                                : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-white",
+                            )}
+                          >
+                            <span className="grid h-8 w-8 place-items-center rounded-xl" style={{ backgroundColor: `${cat.color}22` }}>
+                              <DynamicIcon name={cat.icon} className="h-4 w-4" style={{ color: cat.color }} />
+                            </span>
+                            <span className="leading-tight">{cat.name}</span>
+                          </button>
+                        );
+                      })}
+                  {!categoriesQuery.isLoading && (
+                    <button
+                      type="button"
+                      onClick={() => setFormCategoria(formCategoria === "Outro" ? "" : "Outro")}
+                      className={cn(
+                        "flex flex-col items-center justify-center gap-1.5 rounded-xl border bg-bg-muted p-3 text-center text-xs font-semibold transition",
+                        formCategoria === "Outro"
+                          ? "border-accent-lime text-white"
+                          : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-white",
+                      )}
+                    >
+                      <span className="grid h-8 w-8 place-items-center rounded-xl" style={{ backgroundColor: "#6b728022" }}>
+                        <DynamicIcon name="MoreHorizontal" className="h-4 w-4" style={{ color: "#6b7280" }} />
+                      </span>
+                      <span className="leading-tight">Outro</span>
+                    </button>
+                  )}
                 </div>
                 {formCategoria === "Outro" && (
                   <input

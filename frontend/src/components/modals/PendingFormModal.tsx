@@ -5,17 +5,13 @@ import { Loader2, Wallet } from "lucide-react";
 import { api } from "../../lib/api";
 import { getApiErrorMessages, setFieldErrorsFromApi } from "../../lib/errors";
 import { ModalShell } from "./ModalShell";
+import { useCategories } from "./TransactionFormFields";
+import { DynamicIcon } from "../DynamicIcon";
+import { cn } from "../../lib/utils";
 
-
-const PENDING_CATEGORIES = ["Alimentação", "Transporte", "Saúde", "Educação", "Lazer", "Outro"] as const;
 const PAYMENT_FORMATS = ["Cartão de Crédito", "Pix", "Dinheiro", "Outro"] as const;
 
-type PendingCategory = (typeof PENDING_CATEGORIES)[number];
 type PaymentFormat = (typeof PAYMENT_FORMATS)[number];
-
-function isPendingCategory(value: string): value is PendingCategory {
-  return (PENDING_CATEGORIES as readonly string[]).includes(value);
-}
 
 function isPaymentFormat(value: string): value is PaymentFormat {
   return (PAYMENT_FORMATS as readonly string[]).includes(value);
@@ -67,7 +63,7 @@ function buildPendingPayload({
     description: description.trim() || undefined,
     isParcelada,
     isRecorrente,
-    categoria: isPendingCategory(categoria) ? categoria : undefined,
+    categoria: categoria || undefined,
     formatoPagamento: isPaymentFormat(formatoPagamento) ? formatoPagamento : undefined,
     parcelas: isParcelada && baseDate && Number.isFinite(totalParcelas) && totalParcelas > 0
       ? {
@@ -112,6 +108,7 @@ export function PendingFormModal({
   editAccount,
   onSuccess,
 }: PendingFormModalProps) {
+  const categoriesQuery = useCategories();
   const [formIsParcelada, setFormIsParcelada] = useState(false);
   const [formIsRecorrente, setFormIsRecorrente] = useState(false);
   const [formTitle, setFormTitle] = useState("");
@@ -371,21 +368,53 @@ export function PendingFormModal({
 
         <div>
           <span className="mb-1 block text-sm text-text-secondary">Categoria</span>
-          <select
-            value={formCategoria}
-            onChange={(e) => {
-              setFormCategoria(e.target.value);
-              if (e.target.value !== "Outro") setCategoriaCustom("");
-            }}
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
-          >
-            <option value="">Selecione</option>
-            {PENDING_CATEGORIES.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
+          <div className="max-h-48 overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {categoriesQuery.isLoading
+                ? Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="h-20 animate-pulse rounded-xl bg-bg-muted" />
+                  ))
+                : (categoriesQuery.data ?? []).map((cat) => {
+                    const active = formCategoria === cat.name;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => { setFormCategoria(cat.name); setCategoriaCustom(""); }}
+                        className={cn(
+                          "flex min-h-20 w-full flex-col items-center justify-center gap-2 rounded-xl border bg-bg-muted p-3 text-center text-xs font-semibold transition",
+                          active
+                            ? "border-accent-lime text-white"
+                            : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-white",
+                        )}
+                      >
+                        <span
+                          className="grid h-9 w-9 place-items-center rounded-xl"
+                          style={{ backgroundColor: `${cat.color}22` }}
+                        >
+                          <DynamicIcon name={cat.icon} className="h-5 w-5" style={{ color: cat.color }} />
+                        </span>
+                        <span className="line-clamp-2">{cat.name}</span>
+                      </button>
+                    );
+                  })}
+              <button
+                type="button"
+                onClick={() => setFormCategoria("Outro")}
+                className={cn(
+                  "flex min-h-20 w-full flex-col items-center justify-center gap-2 rounded-xl border bg-bg-muted p-3 text-center text-xs font-semibold transition",
+                  formCategoria === "Outro"
+                    ? "border-accent-lime text-white"
+                    : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-white",
+                )}
+              >
+                <span className="grid h-9 w-9 place-items-center rounded-xl" style={{ backgroundColor: "#6B728022" }}>
+                  <DynamicIcon name="MoreHorizontal" className="h-5 w-5" style={{ color: "#6B7280" }} />
+                </span>
+                <span>Outro</span>
+              </button>
+            </div>
+          </div>
           {formCategoria === "Outro" && (
             <input
               type="text"
