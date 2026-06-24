@@ -624,7 +624,7 @@ export function GoalsPage() {
                       strokeDasharray={strokeDasharray}
                       strokeDashoffset={strokeDashoffset}
                     />
-                    <text x="60" y="64" textAnchor="middle" className="fill-white text-[18px] font-bold" transform="rotate(90, 60, 64)">
+                    <text x="60" y="64" textAnchor="middle" style={{ fill: "var(--text-primary)", fontSize: 18, fontWeight: 700 }} transform="rotate(90, 60, 64)">
                       {progress.percent}%
                     </text>
                   </svg>
