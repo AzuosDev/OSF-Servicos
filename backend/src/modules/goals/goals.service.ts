@@ -81,10 +81,32 @@ export class GoalsService {
   }
 
   async remove(userId: string, id: string) {
-    const result = await this.goalModel.findOneAndDelete({ _id: new Types.ObjectId(id), userId: new Types.ObjectId(userId) }).exec();
-    if (!result) {
+    const goal = await this.goalModel.findOne({ _id: new Types.ObjectId(id), userId: new Types.ObjectId(userId) }).exec();
+    if (!goal) {
       throw new NotFoundException('Goal not found');
     }
+
+    const linkedCategoryId = goal.linkedCategoryId;
+    const goalName = goal.name;
+
+    await goal.deleteOne();
+
+    if (linkedCategoryId) {
+      await this.categoryModel.deleteOne({
+        _id: linkedCategoryId,
+        userId: new Types.ObjectId(userId),
+        isDefault: false,
+      }).exec();
+    } else {
+      // Fallback para metas antigas sem linkedCategoryId: busca pelo slug do nome
+      const slug = this.generateSlug(goalName);
+      await this.categoryModel.deleteOne({
+        slug,
+        userId: new Types.ObjectId(userId),
+        isDefault: false,
+      }).exec();
+    }
+
     return { deleted: true };
   }
 }

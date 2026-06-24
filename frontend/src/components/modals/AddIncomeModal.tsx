@@ -80,8 +80,30 @@ export function AddIncomeModal({
       onClose={onClose}
       title="Novo Ganho"
       icon={<TrendingUp className="h-6 w-6 text-accent-lime" />}
+      footer={
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={mutation.isPending}
+            className="flex-1 rounded-xl border border-bg-muted bg-transparent px-5 py-3 text-sm font-bold text-white transition hover:bg-bg-overlay disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form="add-income-form"
+            disabled={mutation.isPending}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            Salvar Ganho
+          </button>
+        </div>
+      }
     >
       <form
+        id="add-income-form"
         className="space-y-5"
         onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
       >
@@ -99,15 +121,6 @@ export function AddIncomeModal({
             ))}
           </div>
         )}
-
-        <button
-          type="submit"
-          disabled={mutation.isPending}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-          Salvar Ganho
-        </button>
       </form>
     </ModalShell>
   );

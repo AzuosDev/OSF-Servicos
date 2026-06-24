@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -22,5 +22,11 @@ export class CategoriesController {
   @Post()
   async create(@CurrentUser() user: ICurrentUser, @Body() dto: CreateCategoryDto) {
     return this.categoriesService.create(user._id.toString(), dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  async remove(@CurrentUser() user: ICurrentUser, @Param('id') id: string) {
+    return this.categoriesService.remove(user._id.toString(), id);
   }
 }

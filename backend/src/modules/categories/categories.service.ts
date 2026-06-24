@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, BadRequestException } from '@nestjs/common';
+import { Injectable, OnModuleInit, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Category, CategoryDocument } from './schemas/category.schema';
@@ -53,6 +53,21 @@ export class CategoriesService implements OnModuleInit {
     if (!category) return false;
     if (!category.userId) return true;
     return category.userId.toString() === userId;
+  }
+
+  async remove(userId: string, id: string) {
+    const category = await this.categoryModel.findOne({
+      _id: new Types.ObjectId(id),
+      userId: new Types.ObjectId(userId),
+      isDefault: false,
+    }).exec();
+
+    if (!category) {
+      throw new NotFoundException('Category not found or cannot be deleted');
+    }
+
+    await category.deleteOne();
+    return { deleted: true };
   }
 
   private generateSlug(name: string) {
