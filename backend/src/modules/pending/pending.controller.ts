@@ -36,4 +36,10 @@ export class PendingController {
   async remove(@CurrentUser() user: any, @Param('id') id: string) {
     return this.pendingService.remove(user._id.toString(), id);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('group/:grupoParceladoId')
+  async removeGroup(@CurrentUser() user: any, @Param('grupoParceladoId') grupoParceladoId: string) {
+    return this.pendingService.removeGroup(user._id.toString(), grupoParceladoId);
+  }
 }

@@ -1,8 +1,42 @@
-import { IsOptional, IsString, IsNumber, Min, MaxLength, IsDateString, IsBoolean } from 'class-validator';
+﻿import { IsOptional, IsString, IsNumber, Min, MaxLength, IsDateString, IsBoolean, IsIn, IsObject, ValidateIf } from 'class-validator';
+
 import { Type, Transform } from 'class-transformer';
 import sanitizeHtml from 'sanitize-html';
 
 export class UpdatePendingDto {
+  @IsOptional()
+  @IsBoolean()
+  isParcelada?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isRecorrente?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  categoria?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['Cartão de Crédito', 'Pix', 'Dinheiro', 'Outro'])
+  formatoPagamento?: string;
+
+  @IsOptional()
+  @ValidateIf(o => o.isParcelada)
+  @IsObject()
+  parcelas?: any;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  numeroParcela?: number;
+
+  @IsOptional()
+  @ValidateIf(o => o.isRecorrente)
+  @IsObject()
+  recorrencia?: any;
+
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))
   @IsString()

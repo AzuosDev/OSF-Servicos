@@ -7,24 +7,31 @@ export function ModalShell({
   icon,
   onClose,
   children,
+  footer,
+  containerClassName = "",
 }: {
   open: boolean;
   title: string;
   icon: ReactNode;
   onClose: () => void;
   children: ReactNode;
+  footer?: ReactNode;
+  containerClassName?: string;
 }) {
   if (!open) {
     return null;
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-black/60 p-4 backdrop-blur-sm sm:place-items-center">
-      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-bg-muted bg-bg-card p-5 shadow-2xl">
-        <div className="mb-5 flex items-center justify-between gap-3">
+    <div className="fixed inset-0 z-50 flex justify-center items-start overflow-y-auto bg-black/60 backdrop-blur-sm p-3 sm:p-4">
+      <div
+        className={`relative my-auto w-full max-w-lg max-h-[92vh] flex flex-col rounded-2xl border border-bg-muted bg-bg-card shadow-2xl ${containerClassName}`}
+      >
+        {/* Cabeçalho fixo */}
+        <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 shrink-0">
           <div className="flex items-center gap-3">
             {icon}
-            <h2 className="font-sans text-xl font-bold text-white">{title}</h2>
+            <h2 className="font-sans text-lg font-bold text-white">{title}</h2>
           </div>
           <button
             type="button"
@@ -35,9 +42,17 @@ export function ModalShell({
             <X className="h-5 w-5" />
           </button>
         </div>
-        {children}
+
+        {/* Corpo com scroll */}
+        <div className="flex-1 overflow-y-auto px-5 py-3">{children}</div>
+
+        {/* Footer fixo (se fornecido) */}
+        {footer && (
+          <div className="shrink-0 border-t border-bg-muted px-5 py-3">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
 }
-

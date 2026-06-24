@@ -1,8 +1,38 @@
-import { IsNotEmpty, IsString, IsNumber, Min, MaxLength, IsDateString, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, Min, MaxLength, IsDateString, IsOptional, IsBoolean, IsIn, ValidateIf, IsObject } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import sanitizeHtml from 'sanitize-html';
 
 export class CreatePendingDto {
+  @IsOptional()
+  @IsBoolean()
+  isParcelada?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isRecorrente?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  categoria?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['Cartão de Crédito', 'Pix', 'Dinheiro', 'Outro'])
+  formatoPagamento?: string;
+
+  // parcelas subdocumento – aceita qualquer objeto quando a conta for parcelada
+  @IsOptional()
+  @ValidateIf(o => o.isParcelada)
+  @IsObject()
+  parcelas?: any;
+
+  // recorrencia subdocumento – aceita qualquer objeto quando a conta for recorrente
+  @IsOptional()
+  @ValidateIf(o => o.isRecorrente)
+  @IsObject()
+  recorrencia?: any;
+
   @IsNotEmpty()
   @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))
   @IsString()
