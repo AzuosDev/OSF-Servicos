@@ -48,7 +48,7 @@ export class PendingService {
           parcelas: {
             totalParcelas,
             valorParcela,
-            parcelasPayas: 0,
+            qtdParcelasPagas: 0,
             parcelasPagas: [],
             dataInicio: baseDate,
             dataFim: this.addMonths(baseDate, totalParcelas - 1),

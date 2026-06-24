@@ -18,10 +18,10 @@ export class UsersService {
       emailVerified: false,
       emailVerificationToken,
     });
-    const obj: any = created.toObject();
-    delete obj.password;
-    delete obj.passwordResetToken;
-    delete obj.passwordResetExpires;
+    const obj = created.toObject() as Record<string, unknown>;
+    delete obj['password'];
+    delete obj['passwordResetToken'];
+    delete obj['passwordResetExpires'];
     return obj;
   }
 
@@ -55,12 +55,11 @@ export class UsersService {
     const user = await this.userModel.findOne({ passwordResetToken: token, passwordResetExpires: { $gt: new Date() } }).exec();
     if (!user) throw new NotFoundException('Token inválido ou expirado');
     const hashed = await bcrypt.hash(newPassword, 12);
-    user.password = hashed as any;
-    user.passwordResetToken = undefined as any;
-    user.passwordResetExpires = undefined as any;
+    // Mongoose marks these fields as readonly on the class; bypass via Object.assign
+    Object.assign(user, { password: hashed, passwordResetToken: undefined, passwordResetExpires: undefined });
     await user.save();
-    const obj: any = user.toObject();
-    delete obj.password;
+    const obj = user.toObject() as Record<string, unknown>;
+    delete obj['password'];
     return obj;
   }
 }

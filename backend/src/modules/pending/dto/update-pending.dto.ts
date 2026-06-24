@@ -1,6 +1,6 @@
-﻿import { IsOptional, IsString, IsNumber, Min, MaxLength, IsDateString, IsBoolean, IsIn, IsObject, ValidateIf } from 'class-validator';
-
+﻿import { IsOptional, IsString, IsNumber, Min, MaxLength, IsDateString, IsBoolean, IsIn, ValidateIf, ValidateNested } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
+import { ParcelasDto, RecorrenciaDto } from './create-pending.dto';
 import sanitizeHtml from 'sanitize-html';
 
 export class UpdatePendingDto {
@@ -24,8 +24,9 @@ export class UpdatePendingDto {
 
   @IsOptional()
   @ValidateIf(o => o.isParcelada)
-  @IsObject()
-  parcelas?: any;
+  @ValidateNested()
+  @Type(() => ParcelasDto)
+  parcelas?: ParcelasDto;
 
   @IsOptional()
   @Type(() => Number)
@@ -34,8 +35,9 @@ export class UpdatePendingDto {
 
   @IsOptional()
   @ValidateIf(o => o.isRecorrente)
-  @IsObject()
-  recorrencia?: any;
+  @ValidateNested()
+  @Type(() => RecorrenciaDto)
+  recorrencia?: RecorrenciaDto;
 
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))

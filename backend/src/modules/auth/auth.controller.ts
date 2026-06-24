@@ -1,12 +1,18 @@
 import { BadRequestException, Body, Controller, Get, Post, Query, UseGuards, Req, HttpCode } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LocalAuthGuard } from '../../common/guards/local-auth.guard';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ICurrentUser } from '../../common/types/current-user.type';
+
+interface RequestWithUser extends Request {
+  user: ICurrentUser;
+}
 
 @ApiTags('Auth')
 @ApiBearerAuth()
@@ -18,7 +24,7 @@ export class AuthController {
   @Post('register')
   @HttpCode(201)
   async register(@Body() dto: RegisterDto) {
-    const user = await this.authService.register(dto as any);
+    const user = await this.authService.register(dto);
     return user;
   }
 
@@ -30,7 +36,7 @@ export class AuthController {
   @Throttle(5, 60)
   @UseGuards(LocalAuthGuard)
   @Post('login')
-  async login(@Req() req: any) {
+  async login(@Req() req: RequestWithUser) {
     const user = req.user;
     return this.authService.login(user);
   }
@@ -42,9 +48,9 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Post('logout')
-  async logout(@Req() req: any, @Body() dto: RefreshTokenDto) {
+  async logout(@Req() req: RequestWithUser, @Body() dto: RefreshTokenDto) {
     const user = req.user;
-    await this.authService.logout(user._id, dto.refreshToken);
+    await this.authService.logout(user._id.toString(), dto.refreshToken);
     return { ok: true };
   }
 
@@ -68,7 +74,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  async me(@Req() req: any) {
+  async me(@Req() req: RequestWithUser) {
     const user = req.user;
     return user;
   }

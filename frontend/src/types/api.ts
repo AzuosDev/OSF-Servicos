@@ -80,7 +80,7 @@ export type PendingAccount = MongoDocument & {
   parcelas?: {
     totalParcelas: number;
     valorParcela: number;
-    parcelasPayas?: number;
+    qtdParcelasPagas?: number;
     parcelasPagas?: number[];
     dataInicio: string; // ISO date
     dataFim: string;    // ISO date

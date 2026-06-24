@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { GoalsService } from './goals.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ICurrentUser } from '../../common/types/current-user.type';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
 
@@ -14,25 +15,25 @@ export class GoalsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@CurrentUser() user: any, @Body() dto: CreateGoalDto) {
+  async create(@CurrentUser() user: ICurrentUser, @Body() dto: CreateGoalDto) {
     return this.goalsService.create(user._id.toString(), dto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  async findAll(@CurrentUser() user: any) {
+  async findAll(@CurrentUser() user: ICurrentUser) {
     return this.goalsService.findAll(user._id.toString());
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  async update(@CurrentUser() user: any, @Param('id') id: string, @Body() dto: UpdateGoalDto) {
+  async update(@CurrentUser() user: ICurrentUser, @Param('id') id: string, @Body() dto: UpdateGoalDto) {
     return this.goalsService.update(user._id.toString(), id, dto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  async remove(@CurrentUser() user: any, @Param('id') id: string) {
+  async remove(@CurrentUser() user: ICurrentUser, @Param('id') id: string) {
     return this.goalsService.remove(user._id.toString(), id);
   }
 }

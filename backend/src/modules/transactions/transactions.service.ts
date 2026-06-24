@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { FilterQuery, Model, Types } from 'mongoose';
 import { Transaction, TransactionDocument, TransactionType } from './schemas/transaction.schema';
 import { Category, CategoryDocument } from '../categories/schemas/category.schema';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
+import { UpdateTransactionDto } from './dto/update-transaction.dto';
 
 @Injectable()
 export class TransactionsService {
@@ -57,7 +58,7 @@ export class TransactionsService {
     month?: number,
     year?: number,
   ) {
-    const filter: any = { userId: new Types.ObjectId(userId) };
+    const filter: FilterQuery<TransactionDocument> = { userId: new Types.ObjectId(userId) };
     if (type) {
       filter.type = type;
     }
@@ -91,7 +92,7 @@ export class TransactionsService {
     return transaction;
   }
 
-  async update(userId: string, id: string, dto: any) {
+  async update(userId: string, id: string, dto: UpdateTransactionDto) {
     const transaction = await this.transactionModel.findOne({
       _id: this.toObjectId(id, 'id'),
       userId: this.toObjectId(userId, 'userId'),

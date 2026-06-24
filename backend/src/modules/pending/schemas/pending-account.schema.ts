@@ -6,14 +6,14 @@ export type PendingAccountDocument = PendingAccount & Document;
 @Schema({ timestamps: true })
 export class PendingAccount {
   /**
-   * Indica se a conta Ã© parcelada.
+   * Indica se a conta é parcelada.
    * @default false
    */
   @Prop({ type: Boolean, default: false })
   isParcelada!: boolean;
 
   /**
-   * Indica se a conta Ã© recorrente.
+   * Indica se a conta é recorrente.
    * @default false
    */
   @Prop({ type: Boolean, default: false })
@@ -48,7 +48,7 @@ export class PendingAccount {
     type: {
       totalParcelas: { type: Number, required: true },
       valorParcela: { type: Number, required: true },
-      parcelasPayas: { type: Number, default: 0 },
+      qtdParcelasPagas: { type: Number, default: 0 },
       parcelasPagas: { type: [Number], default: [] },
       dataInicio: { type: Date, required: true },
       dataFim: { type: Date, required: true },
@@ -58,13 +58,13 @@ export class PendingAccount {
   parcelas?: {
     totalParcelas: number;
     valorParcela: number;
-    parcelasPayas: number;
+    qtdParcelasPagas: number;
     parcelasPagas: number[];
     dataInicio: Date;
     dataFim: Date;
   };
 
-  // Subdocumento de recorrÃªncia (presente apenas se isRecorrente = true)
+  // Subdocumento de recorrência (presente apenas se isRecorrente = true)
   @Prop({
     type: {
       periodoRecorrencia: {
