@@ -109,7 +109,13 @@ export class DashboardService {
         ])
         .exec(),
       this.pendingModel
-        .find({ userId: userObjectId, paid: false, dueDate: { $lte: endDate } })
+        .find({
+          userId: userObjectId,
+          paid: false,
+          skipped: { $ne: true },
+          isRecorrente: { $ne: true },
+          dueDate: { $lte: endDate },
+        })
         .sort({ dueDate: 1 })
         .exec(),
       this.goalModel.find({ userId: userObjectId }).exec(),

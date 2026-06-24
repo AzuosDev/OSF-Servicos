@@ -38,7 +38,7 @@ export class PendingService {
       value: pending.value,
       categoryId: category?._id ?? undefined,
       description: pending.title,
-      date: pending.paidAt ?? new Date(),
+      date: pending.dueDate,
       pendingAccountId: pending._id,
     });
   }
@@ -362,6 +362,14 @@ export class PendingService {
       }
     }
     return { deleted: true };
+  }
+
+  async findGroup(userId: string, grupoParceladoId: string) {
+    const uid = new Types.ObjectId(userId);
+    return this.pendingModel
+      .find({ userId: uid, grupoParceladoId })
+      .sort({ numeroParcela: 1 })
+      .exec();
   }
 
   async removeGroup(userId: string, grupoParceladoId: string) {

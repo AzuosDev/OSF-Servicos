@@ -68,6 +68,11 @@ export class PendingController {
     return this.pendingService.remove(user._id.toString(), id);
   }
 
+  @Get('group/:grupoParceladoId')
+  async findGroup(@CurrentUser() user: ICurrentUser, @Param('grupoParceladoId') grupoParceladoId: string) {
+    return this.pendingService.findGroup(user._id.toString(), grupoParceladoId);
+  }
+
   @Delete('group/:grupoParceladoId')
   async removeGroup(@CurrentUser() user: ICurrentUser, @Param('grupoParceladoId') grupoParceladoId: string) {
     return this.pendingService.removeGroup(user._id.toString(), grupoParceladoId);

@@ -323,6 +323,15 @@ export function PendingPage() {
     return Array.from({ length: 11 }, (_, i) => now + 5 - i);
   }, []);
 
+  const groupQuery = useQuery<PendingItem[]>({
+    queryKey: ["pending-group", selectedParcelItem?.grupoParceladoId],
+    queryFn: async () => {
+      const { data } = await api.get<unknown[]>(`/api/pending/group/${selectedParcelItem!.grupoParceladoId}`);
+      return normalizePending(data);
+    },
+    enabled: parcelStatusOpen && !!selectedParcelItem?.grupoParceladoId,
+  });
+
   const pendingQuery = useQuery<PendingItem[]>({
     queryKey: ["pending", selectedMonth, selectedYear],
     queryFn: async () => {
@@ -1103,9 +1112,12 @@ export function PendingPage() {
       )}
       {parcelStatusOpen && selectedParcelItem && (() => {
         const liveItem = items.find((i) => i.id === selectedParcelItem.id) ?? selectedParcelItem;
-        const grupoItems = liveItem.grupoParceladoId
-          ? items.filter((i) => i.grupoParceladoId === liveItem.grupoParceladoId).sort((a, b) => (a.numeroParcela ?? 0) - (b.numeroParcela ?? 0))
-          : [liveItem];
+        const grupoItems = groupQuery.data && groupQuery.data.length > 0
+          ? groupQuery.data
+          : (liveItem.grupoParceladoId
+              ? items.filter((i) => i.grupoParceladoId === liveItem.grupoParceladoId)
+              : [liveItem]
+            ).sort((a, b) => (a.numeroParcela ?? 0) - (b.numeroParcela ?? 0));
         const totalParcelas = liveItem.parcelas?.totalParcelas ?? grupoItems.length;
         const paidCount = grupoItems.filter((i) => i.paid).length;
         const progressPercent = totalParcelas > 0 ? Math.round((paidCount / totalParcelas) * 100) : 0;
@@ -1117,6 +1129,12 @@ export function PendingPage() {
                 <h2 className="text-lg font-bold text-white">Status das parcelas</h2>
                 <p className="mt-1 text-sm text-text-secondary">{liveItem.title}</p>
               </div>
+              {groupQuery.isLoading && (
+                <div className="flex items-center justify-center gap-2 py-2 text-sm text-text-secondary">
+                  <Loader2 className="h-4 w-4 animate-spin text-accent-lime" />
+                  Carregando parcelas...
+                </div>
+              )}
 
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
