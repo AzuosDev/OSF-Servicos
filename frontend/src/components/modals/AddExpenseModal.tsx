@@ -72,6 +72,7 @@ export function AddExpenseModal({
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
         queryClient.invalidateQueries({ queryKey: ["transactions"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] }),
+        queryClient.invalidateQueries({ queryKey: ["goals"] }),
       ]);
       onClose();
     },

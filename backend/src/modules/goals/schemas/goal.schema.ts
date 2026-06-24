@@ -22,6 +22,9 @@ export class Goal {
 
   @Prop({ default: false })
   completed!: boolean;
+
+  @Prop({ type: Types.ObjectId, ref: 'Category', default: null })
+  linkedCategoryId?: Types.ObjectId | null;
 }
 
 export const GoalSchema = SchemaFactory.createForClass(Goal);

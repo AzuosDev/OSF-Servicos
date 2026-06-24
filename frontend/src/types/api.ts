@@ -113,6 +113,7 @@ export type Goal = MongoDocument & {
   deadline?: ApiDate;
   completed: boolean;
   percentComplete?: number;
+  linkedCategoryId?: ApiId | null;
 };
 
 export type DashboardExpenseByCategory = {

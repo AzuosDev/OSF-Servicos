@@ -143,6 +143,7 @@ export function TransactionsPage() {
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
         queryClient.invalidateQueries({ queryKey: ["transactions"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] }),
+        queryClient.invalidateQueries({ queryKey: ["goals"] }),
       ]);
       setDeleting(null);
     },

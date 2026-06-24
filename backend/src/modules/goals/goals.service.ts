@@ -2,23 +2,50 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Goal, GoalDocument } from './schemas/goal.schema';
+import { Category, CategoryDocument } from '../categories/schemas/category.schema';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
 
 @Injectable()
 export class GoalsService {
-  constructor(@InjectModel(Goal.name) private goalModel: Model<GoalDocument>) {}
+  constructor(
+    @InjectModel(Goal.name) private goalModel: Model<GoalDocument>,
+    @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
+  ) {}
+
+  private generateSlug(name: string) {
+    return name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+  }
+
+  private async findOrCreateLinkedCategory(userId: Types.ObjectId, name: string): Promise<Types.ObjectId> {
+    const slug = this.generateSlug(name);
+    const existing = await this.categoryModel.findOne({ slug, userId }).exec();
+    if (existing) {
+      return existing._id as Types.ObjectId;
+    }
+    const created = await this.categoryModel.create({ userId, name, slug, isDefault: false });
+    return created._id as Types.ObjectId;
+  }
 
   async create(userId: string, dto: CreateGoalDto) {
+    const userObjectId = new Types.ObjectId(userId);
     const currentValue = dto.currentValue ?? 0;
     const completed = currentValue >= dto.targetValue;
+    const linkedCategoryId = await this.findOrCreateLinkedCategory(userObjectId, dto.name);
+
     return this.goalModel.create({
-      userId: new Types.ObjectId(userId),
+      userId: userObjectId,
       name: dto.name,
       targetValue: dto.targetValue,
       currentValue,
       deadline: dto.deadline ? new Date(dto.deadline) : undefined,
       completed,
+      linkedCategoryId,
     });
   }
 

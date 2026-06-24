@@ -3,6 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
+  Link2,
   Loader2,
   PencilLine,
   Plus,
@@ -27,6 +28,7 @@ type GoalItem = {
   deadline?: string;
   completed: boolean;
   percentComplete?: number;
+  linkedCategoryId?: string | null;
 };
 
 type GoalAction = {
@@ -71,6 +73,7 @@ function normalizeGoals(data: unknown): GoalItem[] {
       const deadline = typeof goal.deadline === "string" ? goal.deadline : undefined;
       const completed = Boolean(goal.completed);
       const percentComplete = typeof goal.percentComplete === "number" ? goal.percentComplete : undefined;
+      const linkedCategoryId = typeof goal.linkedCategoryId === "string" ? goal.linkedCategoryId : null;
 
       return {
         id,
@@ -80,6 +83,7 @@ function normalizeGoals(data: unknown): GoalItem[] {
         deadline,
         completed,
         percentComplete,
+        linkedCategoryId,
       };
     });
   }
@@ -195,10 +199,14 @@ function GoalFormModal({
       await api.post("/api/goals", payload);
     },
     onSuccess: async () => {
-      await Promise.all([
+      const invalidations = [
         queryClient.invalidateQueries({ queryKey: ["goals"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
-      ]);
+      ];
+      if (mode === "create") {
+        invalidations.push(queryClient.invalidateQueries({ queryKey: ["categories"] }));
+      }
+      await Promise.all(invalidations);
       addToast(mode === "create" ? "Meta criada com sucesso." : "Meta atualizada com sucesso.", "success");
       onClose();
     },
@@ -595,6 +603,12 @@ export function GoalsPage() {
                   <div className="min-w-0">
                     <p className="text-sm text-text-secondary">Meta</p>
                     <h3 className="truncate text-xl font-semibold text-white">{goal.name}</h3>
+                    {goal.linkedCategoryId && (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-text-secondary">
+                        <Link2 className="h-3 w-3" />
+                        Rastreamento automático via gastos
+                      </p>
+                    )}
                   </div>
                   <span className={`rounded-full px-3 py-1 text-xs font-semibold ${progress.badgeClass}`}>
                     {goal.completed ? "Concluída" : progress.label}
