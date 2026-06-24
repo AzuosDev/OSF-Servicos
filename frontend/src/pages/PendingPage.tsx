@@ -696,71 +696,85 @@ export function PendingPage() {
       {creating && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="flex w-full max-w-md max-h-[90vh] flex-col overflow-hidden rounded-2xl border border-bg-muted bg-bg-card">
-            <h2 className="text-lg font-bold text-white">
-              Nova conta pendente
-            </h2>
-            <p className="mt-1 text-sm text-text-secondary">
-              Cadastre uma conta para acompanhar o pagamento.
-            </p>
-            <div className="mt-4 flex-1 overflow-y-auto px-5 pb-3 space-y-3">
-              {/* ? inputs controlados com state */}
-                {/* Segmented control for account type */}
-                <div className="flex space-x-1 rounded-xl bg-bg-muted p-1 mb-4">
-                  {['Não parcelada', 'Parcelada', 'Recorrente'].map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      className={`flex-1 rounded px-3 py-2 text-sm font-medium ${
-                        (formIsParcelada && type === 'Parcelada') ||
-                        (formIsRecorrente && type === 'Recorrente') ||
-                        (!formIsParcelada && !formIsRecorrente && type === 'Não parcelada')
-                          ? 'bg-accent-lime text-black'
-                          : 'text-white'
-                      }`}
-                      onClick={() => {
-                        setFormIsParcelada(type === 'Parcelada');
-                        setFormIsRecorrente(type === 'Recorrente');
-                      }}
-                    >
-                      {type}
-                    </button>
-                  ))}
+            <div className="px-5 pt-5 pb-1">
+              <h2 className="text-lg font-bold text-white">Nova conta pendente</h2>
+              <p className="mt-1 text-sm text-text-secondary">Cadastre uma conta para acompanhar o pagamento.</p>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 pb-3 space-y-4 mt-4">
+              {/* Tipo de conta */}
+              <div className="flex space-x-1 rounded-xl bg-bg-muted p-1">
+                {['Não parcelada', 'Parcelada', 'Recorrente'].map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    className={`flex-1 rounded px-3 py-2 text-sm font-medium transition ${
+                      (formIsParcelada && type === 'Parcelada') ||
+                      (formIsRecorrente && type === 'Recorrente') ||
+                      (!formIsParcelada && !formIsRecorrente && type === 'Não parcelada')
+                        ? 'bg-accent-lime text-black'
+                        : 'text-white'
+                    }`}
+                    onClick={() => {
+                      setFormIsParcelada(type === 'Parcelada');
+                      setFormIsRecorrente(type === 'Recorrente');
+                    }}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+
+              {/* Valor */}
+              <div>
+                <label className="block text-sm text-text-secondary mb-2">Valor</label>
+                <div className="flex items-center gap-3 rounded-xl border border-bg-muted bg-bg-muted px-4 py-3">
+                  <span className="shrink-0 text-sm font-medium text-text-secondary">R$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0"
+                    className="flex-1 bg-transparent text-center text-xl font-bold text-accent-lime outline-none [appearance:textfield] placeholder:text-text-muted [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    value={formValue}
+                    onChange={(e) => setFormValue(e.target.value)}
+                  />
                 </div>
-                {/* Conditional fields */}
-                {formIsParcelada && (
-                  <div className="space-y-2 mb-4">
-                    <label className="block text-sm text-white">Valor total</label>
-                    <input
-                      type="number"
-                      placeholder="Valor total"
-                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                      value={formValue}
-                      onChange={(e) => setFormValue(e.target.value)}
-                    />
-                    <label className="block text-sm text-white">Quantidade de parcelas</label>
+              </div>
+
+              {/* Campos parcelada */}
+              {formIsParcelada && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm text-text-secondary mb-2">Quantidade de parcelas</label>
                     <input
                       type="number"
                       min={1}
                       step={1}
-                      placeholder="ex:2"
-                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                      placeholder="ex: 10"
+                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
                       value={formParcelas.totalParcelas}
                       onChange={(e) => setFormParcelas((prev) => ({ ...prev, totalParcelas: e.target.value }))}
                     />
-                    {/* Valor da parcela (readonly) */}
                     {formParcelas.totalParcelas && formValue && (
-                      <p className="text-sm text-text-secondary">
-                        Valor da parcela: {(parseFloat(formValue) / Number(formParcelas.totalParcelas)).toFixed(2)}
+                      <p className="mt-1.5 text-xs text-text-muted">
+                        Valor por parcela:{" "}
+                        <span className="font-semibold text-accent-lime">
+                          {formatCurrency(parseFloat(formValue) / Number(formParcelas.totalParcelas))}
+                        </span>
                       </p>
                     )}
-                    <label className="block text-sm text-white">Data de Início</label>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-text-secondary mb-2">Data de início</label>
                     <input
                       type="date"
-                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
                       value={formParcelas.dataInicio}
                       onChange={(e) => setFormParcelas((prev) => ({ ...prev, dataInicio: e.target.value }))}
                     />
-                    <label className="block text-sm text-white">Data de fim</label>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-text-secondary mb-2">Data de fim</label>
                     <input
                       type="date"
                       readOnly
@@ -768,109 +782,126 @@ export function PendingPage() {
                       value={formParcelas.dataFim}
                     />
                   </div>
-                )}
-                {formIsRecorrente && (
-                  <div className="space-y-2 mb-4">
-                    <label className="block text-sm text-white">Período de recorrência</label>
+                </div>
+              )}
+
+              {/* Campos recorrente */}
+              {formIsRecorrente && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm text-text-secondary mb-2">Período de recorrência</label>
                     <select
                       value={formRecorrencia.periodoRecorrencia}
-                      onChange={(e) => setFormRecorrencia(prev => ({ ...prev, periodoRecorrencia: e.target.value }))}
-                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                      onChange={(e) => setFormRecorrencia((prev) => ({ ...prev, periodoRecorrencia: e.target.value }))}
+                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
                     >
                       <option value="Diário">Diário</option>
                       <option value="Semanal">Semanal</option>
                       <option value="Mensal">Mensal</option>
                       <option value="Anual">Anual</option>
                     </select>
-                    <label className="block text-sm text-white">Próxima data</label>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-text-secondary mb-2">Próxima data</label>
                     <input
                       type="date"
-                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
                       value={formRecorrencia.dataProxima}
-                      onChange={(e) => setFormRecorrencia(prev => ({ ...prev, dataProxima: e.target.value }))}
+                      onChange={(e) => setFormRecorrencia((prev) => ({ ...prev, dataProxima: e.target.value }))}
                     />
                   </div>
-                )}
-                {/* Categoria with label and optional custom field */}
-                <label className="block text-sm text-white mt-2">Categoria</label>
+                </div>
+              )}
+
+              {/* Título */}
+              <div>
+                <label className="block text-sm text-text-secondary mb-2">Título</label>
+                <input
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
+                  placeholder="Ex: Conta de luz"
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                />
+              </div>
+
+              {/* Data (não parcelada) */}
+              {!formIsParcelada && (
+                <div>
+                  <label className="block text-sm text-text-secondary mb-2">Data de vencimento</label>
+                  <input
+                    type="date"
+                    className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
+                    value={formDueDate}
+                    onChange={(e) => setFormDueDate(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {/* Categoria */}
+              <div>
+                <label className="block text-sm text-text-secondary mb-2">Categoria</label>
                 <select
                   value={formCategoria}
                   onChange={(e) => {
                     setFormCategoria(e.target.value);
                     if (e.target.value !== 'Outro') setCategoriaCustom('');
                   }}
-                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
                 >
                   <option value="">Selecione</option>
                   {PENDING_CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
+                    <option key={category} value={category}>{category}</option>
                   ))}
                 </select>
                 {formCategoria === 'Outro' && (
                   <input
                     type="text"
                     placeholder="Digite a categoria personalizada"
-                    className="mt-1 w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                    className="mt-2 w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
                     value={categoriaCustom}
                     onChange={(e) => setCategoriaCustom(e.target.value)}
                   />
                 )}
-                {/* Forma de pagamento with label and optional custom field */}
-                <label className="block text-sm text-white mt-2">Forma de pagamento</label>
+              </div>
+
+              {/* Forma de pagamento */}
+              <div>
+                <label className="block text-sm text-text-secondary mb-2">Forma de pagamento</label>
                 <select
                   value={formFormatoPagamento}
                   onChange={(e) => {
                     setFormFormatoPagamento(e.target.value);
                     if (e.target.value !== 'Outro') setFormaCustom('');
                   }}
-                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
                 >
                   <option value="">Selecione</option>
                   {PAYMENT_FORMATS.map((format) => (
-                    <option key={format} value={format}>
-                      {format}
-                    </option>
+                    <option key={format} value={format}>{format}</option>
                   ))}
                 </select>
                 {formFormatoPagamento === 'Outro' && (
                   <input
                     type="text"
                     placeholder="Digite a forma de pagamento personalizada"
-                    className="mt-1 w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
+                    className="mt-2 w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
                     value={formaCustom}
                     onChange={(e) => setFormaCustom(e.target.value)}
                   />
                 )}
-              <input
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="Título"
-                value={formTitle}
-                onChange={(e) => setFormTitle(e.target.value)}
-              />
-              <input
-                type="number"
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="Valor"
-                value={formValue}
-                onChange={(e) => setFormValue(e.target.value)}
-              />
-              {!formIsParcelada && (
-                <input
-                  type="date"
-                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                  value={formDueDate}
-                  onChange={(e) => setFormDueDate(e.target.value)}
+              </div>
+
+              {/* Descrição */}
+              <div>
+                <label className="block text-sm text-text-secondary mb-2">Descrição <span className="text-text-muted">(opcional)</span></label>
+                <textarea
+                  rows={3}
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50 resize-none"
+                  placeholder="Adicione uma observação..."
+                  value={formDescription}
+                  onChange={(e) => setFormDescription(e.target.value)}
                 />
-              )}
-              <textarea
-                rows={3}
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="Descrição (opcional)"
-                value={formDescription}
-                onChange={(e) => setFormDescription(e.target.value)}
-              />
+              </div>
             </div>
             <div className="flex shrink-0 justify-end gap-2 border-t border-bg-muted px-5 py-3">
               <button
