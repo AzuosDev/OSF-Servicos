@@ -69,7 +69,7 @@ export function ExpensesPage() {
     queryKey: ["dashboard-expenses", period, month, year],
     queryFn: async () => {
       const { data } = await api.get<DashboardResponse>("/api/dashboard", {
-        params: { month, year },
+        params: { month, year, period },
       });
       const source = data.expensesByCategory ?? [];
 

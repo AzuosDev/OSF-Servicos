@@ -15,6 +15,53 @@ export class PendingService {
     @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
   ) {}
 
+  private static readonly CATEGORY_KEYWORDS: Record<string, string[]> = {
+    'Transporte': [
+      'moto', 'carro', 'bike', 'bicicleta', 'ônibus', 'onibus', 'taxi', 'táxi',
+      'uber', '99', 'cabify', 'combustível', 'combustivel', 'gasolina', 'etanol',
+      'diesel', 'pedágio', 'pedagio', 'estacionamento', 'bros', 'fan', 'cg',
+      'honda', 'yamaha', 'kawasaki', 'suzuki', 'ducati', 'bmw', 'ford', 'gol',
+      'civic', 'corolla', 'fiat', 'volkswagen', 'chevrolet', 'hyundai', 'renault',
+      'metrô', 'metro', 'trem', 'ônibus', 'viação', 'viacão', 'transporte', 'veículo',
+    ],
+    'Alimentação': [
+      'restaurante', 'lanche', 'mercado', 'supermercado', 'pizza', 'hamburguer',
+      'hambúrguer', 'açaí', 'acai', 'refeição', 'refeicao', 'almoço', 'almoco',
+      'jantar', 'café', 'cafe', 'padaria', 'ifood', 'rappi', 'delivery', 'comida',
+      'feira', 'hortifruti', 'churrasco', 'sushi', 'lanchonete', 'mcdonald',
+      'burger king', 'subway', 'habib', 'china', 'japonês', 'japonesa', 'bar',
+    ],
+    'Saúde': [
+      'médico', 'medico', 'farmácia', 'farmacia', 'remédio', 'remedio', 'consulta',
+      'dentista', 'hospital', 'plano', 'unimed', 'amil', 'bradesco saude', 'academia',
+      'clínica', 'clinica', 'exame', 'laboratorio', 'laboratório', 'cirurgia',
+      'fisioterapia', 'psicólogo', 'psicologo', 'psiquiatra', 'terapia', 'saúde',
+      'saude', 'vacina', 'drogaria', 'drogasil', 'ultrafarma',
+    ],
+    'Educação': [
+      'escola', 'faculdade', 'curso', 'livro', 'material', 'mensalidade',
+      'universidade', 'colégio', 'colegio', 'aula', 'apostila', 'udemy', 'alura',
+      'estudo', 'educação', 'educacao', 'senai', 'senac', 'idioma', 'inglês', 'ingles',
+      'espanhol', 'vestibular', 'concurso', 'pós', 'pos', 'mba', 'graduação',
+    ],
+    'Lazer': [
+      'cinema', 'show', 'festa', 'viagem', 'hotel', 'streaming', 'netflix', 'spotify',
+      'amazon prime', 'disney', 'hbo', 'jogo', 'game', 'esporte', 'teatro', 'museu',
+      'parque', 'steam', 'playstation', 'xbox', 'nintendo', 'ingresso', 'balada',
+      'clube', 'piscina', 'praia', 'viagem', 'hospedagem', 'airbnb', 'booking',
+    ],
+  };
+
+  private resolveCategory(categoriaText: string): string | null {
+    const lower = categoriaText.toLowerCase().trim();
+    for (const [category, keywords] of Object.entries(PendingService.CATEGORY_KEYWORDS)) {
+      if (keywords.some((kw) => lower.includes(kw) || kw.includes(lower))) {
+        return category;
+      }
+    }
+    return null;
+  }
+
   private addMonths(date: Date, months: number) {
     const nextDate = new Date(date);
     nextDate.setMonth(nextDate.getMonth() + months);
@@ -23,14 +70,30 @@ export class PendingService {
 
   private async createExpenseTransaction(pending: PendingAccountDocument) {
     const userId = pending.userId as Types.ObjectId;
-    const category = pending.categoria
-      ? await this.categoryModel
-          .findOne({
-            name: { $regex: new RegExp(`^${pending.categoria}$`, 'i') },
-            $or: [{ userId: null }, { userId: userId }],
-          })
-          .exec()
-      : null;
+    let category = null;
+
+    if (pending.categoria && pending.categoria.toLowerCase() !== 'outro') {
+      // 1. Busca exata (case-insensitive)
+      category = await this.categoryModel
+        .findOne({
+          name: { $regex: new RegExp(`^${pending.categoria}$`, 'i') },
+          $or: [{ userId: null }, { userId: userId }],
+        })
+        .exec();
+
+      // 2. Sem match exato → tenta mapeamento por palavras-chave
+      if (!category) {
+        const mapped = this.resolveCategory(pending.categoria);
+        if (mapped) {
+          category = await this.categoryModel
+            .findOne({
+              name: { $regex: new RegExp(`^${mapped}$`, 'i') },
+              $or: [{ userId: null }, { userId: userId }],
+            })
+            .exec();
+        }
+      }
+    }
 
     await this.transactionModel.create({
       userId,

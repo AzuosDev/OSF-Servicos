@@ -75,7 +75,7 @@ function buildPendingPayload(data: {
   parcelas: { totalParcelas: string; dataInicio: string; dataFim: string };
   recorrencia: { periodoRecorrencia: string; dataProxima: string };
 }) {
-  const normalizedValue = Number(String(data.value).replace(/[^\d,-]/g, "").replace(",", "."));
+  const normalizedValue = parseFloat(String(data.value).replace(",", "."));
   const totalParcelas = Number(data.parcelas.totalParcelas);
   const baseDate = data.parcelas.dataInicio || data.dueDate;
 
@@ -1178,6 +1178,14 @@ export function PendingPage() {
                 <div className="flex justify-between">
                   <span className="text-text-secondary">Valor da parcela</span>
                   <span className="text-white font-medium">{formatCurrency(liveItem.value)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-text-secondary">Total pago</span>
+                  <span className="font-medium text-accent-lime">{formatCurrency(paidCount * liveItem.value)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-text-secondary">Falta pagar</span>
+                  <span className="font-medium text-accent-red">{formatCurrency((totalParcelas - paidCount) * liveItem.value)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-text-secondary">Vencimento</span>

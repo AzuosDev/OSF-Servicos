@@ -477,7 +477,7 @@ export function DashboardPage() {
             <p className="text-sm uppercase tracking-widest text-text-secondary">
               Saldo
             </p>
-            <strong className="mt-3 block font-sans text-3xl font-extrabold text-accent-lime sm:text-5xl">
+            <strong className={cn("mt-3 block font-sans text-3xl font-extrabold sm:text-5xl", dashboard.balance < 0 ? "text-accent-red" : "text-accent-lime")}>
               {formatCurrency(dashboard.balance)}
             </strong>
             <div className="mt-5 flex flex-wrap gap-4 text-sm">

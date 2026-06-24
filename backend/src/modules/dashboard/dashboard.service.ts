@@ -18,10 +18,28 @@ export class DashboardService {
     const now = new Date();
     const month = query.month ?? now.getMonth() + 1;
     const year = query.year ?? now.getFullYear();
-    const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
-    const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
     const yearStart = new Date(Date.UTC(year, 0, 1, 0, 0, 0));
     const yearEnd = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
+
+    let startDate: Date;
+    let endDate: Date;
+    const period = query.period ?? 'monthly';
+
+    if (period === 'weekly') {
+      const dow = now.getDay();
+      const monday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - (dow === 0 ? 6 : dow - 1)));
+      const sunday = new Date(monday);
+      sunday.setUTCDate(monday.getUTCDate() + 6);
+      sunday.setUTCHours(23, 59, 59, 999);
+      startDate = monday;
+      endDate = sunday;
+    } else if (period === 'yearly') {
+      startDate = yearStart;
+      endDate = yearEnd;
+    } else {
+      startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
+      endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+    }
     const userObjectId = new Types.ObjectId(userId);
 
     // All 5 transaction queries consolidated into a single $facet round-trip.
