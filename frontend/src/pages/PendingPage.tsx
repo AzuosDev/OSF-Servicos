@@ -256,7 +256,18 @@ export function PendingPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [parcelStatusOpen, setParcelStatusOpen] = useState(false);
   const [selectedParcelItem, setSelectedParcelItem] = useState<PendingDisplayItem | null>(null);
-  const [selectedDelete, setSelectedDelete] = useState<{ id: string; title: string; isParcel?: boolean; parcelLabel?: string; grupoParceladoId?: string; isVirtual?: boolean } | null>(null);
+  const [selectedDelete, setSelectedDelete] = useState<{
+    id: string;
+    title: string;
+    isParcel?: boolean;
+    parcelLabel?: string;
+    grupoParceladoId?: string;
+    isVirtual?: boolean;
+    isRecorrente?: boolean;
+    templateId?: string;
+    month?: number;
+    year?: number;
+  } | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<PendingItem | null>(
     null,
   );
@@ -376,6 +387,8 @@ export function PendingPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pending"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
       addToast("Conta marcada como paga com sucesso.", "success");
       setParcelStatusOpen(false);
       setSelectedParcelItem(null);
@@ -417,9 +430,22 @@ export function PendingPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pending"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       addToast("Conta apagada com sucesso.", "success");
     },
     onError: () => addToast("Não foi possível apagar a conta.", "error"),
+  });
+
+  const deleteRecurringMonth = useMutation({
+    mutationFn: async ({ templateId, month, year }: { templateId: string; month: number; year: number }) =>
+      api.delete(`/api/pending/${templateId}/month`, { params: { month, year } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pending"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      addToast("Mês excluído com sucesso.", "success");
+    },
+    onError: () => addToast("Não foi possível excluir.", "error"),
   });
 
   const deleteGroupPending = useMutation({
@@ -510,13 +536,19 @@ export function PendingPage() {
 
   function confirmarDeletar(item: PendingItem) {
     const isParcel = !!item.grupoParceladoId && !!item.numeroParcela;
+    const isRecorrente = !!(item.isRecorrente || item.isVirtual || item.recorrenciaTemplateId);
+    const templateId = item.templateId ?? item.recorrenciaTemplateId ?? (item.isRecorrente ? item.id : undefined);
     setSelectedDelete({
-      id: item.id,
+      id: isRecorrente ? (templateId ?? item.id) : item.id,
       title: item.title,
-      isParcel,
+      isParcel: isRecorrente ? false : isParcel,
       parcelLabel: isParcel && item.numeroParcela && item.parcelas?.totalParcelas ? `Parcela ${item.numeroParcela}/${item.parcelas.totalParcelas}` : undefined,
       grupoParceladoId: item.grupoParceladoId,
       isVirtual: item.isVirtual,
+      isRecorrente,
+      templateId,
+      month: selectedMonth,
+      year: selectedYear,
     });
     setDeleteModalOpen(true);
   }
@@ -1158,20 +1190,31 @@ export function PendingPage() {
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
         onDeleteOne={() => {
-          if (selectedDelete) {
-            deletePending.mutate(selectedDelete.id);
-          }
+          if (selectedDelete) deletePending.mutate(selectedDelete.id);
           setDeleteModalOpen(false);
         }}
         onDeleteGroup={() => {
-          if (selectedDelete?.grupoParceladoId) {
-            deleteGroupPending.mutate(selectedDelete.grupoParceladoId);
+          if (selectedDelete?.grupoParceladoId) deleteGroupPending.mutate(selectedDelete.grupoParceladoId);
+          setDeleteModalOpen(false);
+        }}
+        onDeleteMonth={() => {
+          if (selectedDelete?.templateId && selectedDelete.month && selectedDelete.year) {
+            deleteRecurringMonth.mutate({
+              templateId: selectedDelete.templateId,
+              month: selectedDelete.month,
+              year: selectedDelete.year,
+            });
           }
+          setDeleteModalOpen(false);
+        }}
+        onDeletePermanent={() => {
+          if (selectedDelete?.templateId) deletePending.mutate(selectedDelete.templateId);
           setDeleteModalOpen(false);
         }}
         accountName={selectedDelete?.title ?? ""}
         isParcel={selectedDelete?.isParcel}
         parcelLabel={selectedDelete?.parcelLabel}
+        isRecorrente={selectedDelete?.isRecorrente}
       />
       </section>
   );

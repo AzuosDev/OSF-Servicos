@@ -164,11 +164,13 @@ export function ExpensesPage() {
                     <Tooltip
                       formatter={(value: number) => formatCurrency(Number(value))}
                       contentStyle={{
-                        backgroundColor: "#111827",
+                        backgroundColor: "#1f2937",
                         border: "1px solid rgba(148,163,184,0.2)",
                         borderRadius: 14,
                         color: "#fff",
                       }}
+                      labelStyle={{ color: "#fff", fontWeight: 600 }}
+                      itemStyle={{ color: "#e5e7eb" }}
                     />
                   </PieChart>
                 </ResponsiveContainer>

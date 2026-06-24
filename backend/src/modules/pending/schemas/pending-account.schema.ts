@@ -85,6 +85,10 @@ export class PendingAccount {
   @Prop({ type: String })
   recorrenciaTemplateId?: string;
 
+  // Marca o mês como pulado sem alterar o molde
+  @Prop({ type: Boolean, default: false })
+  skipped?: boolean;
+
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   userId!: Types.ObjectId;
 

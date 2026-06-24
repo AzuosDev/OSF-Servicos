@@ -2,17 +2,45 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { PendingAccount, PendingAccountDocument } from './schemas/pending-account.schema';
+import { Transaction, TransactionDocument, TransactionType } from '../transactions/schemas/transaction.schema';
+import { Category, CategoryDocument } from '../categories/schemas/category.schema';
 import { CreatePendingDto } from './dto/create-pending.dto';
 import { UpdatePendingDto } from './dto/update-pending.dto';
 
 @Injectable()
 export class PendingService {
-  constructor(@InjectModel(PendingAccount.name) private pendingModel: Model<PendingAccountDocument>) {}
+  constructor(
+    @InjectModel(PendingAccount.name) private pendingModel: Model<PendingAccountDocument>,
+    @InjectModel(Transaction.name) private transactionModel: Model<TransactionDocument>,
+    @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
+  ) {}
 
   private addMonths(date: Date, months: number) {
     const nextDate = new Date(date);
     nextDate.setMonth(nextDate.getMonth() + months);
     return nextDate;
+  }
+
+  private async createExpenseTransaction(pending: PendingAccountDocument) {
+    const userId = pending.userId as Types.ObjectId;
+    const category = pending.categoria
+      ? await this.categoryModel
+          .findOne({
+            name: { $regex: new RegExp(`^${pending.categoria}$`, 'i') },
+            $or: [{ userId: null }, { userId: userId }],
+          })
+          .exec()
+      : null;
+
+    await this.transactionModel.create({
+      userId,
+      type: TransactionType.EXPENSE,
+      value: pending.value,
+      categoryId: category?._id ?? undefined,
+      description: pending.title,
+      date: pending.paidAt ?? new Date(),
+      pendingAccountId: pending._id,
+    });
   }
 
   async create(userId: string, dto: CreatePendingDto) {
@@ -157,6 +185,7 @@ export class PendingService {
       const existingInstance = instanceByTemplate.get(templateId);
 
       if (existingInstance) {
+        if (existingInstance.skipped) continue;
         if (typeof paid === 'boolean' && existingInstance.paid !== paid) continue;
         recurringEntries.push(existingInstance.toObject() as Record<string, unknown>);
       } else {
@@ -203,7 +232,6 @@ export class PendingService {
     const monthStart = new Date(year, month - 1, 1);
     const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
 
-    // Se já existe instância para este mês, marca como paga
     const existing = await this.pendingModel
       .findOne({
         userId: uid,
@@ -213,12 +241,15 @@ export class PendingService {
       .exec();
 
     if (existing) {
-      existing.paid = true;
-      existing.paidAt = existing.paidAt ?? new Date();
-      return existing.save();
+      if (!existing.paid) {
+        existing.paid = true;
+        existing.paidAt = new Date();
+        await existing.save();
+        await this.createExpenseTransaction(existing);
+      }
+      return existing;
     }
 
-    // Cria nova instância para este mês
     const startDay = new Date(template.dueDate).getDate();
     const daysInMonth = new Date(year, month, 0).getDate();
     const day = Math.min(startDay, daysInMonth);
@@ -239,7 +270,9 @@ export class PendingService {
       paidAt: new Date(),
     });
 
-    return instance.save();
+    await instance.save();
+    await this.createExpenseTransaction(instance);
+    return instance;
   }
 
   async update(userId: string, id: string, dto: UpdatePendingDto) {
@@ -257,28 +290,87 @@ export class PendingService {
       throw new BadRequestException('Recorrencia e obrigatoria quando isRecorrente = true');
     }
 
+    const wasPaid = pending.paid;
     if (typeof dto.paid !== 'undefined') {
       pending.paid = dto.paid;
       if (dto.paid) pending.paidAt = pending.paidAt ?? new Date();
     }
 
     await pending.save();
+
+    // Auto-cria transação de gasto quando conta é paga pela primeira vez
+    if (dto.paid === true && !wasPaid) {
+      await this.createExpenseTransaction(pending);
+    }
+
     return pending;
   }
 
-  async remove(userId: string, id: string) {
-    const result = await this.pendingModel
-      .findOneAndDelete({ _id: new Types.ObjectId(id), userId: new Types.ObjectId(userId) })
+  async skipRecurringMonth(userId: string, templateId: string, month: number, year: number) {
+    const uid = new Types.ObjectId(userId);
+    const template = await this.pendingModel
+      .findOne({ _id: new Types.ObjectId(templateId), userId: uid, isRecorrente: true })
       .exec();
+    if (!template) throw new NotFoundException('Molde recorrente não encontrado');
+
+    const monthStart = new Date(year, month - 1, 1);
+    const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
+
+    const existing = await this.pendingModel
+      .findOne({ userId: uid, recorrenciaTemplateId: templateId, dueDate: { $gte: monthStart, $lte: monthEnd } })
+      .exec();
+
+    if (existing) {
+      if (existing.paid) {
+        await this.transactionModel.deleteMany({ userId: uid, pendingAccountId: existing._id }).exec();
+      }
+      await existing.deleteOne();
+    }
+
+    // Cria marcador de mês pulado para o JIT não projetar este mês
+    const startDay = new Date(template.dueDate).getDate();
+    const day = Math.min(startDay, new Date(year, month, 0).getDate());
+    await this.pendingModel.create({
+      userId: uid,
+      title: template.title,
+      value: template.value,
+      dueDate: new Date(year, month - 1, day),
+      isParcelada: false,
+      isRecorrente: false,
+      categoria: template.categoria,
+      recorrenciaTemplateId: templateId,
+      paid: false,
+      skipped: true,
+    });
+
+    return { skipped: true };
+  }
+
+  async remove(userId: string, id: string) {
+    const uid = new Types.ObjectId(userId);
+    const oid = new Types.ObjectId(id);
+    const result = await this.pendingModel.findOneAndDelete({ _id: oid, userId: uid }).exec() as unknown as PendingAccountDocument | null;
     if (!result) throw new NotFoundException('Pending account not found');
+    await this.transactionModel.deleteMany({ userId: uid, pendingAccountId: oid }).exec();
+    // Se for molde recorrente, remove todas as instâncias/skip markers
+    if (result.isRecorrente) {
+      const instances = await this.pendingModel.find({ userId: uid, recorrenciaTemplateId: id }).exec();
+      const instanceIds = instances.map(i => i._id);
+      if (instanceIds.length) {
+        await this.transactionModel.deleteMany({ userId: uid, pendingAccountId: { $in: instanceIds } }).exec();
+        await this.pendingModel.deleteMany({ userId: uid, recorrenciaTemplateId: id }).exec();
+      }
+    }
     return { deleted: true };
   }
 
   async removeGroup(userId: string, grupoParceladoId: string) {
-    const result = await this.pendingModel
-      .deleteMany({ userId: new Types.ObjectId(userId), grupoParceladoId })
-      .exec();
-    if (!result.deletedCount) throw new NotFoundException('Pending account not found');
-    return { deleted: true, count: result.deletedCount };
+    const uid = new Types.ObjectId(userId);
+    const accounts = await this.pendingModel.find({ userId: uid, grupoParceladoId }).exec();
+    if (!accounts.length) throw new NotFoundException('Pending account not found');
+    const ids = accounts.map(a => a._id);
+    await this.pendingModel.deleteMany({ userId: uid, grupoParceladoId }).exec();
+    await this.transactionModel.deleteMany({ userId: uid, pendingAccountId: { $in: ids } }).exec();
+    return { deleted: true, count: accounts.length };
   }
 }

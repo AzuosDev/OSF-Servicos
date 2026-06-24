@@ -51,13 +51,13 @@ export class DashboardService {
                     as: 'category',
                   },
                 },
-                { $unwind: '$category' },
+                { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
                 {
                   $project: {
                     categoryId: '$_id',
-                    categoryName: '$category.name',
-                    categoryColor: '$category.color',
-                    categoryIcon: '$category.icon',
+                    categoryName: { $ifNull: ['$category.name', 'Sem categoria'] },
+                    categoryColor: { $ifNull: ['$category.color', '#6B7280'] },
+                    categoryIcon: { $ifNull: ['$category.icon', 'Receipt'] },
                     total: 1,
                   },
                 },

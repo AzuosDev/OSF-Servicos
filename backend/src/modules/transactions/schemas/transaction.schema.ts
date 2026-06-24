@@ -27,6 +27,9 @@ export class Transaction {
 
   @Prop({ required: true })
   date!: Date;
+
+  @Prop({ type: Types.ObjectId, ref: 'PendingAccount' })
+  pendingAccountId?: Types.ObjectId;
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);

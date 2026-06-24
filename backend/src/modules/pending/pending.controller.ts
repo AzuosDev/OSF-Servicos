@@ -48,6 +48,21 @@ export class PendingController {
     return this.pendingService.update(user._id.toString(), id, dto);
   }
 
+  @Delete(':templateId/month')
+  async skipMonth(
+    @CurrentUser() user: ICurrentUser,
+    @Param('templateId') templateId: string,
+    @Query('month') month: string,
+    @Query('year') year: string,
+  ) {
+    return this.pendingService.skipRecurringMonth(
+      user._id.toString(),
+      templateId,
+      parseInt(month, 10),
+      parseInt(year, 10),
+    );
+  }
+
   @Delete(':id')
   async remove(@CurrentUser() user: ICurrentUser, @Param('id') id: string) {
     return this.pendingService.remove(user._id.toString(), id);
