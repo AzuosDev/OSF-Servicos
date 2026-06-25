@@ -16,6 +16,7 @@ export type Transaction = {
   description?: string;
   categoryId?: string;
   category?: Category;
+  carteiraId?: string;
 };
 
 export type CategoryExpense = Category & {

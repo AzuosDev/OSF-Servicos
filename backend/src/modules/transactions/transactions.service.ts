@@ -43,6 +43,11 @@ export class TransactionsService {
       }
     }
 
+    const carteiraObjectId =
+      dto.carteiraId && Types.ObjectId.isValid(dto.carteiraId)
+        ? new Types.ObjectId(dto.carteiraId)
+        : undefined;
+
     const transaction = await this.transactionModel.create({
       userId: userObjectId,
       type: dto.type,
@@ -50,6 +55,7 @@ export class TransactionsService {
       categoryId: categoryObjectId,
       description: dto.description,
       date: new Date(dto.date),
+      carteiraId: carteiraObjectId,
     });
 
     if (dto.type === TransactionType.EXPENSE && categoryObjectId) {
@@ -127,19 +133,51 @@ export class TransactionsService {
   }
 
   async update(userId: string, id: string, dto: UpdateTransactionDto) {
+    const userObjectId = this.toObjectId(userId, 'userId');
     const transaction = await this.transactionModel.findOne({
       _id: this.toObjectId(id, 'id'),
-      userId: this.toObjectId(userId, 'userId'),
+      userId: userObjectId,
     }).exec();
     if (!transaction) {
       throw new NotFoundException('Transaction not found');
     }
+
+    const oldCarteiraId = transaction.carteiraId as Types.ObjectId | undefined;
+    const oldValue = transaction.value;
+    const oldType = transaction.type;
 
     if (dto.type) transaction.type = dto.type;
     if (typeof dto.value !== 'undefined') transaction.value = dto.value;
     if (dto.categoryId) transaction.categoryId = this.toObjectId(dto.categoryId, 'categoryId');
     if (typeof dto.description !== 'undefined') transaction.description = dto.description;
     if (dto.date) transaction.date = new Date(dto.date);
+
+    if (typeof dto.carteiraId !== 'undefined') {
+      const newCarteiraId =
+        dto.carteiraId && Types.ObjectId.isValid(dto.carteiraId)
+          ? new Types.ObjectId(dto.carteiraId)
+          : undefined;
+
+      // Reverse old wallet effect
+      if (oldCarteiraId) {
+        const reversal = oldType === TransactionType.INCOME ? -oldValue : oldValue;
+        await this.walletModel.findOneAndUpdate(
+          { _id: oldCarteiraId, userId: userObjectId },
+          { $inc: { saldo: reversal } },
+        ).exec();
+      }
+
+      // Apply new wallet effect
+      if (newCarteiraId) {
+        const inc = transaction.type === TransactionType.INCOME ? transaction.value : -transaction.value;
+        await this.walletModel.findOneAndUpdate(
+          { _id: newCarteiraId, userId: userObjectId },
+          { $inc: { saldo: inc } },
+        ).exec();
+      }
+
+      transaction.carteiraId = newCarteiraId;
+    }
 
     await transaction.save();
     return transaction;

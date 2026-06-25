@@ -419,6 +419,7 @@ export function DashboardPage() {
 
   const dashboard =
     dashboardQuery.data ?? normalizeDashboard({} as DashboardResponse);
+  const saldoGeral = (walletsQuery.data ?? []).reduce((total, w) => total + w.saldo, 0);
   const hasTransactions = dashboard.recentTransactions.length > 0;
   const maxCategoryAmount = Math.max(
     ...dashboard.categories.map((item) => item.amount),
@@ -476,8 +477,8 @@ export function DashboardPage() {
       <div className="rounded-2xl bg-bg-card p-6">
         <p className="text-sm uppercase tracking-widest text-text-secondary">Saldo</p>
         <div className="mt-3 flex items-center gap-3">
-          <strong className={cn("font-sans text-3xl font-extrabold sm:text-5xl", dashboard.balance < 0 ? "text-accent-red" : "text-accent-lime")}>
-            {fmt(dashboard.balance)}
+          <strong className={cn("font-sans text-3xl font-extrabold sm:text-5xl", saldoGeral < 0 ? "text-accent-red" : "text-accent-lime")}>
+            {fmt(saldoGeral)}
           </strong>
           <button
             onClick={toggle}

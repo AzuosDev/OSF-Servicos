@@ -14,14 +14,17 @@ import {
   AmountField,
   CategoryField,
   DateAndDescriptionFields,
+  WalletField,
   type TransactionFormValues,
   useCategories,
+  useWallets,
 } from "./TransactionFormFields";
 import { ModalShell } from "./ModalShell";
 
 const baseSchema = z.object({
   amount: z.number().positive("Informe um valor maior que zero."),
   categoryId: z.string().default(""),
+  carteiraId: z.string().optional().default(""),
   date: z.string().min(1, "Informe a data."),
   description: z.string().max(500, "Use até 500 caracteres.").optional(),
 });
@@ -35,6 +38,7 @@ export function EditTransactionModal({
 }) {
   const queryClient = useQueryClient();
   const categoriesQuery = useCategories();
+  const walletsQuery = useWallets();
   const isExpense = transaction?.type === "EXPENSE";
   const schema = baseSchema.refine((values) => !isExpense || Boolean(values.categoryId), {
     message: "Escolha uma categoria.",
@@ -45,6 +49,7 @@ export function EditTransactionModal({
     defaultValues: {
       amount: 0,
       categoryId: "",
+      carteiraId: "",
       date: new Date().toISOString().slice(0, 10),
       description: "",
     },
@@ -55,6 +60,7 @@ export function EditTransactionModal({
       form.reset({
         amount: transaction.amount,
         categoryId: transaction.categoryId ?? transaction.category?.id ?? "",
+        carteiraId: transaction.carteiraId ?? "",
         date: dateInputValue(transaction.date),
         description: transaction.description ?? "",
       });
@@ -69,7 +75,10 @@ export function EditTransactionModal({
 
       await api.patch<ApiTransaction>(
         `/api/transactions/${transaction.id}`,
-        buildTransactionPayload({ ...values, type: transaction.type }),
+        {
+          ...buildTransactionPayload({ ...values, type: transaction.type }),
+          carteiraId: values.carteiraId || undefined,
+        },
       );
     },
     onSuccess: () => {
@@ -77,10 +86,11 @@ export function EditTransactionModal({
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["goals"] });
+      queryClient.invalidateQueries({ queryKey: ["wallets"] });
       onClose();
     },
     onError: (error) => {
-      setFieldErrorsFromApi(error, form.setError, ["amount", "categoryId", "date", "description"]);
+      setFieldErrorsFromApi(error, form.setError, ["amount", "categoryId", "carteiraId", "date", "description"]);
     },
   });
 
@@ -120,6 +130,20 @@ export function EditTransactionModal({
     >
       <form id="edit-transaction-form" className="space-y-5" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
         <AmountField register={form.register} errors={form.formState.errors} />
+
+        <Controller
+          control={form.control}
+          name="carteiraId"
+          render={({ field, fieldState }) => (
+            <WalletField
+              wallets={walletsQuery.data ?? []}
+              value={field.value}
+              onChange={field.onChange}
+              error={fieldState.error?.message}
+              loading={walletsQuery.isLoading}
+            />
+          )}
+        />
 
         {isExpense && (
           <Controller

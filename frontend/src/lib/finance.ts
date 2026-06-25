@@ -90,6 +90,7 @@ export function normalizeTransaction(
       nestedCategory.id,
       nestedCategory._id,
     ),
+    carteiraId: readString(item.carteiraId) || undefined,
     category:
       category ??
       (type === "INCOME"

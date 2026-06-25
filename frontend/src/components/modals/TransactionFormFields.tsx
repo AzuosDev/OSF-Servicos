@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import type { FieldErrors, UseFormRegister, UseFormWatch } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
@@ -188,7 +189,10 @@ export function WalletField({
   if (wallets.length === 0) {
     return (
       <div className="rounded-xl bg-yellow-500/10 p-3 text-sm text-yellow-400">
-        ⚠️ Nenhuma carteira encontrada. Crie uma na aba <strong>Carteiras</strong> antes de lançar um registro.
+        ⚠️ Nenhuma carteira encontrada.{" "}
+        <Link to="/carteiras" className="font-bold underline underline-offset-2 hover:text-yellow-300">
+          Criar carteira agora →
+        </Link>
       </div>
     );
   }
