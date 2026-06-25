@@ -34,6 +34,7 @@ export type Transaction = MongoDocument & {
   date: ApiDate;
   carteiraId?: ApiId;
   carteiraDestinoId?: ApiId;
+  agendado?: boolean;
 };
 
 export type Wallet = MongoDocument & {

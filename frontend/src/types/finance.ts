@@ -17,6 +17,7 @@ export type Transaction = {
   categoryId?: string;
   category?: Category;
   carteiraId?: string;
+  agendado?: boolean;
 };
 
 export type CategoryExpense = Category & {

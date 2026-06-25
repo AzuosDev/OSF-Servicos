@@ -91,6 +91,7 @@ export function normalizeTransaction(
       nestedCategory._id,
     ),
     carteiraId: readString(item.carteiraId) || undefined,
+    agendado: Boolean(item.agendado),
     category:
       category ??
       (type === "INCOME"

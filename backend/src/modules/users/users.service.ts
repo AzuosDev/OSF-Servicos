@@ -4,10 +4,20 @@ import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { UserDocument, User } from './schemas/user.schema';
+import { Transaction, TransactionDocument } from '../transactions/schemas/transaction.schema';
+import { Wallet, WalletDocument } from '../wallets/schemas/wallet.schema';
+import { Goal, GoalDocument } from '../goals/schemas/goal.schema';
+import { PendingAccount, PendingAccountDocument } from '../pending/schemas/pending-account.schema';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Transaction.name) private transactionModel: Model<TransactionDocument>,
+    @InjectModel(Wallet.name) private walletModel: Model<WalletDocument>,
+    @InjectModel(Goal.name) private goalModel: Model<GoalDocument>,
+    @InjectModel(PendingAccount.name) private pendingAccountModel: Model<PendingAccountDocument>,
+  ) {}
 
   async create(dto: { email: string; password: string }) {
     const hashed = await bcrypt.hash(dto.password, 12);
@@ -80,6 +90,17 @@ export class UsersService {
     Object.assign(user, { password: hashed });
     await user.save();
     return { ok: true };
+  }
+
+  async resetData(userId: string) {
+    const userObjectId = new Types.ObjectId(userId);
+    await Promise.all([
+      this.transactionModel.deleteMany({ userId: userObjectId }).exec(),
+      this.walletModel.deleteMany({ userId: userObjectId }).exec(),
+      this.goalModel.deleteMany({ userId: userObjectId }).exec(),
+      this.pendingAccountModel.deleteMany({ userId: userObjectId }).exec(),
+    ]);
+    return { reset: true };
   }
 
   async deleteAccount(userId: string) {

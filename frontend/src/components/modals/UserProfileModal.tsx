@@ -107,6 +107,7 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
   const [nameSaved, setNameSaved] = useState(false);
   const [passwordSaved, setPasswordSaved] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -177,6 +178,14 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
     },
   });
 
+  const resetDataMutation = useMutation({
+    mutationFn: () => api.delete("/api/users/me/data"),
+    onSuccess: () => {
+      queryClient.clear();
+      window.location.reload();
+    },
+  });
+
   const deleteAccountMutation = useMutation({
     mutationFn: () => api.delete("/api/users/me"),
     onSuccess: async () => {
@@ -225,6 +234,7 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
 
   const handleClose = () => {
     setShowDeleteConfirm(false);
+    setShowResetConfirm(false);
     onClose();
   };
 
@@ -463,6 +473,51 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
               <LogOut className="h-5 w-5 shrink-0" />
               Trocar de Conta
             </button>
+
+            {!showResetConfirm ? (
+              <button
+                type="button"
+                onClick={() => setShowResetConfirm(true)}
+                className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-accent-red transition hover:bg-accent-red/10"
+              >
+                <Trash2 className="h-5 w-5 shrink-0" />
+                Limpar Todos os Dados
+              </button>
+            ) : (
+              <div className="space-y-3 rounded-xl border border-accent-red/30 bg-accent-red/5 p-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-accent-red" />
+                  <p className="text-xs text-text-secondary">
+                    Esta ação é{" "}
+                    <span className="font-semibold text-accent-red">irreversível</span>. Todas as
+                    suas transações e carteiras serão apagadas permanentemente.
+                  </p>
+                </div>
+                {resetDataMutation.isError && (
+                  <p className="text-xs text-accent-red">
+                    {getApiErrorMessages(resetDataMutation.error, "Erro ao limpar dados.").join(" ")}
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowResetConfirm(false)}
+                    className="flex-1 rounded-xl border border-bg-overlay px-3 py-2 text-xs font-semibold text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => resetDataMutation.mutate()}
+                    disabled={resetDataMutation.isPending}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-accent-red px-3 py-2 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-70"
+                  >
+                    {resetDataMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    Confirmar Reset
+                  </button>
+                </div>
+              </div>
+            )}
 
             {!showDeleteConfirm ? (
               <button

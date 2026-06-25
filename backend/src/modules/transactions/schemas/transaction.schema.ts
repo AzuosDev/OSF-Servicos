@@ -46,6 +46,9 @@ export class Transaction {
 
   @Prop({ type: Types.ObjectId, ref: 'Wallet' })
   carteiraDestinoId?: Types.ObjectId;
+
+  @Prop({ default: false })
+  agendado?: boolean;
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);

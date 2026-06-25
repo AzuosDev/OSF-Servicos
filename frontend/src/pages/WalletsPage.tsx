@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Loader2, Eye, EyeOff } from "lucide-react";
 import { useShowValues } from "../hooks/useShowValues";
@@ -25,8 +25,16 @@ export function WalletsPage() {
   const queryClient = useQueryClient();
   const { show, toggle } = useShowValues();
   const fmt = (v: number) => (show ? brlFormatter.format(v) : "R$ ••••");
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showForm, setShowForm] = useState(false);
   const [isCustomBank, setIsCustomBank] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("action") === "create") {
+      setShowForm(true);
+      setSearchParams((prev) => { const next = new URLSearchParams(prev); next.delete("action"); return next; }, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   const [nome, setNome] = useState("");
   const [saldo, setSaldo] = useState("");
   const [icone, setIcone] = useState("🏦");

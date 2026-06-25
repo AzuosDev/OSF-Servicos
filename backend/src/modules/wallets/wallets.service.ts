@@ -28,25 +28,57 @@ export class WalletsService {
     });
   }
 
+  private effectiveSaldoMatch() {
+    return { $or: [{ agendado: false }, { agendado: { $exists: false } }] };
+  }
+
   async findAll(userId: string) {
-    return this.walletModel.find({ userId: new Types.ObjectId(userId) }).sort({ createdAt: 1 }).exec();
+    const userObjectId = new Types.ObjectId(userId);
+    const [wallets, saldoAgg] = await Promise.all([
+      this.walletModel.find({ userId: userObjectId }).sort({ createdAt: 1 }).exec(),
+      this.transactionModel.aggregate([
+        { $match: { userId: userObjectId, carteiraId: { $exists: true, $ne: null }, ...this.effectiveSaldoMatch() } },
+        {
+          $group: {
+            _id: '$carteiraId',
+            saldo: { $sum: { $cond: [{ $eq: ['$type', TransactionType.INCOME] }, '$value', { $multiply: ['$value', -1] }] } },
+          },
+        },
+      ]),
+    ]);
+
+    const saldoMap = new Map(saldoAgg.map((r) => [r._id.toString(), r.saldo]));
+    return wallets.map((w) => ({ ...w.toObject(), saldo: saldoMap.get(w._id.toString()) ?? 0 }));
   }
 
   async findOne(userId: string, id: string) {
+    const userObjectId = new Types.ObjectId(userId);
     const wallet = await this.walletModel.findOne({
       _id: this.toObjectId(id, 'id'),
-      userId: this.toObjectId(userId, 'userId'),
+      userId: userObjectId,
     }).exec();
 
     if (!wallet) throw new NotFoundException('Carteira não encontrada');
 
-    const transactions = await this.transactionModel
-      .find({ userId: new Types.ObjectId(userId), carteiraId: wallet._id })
-      .sort({ date: -1 })
-      .limit(20)
-      .exec();
+    const [transactions, saldoAgg] = await Promise.all([
+      this.transactionModel
+        .find({ userId: userObjectId, carteiraId: wallet._id })
+        .sort({ date: -1 })
+        .limit(20)
+        .exec(),
+      this.transactionModel.aggregate([
+        { $match: { userId: userObjectId, carteiraId: wallet._id, ...this.effectiveSaldoMatch() } },
+        {
+          $group: {
+            _id: null,
+            saldo: { $sum: { $cond: [{ $eq: ['$type', TransactionType.INCOME] }, '$value', { $multiply: ['$value', -1] }] } },
+          },
+        },
+      ]),
+    ]);
 
-    return { ...wallet.toObject(), transactions };
+    const saldo = saldoAgg[0]?.saldo ?? 0;
+    return { ...wallet.toObject(), saldo, transactions };
   }
 
   async update(userId: string, id: string, dto: UpdateWalletDto) {

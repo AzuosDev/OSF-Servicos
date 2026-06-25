@@ -1,6 +1,6 @@
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Pencil, Trash2, ArrowLeftRight } from "lucide-react";
+import { ArrowLeft, Calendar, Pencil, Trash2, ArrowLeftRight } from "lucide-react";
 import { useState } from "react";
 
 import { api } from "../lib/api";
@@ -175,10 +175,18 @@ export function WalletPage() {
             {wallet.transactions.map((tx) => (
               <div key={tx._id} className="flex items-center justify-between py-4">
                 <div>
-                  <p className="text-sm font-semibold">{tx.description || (tx.type === "INCOME" ? "Entrada" : tx.type === "TRANSFER" ? "Transferência" : "Saída")}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold">{tx.description || (tx.type === "INCOME" ? "Entrada" : tx.type === "TRANSFER" ? "Transferência" : "Saída")}</p>
+                    {tx.agendado && (
+                      <span className="flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-semibold text-blue-400">
+                        <Calendar className="h-3 w-3" />
+                        Agendado
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-text-secondary">{formatDate(tx.date)}</p>
                 </div>
-                <span className={cn("font-bold", tx.type === "INCOME" ? "text-accent-lime" : tx.type === "TRANSFER" ? "text-text-secondary" : "text-accent-red")}>
+                <span className={cn("font-bold", tx.agendado ? "text-text-muted" : tx.type === "INCOME" ? "text-accent-lime" : tx.type === "TRANSFER" ? "text-text-secondary" : "text-accent-red")}>
                   {tx.type === "EXPENSE" ? "–" : "+"}{formatCurrency(tx.value)}
                 </span>
               </div>

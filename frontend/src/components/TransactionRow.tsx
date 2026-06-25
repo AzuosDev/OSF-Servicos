@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Edit2, Trash2 } from "lucide-react";
+import { Calendar, Edit2, Trash2 } from "lucide-react";
 
 import { formatCurrency } from "../lib/finance";
 import { cn } from "../lib/utils";
@@ -57,7 +57,15 @@ export const TransactionRow = memo(function TransactionRow({
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-white">{category.name}</p>
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-medium text-white">{category.name}</p>
+          {transaction.agendado && (
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-semibold text-blue-400">
+              <Calendar className="h-3 w-3" />
+              Agendado
+            </span>
+          )}
+        </div>
         {transaction.description && (
           <p className="truncate text-xs text-text-secondary">{transaction.description}</p>
         )}

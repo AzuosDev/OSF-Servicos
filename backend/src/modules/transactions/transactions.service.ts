@@ -48,6 +48,8 @@ export class TransactionsService {
         ? new Types.ObjectId(dto.carteiraId)
         : undefined;
 
+    const isScheduled = dto.date > new Date().toISOString().slice(0, 10);
+
     const transaction = await this.transactionModel.create({
       userId: userObjectId,
       type: dto.type,
@@ -56,18 +58,21 @@ export class TransactionsService {
       description: dto.description,
       date: new Date(dto.date),
       carteiraId: carteiraObjectId,
+      agendado: isScheduled,
     });
 
-    if (dto.type === TransactionType.EXPENSE && categoryObjectId) {
-      await this.incrementLinkedGoal(userObjectId, categoryObjectId, dto.value);
-    }
+    if (!isScheduled) {
+      if (dto.type === TransactionType.EXPENSE && categoryObjectId) {
+        await this.incrementLinkedGoal(userObjectId, categoryObjectId, dto.value);
+      }
 
-    if (dto.carteiraId && Types.ObjectId.isValid(dto.carteiraId)) {
-      const inc = dto.type === TransactionType.INCOME ? dto.value : -dto.value;
-      await this.walletModel.findOneAndUpdate(
-        { _id: new Types.ObjectId(dto.carteiraId), userId: userObjectId },
-        { $inc: { saldo: inc } },
-      ).exec();
+      if (carteiraObjectId) {
+        const inc = dto.type === TransactionType.INCOME ? dto.value : -dto.value;
+        await this.walletModel.findOneAndUpdate(
+          { _id: carteiraObjectId, userId: userObjectId },
+          { $inc: { saldo: inc } },
+        ).exec();
+      }
     }
 
     return transaction;
@@ -197,6 +202,14 @@ export class TransactionsService {
 
     if (transaction.type === TransactionType.EXPENSE && transaction.categoryId) {
       await this.decrementLinkedGoal(userObjectId, transaction.categoryId as Types.ObjectId, transaction.value);
+    }
+
+    if (!transaction.agendado && transaction.carteiraId) {
+      const reversal = transaction.type === TransactionType.INCOME ? -transaction.value : transaction.value;
+      await this.walletModel.findOneAndUpdate(
+        { _id: transaction.carteiraId, userId: userObjectId },
+        { $inc: { saldo: reversal } },
+      ).exec();
     }
 
     return { deleted: true };

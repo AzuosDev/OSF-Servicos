@@ -569,6 +569,13 @@ export function AppLayout() {
                 <Target className="h-5 w-5 text-accent-lime" />
                 <span className="font-semibold">Nova Meta</span>
               </button>
+              <button
+                onClick={() => { setAddModalOpen(false); navigate("/carteiras?action=create"); }}
+                className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
+              >
+                <Landmark className="h-5 w-5 text-text-secondary" />
+                <span className="font-semibold">Nova Carteira</span>
+              </button>
             </div>
           </div>
         </div>
