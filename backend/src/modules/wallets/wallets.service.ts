@@ -34,7 +34,7 @@ export class WalletsService {
 
   async findAll(userId: string) {
     const userObjectId = new Types.ObjectId(userId);
-    const [wallets, saldoAgg] = await Promise.all([
+    const [wallets, saldoAgg, transferCreditsAgg] = await Promise.all([
       this.walletModel.find({ userId: userObjectId }).sort({ createdAt: 1 }).exec(),
       this.transactionModel.aggregate([
         { $match: { userId: userObjectId, carteiraId: { $exists: true, $ne: null }, ...this.effectiveSaldoMatch() } },
@@ -45,9 +45,18 @@ export class WalletsService {
           },
         },
       ]),
+      this.transactionModel.aggregate([
+        { $match: { userId: userObjectId, type: TransactionType.TRANSFER, carteiraDestinoId: { $exists: true, $ne: null } } },
+        { $group: { _id: '$carteiraDestinoId', saldo: { $sum: '$value' } } },
+      ]),
     ]);
 
-    const saldoMap = new Map(saldoAgg.map((r) => [r._id.toString(), r.saldo]));
+    const saldoMap = new Map<string, number>();
+    saldoAgg.forEach((r) => saldoMap.set(r._id.toString(), r.saldo));
+    transferCreditsAgg.forEach((r) => {
+      const key = r._id.toString();
+      saldoMap.set(key, (saldoMap.get(key) ?? 0) + r.saldo);
+    });
     return wallets.map((w) => ({ ...w.toObject(), saldo: saldoMap.get(w._id.toString()) ?? 0 }));
   }
 
@@ -60,7 +69,7 @@ export class WalletsService {
 
     if (!wallet) throw new NotFoundException('Carteira não encontrada');
 
-    const [transactions, saldoAgg] = await Promise.all([
+    const [transactions, saldoAgg, transferCreditsAgg] = await Promise.all([
       this.transactionModel
         .find({ userId: userObjectId, carteiraId: wallet._id })
         .sort({ date: -1 })
@@ -75,9 +84,13 @@ export class WalletsService {
           },
         },
       ]),
+      this.transactionModel.aggregate([
+        { $match: { userId: userObjectId, type: TransactionType.TRANSFER, carteiraDestinoId: wallet._id } },
+        { $group: { _id: null, saldo: { $sum: '$value' } } },
+      ]),
     ]);
 
-    const saldo = saldoAgg[0]?.saldo ?? 0;
+    const saldo = (saldoAgg[0]?.saldo ?? 0) + (transferCreditsAgg[0]?.saldo ?? 0);
     return { ...wallet.toObject(), saldo, transactions };
   }
 
@@ -98,9 +111,21 @@ export class WalletsService {
   }
 
   async remove(userId: string, id: string) {
+    const walletObjectId = this.toObjectId(id, 'id');
+    const userObjectId = this.toObjectId(userId, 'userId');
+
+    const linked = await this.transactionModel.exists({
+      userId: userObjectId,
+      $or: [
+        { carteiraId: walletObjectId },
+        { carteiraDestinoId: walletObjectId },
+      ],
+    });
+    if (linked) throw new BadRequestException('Não é possível excluir uma carteira que possui transações vinculadas.');
+
     const wallet = await this.walletModel.findOneAndDelete({
-      _id: this.toObjectId(id, 'id'),
-      userId: this.toObjectId(userId, 'userId'),
+      _id: walletObjectId,
+      userId: userObjectId,
     }).exec();
 
     if (!wallet) throw new NotFoundException('Carteira não encontrada');
@@ -120,32 +145,21 @@ export class WalletsService {
 
     if (!origem) throw new NotFoundException('Carteira de origem não encontrada');
     if (!destino) throw new NotFoundException('Carteira de destino não encontrada');
-    if (origem.saldo < dto.value) throw new BadRequestException('Saldo insuficiente na carteira de origem');
 
-    origem.saldo -= dto.value;
-    destino.saldo += dto.value;
-
-    await Promise.all([
-      origem.save(),
-      destino.save(),
-      // Registra a transferência como transações neutras para rastreabilidade
-      this.transactionModel.create([
-        {
-          userId: userObjectId,
-          type: TransactionType.TRANSFER,
-          tipoTransacao: 'transferencia',
-          value: dto.value,
-          date: new Date(dto.date),
-          description: dto.description ?? `Transferência para ${destino.nome}`,
-          carteiraId: origem._id,
-          carteiraDestinoId: destino._id,
-        },
-      ]),
-    ]);
+    await this.transactionModel.create({
+      userId: userObjectId,
+      type: TransactionType.TRANSFER,
+      tipoTransacao: 'transferencia',
+      value: dto.value,
+      date: new Date(dto.date),
+      description: dto.description ?? `Transferência para ${destino.nome}`,
+      carteiraId: origem._id,
+      carteiraDestinoId: destino._id,
+    });
 
     return {
-      origem: { id: origem._id, nome: origem.nome, saldo: origem.saldo },
-      destino: { id: destino._id, nome: destino.nome, saldo: destino.saldo },
+      origem: { id: origem._id, nome: origem.nome },
+      destino: { id: destino._id, nome: destino.nome },
     };
   }
 }

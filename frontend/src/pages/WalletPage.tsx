@@ -1,45 +1,100 @@
-import { Link, useParams, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Calendar, Pencil, Trash2, ArrowLeftRight } from "lucide-react";
 import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, ArrowLeftRight, Calendar, Loader2, Pencil, Trash2 } from "lucide-react";
 
 import { api } from "../lib/api";
 import { cn } from "../lib/utils";
 import { detectBankIcon } from "../lib/bankIcons";
+import { getApiErrorMessages } from "../lib/errors";
 import { BankLogo } from "../components/ui/BankLogo";
-import type { Wallet, Transaction } from "../types/api";
-
-type WalletDetail = Wallet & { transactions: Transaction[] };
+import { useToast } from "../components/ui/Toast";
+import type { Transaction, TransactionsResponse, Wallet } from "../types/api";
 
 const brlFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-function formatCurrency(v: number) { return brlFormatter.format(v); }
-
+function fmt(v: number) { return brlFormatter.format(v); }
 function formatDate(iso: string) {
-  const d = iso ? new Date(iso) : null;
-  if (!d || isNaN(d.getTime())) return "--/--/--";
+  const d = new Date(iso);
+  if (!iso || isNaN(d.getTime())) return "--/--/--";
   return new Intl.DateTimeFormat("pt-BR").format(d);
+}
+
+function TxRow({ tx }: { tx: Transaction }) {
+  const isTransfer = tx.type === "TRANSFER";
+  const isIncome = tx.type === "INCOME";
+  const label = tx.description || (isIncome ? "Entrada" : isTransfer ? "Transferência" : "Saída");
+  const colorCls = tx.agendado
+    ? "text-text-muted"
+    : isIncome
+      ? "text-accent-lime"
+      : isTransfer
+        ? "text-blue-400"
+        : "text-accent-red";
+  const sign = isIncome || isTransfer ? "+" : "–";
+
+  return (
+    <div className="flex items-center justify-between py-4">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          {isTransfer && <ArrowLeftRight className="h-3.5 w-3.5 shrink-0 text-blue-400" />}
+          <p className="truncate text-sm font-semibold">{label}</p>
+          {tx.agendado && (
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-semibold text-blue-400">
+              <Calendar className="h-3 w-3" />
+              Agendado
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-text-secondary">{formatDate(tx.date)}</p>
+      </div>
+      <span className={cn("ml-4 shrink-0 font-bold", colorCls)}>
+        {sign}{fmt(tx.value)}
+      </span>
+    </div>
+  );
 }
 
 export function WalletPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { addToast } = useToast();
   const [editing, setEditing] = useState(false);
   const [nome, setNome] = useState("");
   const [icone, setIcone] = useState("");
 
-  const { data: wallet, isLoading } = useQuery<WalletDetail>({
+  const walletQuery = useQuery<Wallet>({
     queryKey: ["wallets", id],
     queryFn: async () => {
-      const { data } = await api.get<WalletDetail>(`/api/wallets/${id}`);
+      const { data } = await api.get<Wallet>(`/api/wallets/${id}`);
       return data;
     },
     enabled: !!id,
   });
+  const wallet = walletQuery.data;
+
+  const txQuery = useInfiniteQuery({
+    queryKey: ["transactions", "wallet", id],
+    enabled: !!id,
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) => {
+      const { data } = await api.get<TransactionsResponse>("/api/transactions", {
+        params: { carteiraId: id, page: pageParam, limit: 20 },
+      });
+      return data;
+    },
+    getNextPageParam: (last) =>
+      last.page * last.limit < last.total ? last.page + 1 : undefined,
+  });
+
+  const transactions: Transaction[] = txQuery.data?.pages.flatMap((p) => p.data) ?? [];
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      await api.patch(`/api/wallets/${id}`, { nome: nome || wallet?.nome, icone: icone || wallet?.icone });
+      await api.patch(`/api/wallets/${id}`, {
+        nome: nome || wallet?.nome,
+        icone: icone || wallet?.icone,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wallets"] });
@@ -53,11 +108,18 @@ export function WalletPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wallets"] });
-      navigate("/dashboard");
+      navigate("/carteiras");
+    },
+    onError: (error) => {
+      addToast(
+        getApiErrorMessages(error, "Não foi possível excluir a carteira.")[0] ??
+          "Não foi possível excluir a carteira.",
+        "error",
+      );
     },
   });
 
-  if (isLoading) {
+  if (walletQuery.isLoading) {
     return (
       <section className="space-y-6">
         <div className="h-32 animate-pulse rounded-2xl bg-bg-muted" />
@@ -70,7 +132,9 @@ export function WalletPage() {
     return (
       <div className="rounded-2xl bg-bg-card p-8 text-center text-text-secondary">
         Carteira não encontrada.{" "}
-        <Link to="/dashboard" className="text-accent-lime underline">Voltar</Link>
+        <Link to="/carteiras" className="text-accent-lime underline">
+          Voltar
+        </Link>
       </div>
     );
   }
@@ -79,7 +143,10 @@ export function WalletPage() {
     <section className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="rounded-xl p-2 transition hover:bg-bg-muted">
+        <button
+          onClick={() => navigate(-1)}
+          className="rounded-xl p-2 transition hover:bg-bg-muted"
+        >
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div>
@@ -94,20 +161,31 @@ export function WalletPage() {
           <div>
             <BankLogo nome={wallet.nome} icone={wallet.icone} className="h-12 w-12" />
             <p className="mt-3 text-sm uppercase tracking-widest text-text-secondary">Saldo</p>
-            <strong className={cn("mt-1 block font-sans text-3xl font-extrabold", wallet.saldo < 0 ? "text-accent-red" : "text-accent-lime")}>
-              {formatCurrency(wallet.saldo)}
+            <strong
+              className={cn(
+                "mt-1 block font-sans text-3xl font-extrabold",
+                wallet.saldo < 0 ? "text-accent-red" : "text-accent-lime",
+              )}
+            >
+              {fmt(wallet.saldo)}
             </strong>
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => { setNome(wallet.nome); setIcone(wallet.icone ?? ""); setEditing(true); }}
+              onClick={() => {
+                setNome(wallet.nome);
+                setIcone(wallet.icone ?? "");
+                setEditing(true);
+              }}
               className="rounded-xl border border-bg-muted p-2 transition hover:bg-bg-muted"
               title="Editar"
             >
               <Pencil className="h-4 w-4" />
             </button>
             <button
-              onClick={() => { if (confirm("Excluir esta carteira?")) deleteMutation.mutate(); }}
+              onClick={() => {
+                if (confirm("Excluir esta carteira?")) deleteMutation.mutate();
+              }}
               disabled={deleteMutation.isPending}
               className="rounded-xl border border-accent-red/30 p-2 text-accent-red transition hover:bg-accent-red/10 disabled:opacity-50"
               title="Excluir"
@@ -120,7 +198,7 @@ export function WalletPage() {
 
       {/* Formulário de edição */}
       {editing && (
-        <div className="rounded-2xl bg-bg-card p-5 space-y-4">
+        <div className="space-y-4 rounded-2xl bg-bg-card p-5">
           <h2 className="font-bold">Editar Carteira</h2>
           <label className="block">
             <span className="mb-1 block text-sm text-text-secondary">Nome</span>
@@ -161,37 +239,38 @@ export function WalletPage() {
         </div>
       )}
 
-      {/* Transações da carteira */}
+      {/* Extrato */}
       <div className="rounded-2xl bg-bg-card p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-sans text-xl font-bold">Movimentações</h2>
-          <ArrowLeftRight className="h-5 w-5 text-text-secondary" />
-        </div>
+        <h2 className="mb-4 font-sans text-xl font-bold">Extrato</h2>
 
-        {wallet.transactions.length === 0 ? (
-          <p className="py-6 text-center text-sm text-text-secondary">Nenhuma movimentação vinculada a esta carteira.</p>
-        ) : (
-          <div className="divide-y divide-bg-muted">
-            {wallet.transactions.map((tx) => (
-              <div key={tx._id} className="flex items-center justify-between py-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold">{tx.description || (tx.type === "INCOME" ? "Entrada" : tx.type === "TRANSFER" ? "Transferência" : "Saída")}</p>
-                    {tx.agendado && (
-                      <span className="flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-semibold text-blue-400">
-                        <Calendar className="h-3 w-3" />
-                        Agendado
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-text-secondary">{formatDate(tx.date)}</p>
-                </div>
-                <span className={cn("font-bold", tx.agendado ? "text-text-muted" : tx.type === "INCOME" ? "text-accent-lime" : tx.type === "TRANSFER" ? "text-text-secondary" : "text-accent-red")}>
-                  {tx.type === "EXPENSE" ? "–" : "+"}{formatCurrency(tx.value)}
-                </span>
-              </div>
+        {txQuery.isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-14 animate-pulse rounded-xl bg-bg-muted" />
             ))}
           </div>
+        ) : transactions.length === 0 ? (
+          <p className="py-6 text-center text-sm text-text-secondary">
+            Nenhuma movimentação vinculada a esta carteira.
+          </p>
+        ) : (
+          <div className="divide-y divide-bg-muted">
+            {transactions.map((tx) => (
+              <TxRow key={tx._id} tx={tx} />
+            ))}
+          </div>
+        )}
+
+        {txQuery.hasNextPage && (
+          <button
+            type="button"
+            onClick={() => txQuery.fetchNextPage()}
+            disabled={txQuery.isFetchingNextPage}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-bg-muted px-4 py-3 text-sm font-semibold text-white hover:bg-bg-muted disabled:opacity-60"
+          >
+            {txQuery.isFetchingNextPage && <Loader2 className="h-4 w-4 animate-spin" />}
+            Carregar mais
+          </button>
         )}
       </div>
     </section>

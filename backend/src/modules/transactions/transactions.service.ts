@@ -102,6 +102,7 @@ export class TransactionsService {
     categoryId?: string,
     month?: number,
     year?: number,
+    carteiraId?: string,
   ) {
     const filter: FilterQuery<TransactionDocument> = { userId: new Types.ObjectId(userId) };
     if (type) {
@@ -116,6 +117,11 @@ export class TransactionsService {
       const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
       const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
       filter.date = { $gte: startDate, $lte: endDate };
+    }
+
+    if (carteiraId && Types.ObjectId.isValid(carteiraId)) {
+      const walletOid = new Types.ObjectId(carteiraId);
+      filter.$or = [{ carteiraId: walletOid }, { carteiraDestinoId: walletOid }];
     }
 
     const [data, total] = await Promise.all([
@@ -204,7 +210,7 @@ export class TransactionsService {
       await this.decrementLinkedGoal(userObjectId, transaction.categoryId as Types.ObjectId, transaction.value);
     }
 
-    if (!transaction.agendado && transaction.carteiraId) {
+    if (!transaction.agendado && transaction.carteiraId && transaction.type !== TransactionType.TRANSFER) {
       const reversal = transaction.type === TransactionType.INCOME ? -transaction.value : transaction.value;
       await this.walletModel.findOneAndUpdate(
         { _id: transaction.carteiraId, userId: userObjectId },

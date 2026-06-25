@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
+  ArrowLeftRight,
   BarChart2,
   ChevronLeft,
   Clock,
@@ -29,6 +30,7 @@ import type { User } from "../../types/api";
 import { useToast } from "../ui/Toast";
 import { useQuery } from "@tanstack/react-query";
 import { UserProfileModal } from "../modals/UserProfileModal";
+import { TransferModal } from "../modals/TransferModal";
 
 type NavItem = {
   to: string;
@@ -326,6 +328,7 @@ export function AppLayout() {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
   const [userProfileOpen, setUserProfileOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
@@ -570,6 +573,13 @@ export function AppLayout() {
                 <span className="font-semibold">Nova Meta</span>
               </button>
               <button
+                onClick={() => { setAddModalOpen(false); setTransferOpen(true); }}
+                className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
+              >
+                <ArrowLeftRight className="h-5 w-5 text-blue-400" />
+                <span className="font-semibold">Transferir entre Carteiras</span>
+              </button>
+              <button
                 onClick={() => { setAddModalOpen(false); navigate("/carteiras?action=create"); }}
                 className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
               >
@@ -580,6 +590,8 @@ export function AppLayout() {
           </div>
         </div>
       )}
+
+      <TransferModal open={transferOpen} onClose={() => setTransferOpen(false)} />
 
       <UserProfileModal
         open={userProfileOpen}

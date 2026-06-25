@@ -31,6 +31,7 @@ export class TransactionsController {
       query.categoryId,
       query.month,
       query.year,
+      query.carteiraId,
     );
   }
 
