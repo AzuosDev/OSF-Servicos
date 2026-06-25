@@ -5,7 +5,8 @@ import { useState } from "react";
 
 import { api } from "../lib/api";
 import { cn } from "../lib/utils";
-import { detectBankIcon, getWalletIcon } from "../lib/bankIcons";
+import { detectBankIcon } from "../lib/bankIcons";
+import { BankLogo } from "../components/ui/BankLogo";
 import type { Wallet, Transaction } from "../types/api";
 
 type WalletDetail = Wallet & { transactions: Transaction[] };
@@ -91,7 +92,7 @@ export function WalletPage() {
       <div className="rounded-2xl bg-bg-card p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <span className="text-4xl">{getWalletIcon(wallet)}</span>
+            <BankLogo nome={wallet.nome} icone={wallet.icone} className="h-12 w-12" />
             <p className="mt-3 text-sm uppercase tracking-widest text-text-secondary">Saldo</p>
             <strong className={cn("mt-1 block font-sans text-3xl font-extrabold", wallet.saldo < 0 ? "text-accent-red" : "text-accent-lime")}>
               {formatCurrency(wallet.saldo)}

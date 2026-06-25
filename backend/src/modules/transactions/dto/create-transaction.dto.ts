@@ -18,6 +18,10 @@ export class CreateTransactionDto {
   categoryId?: string;
 
   @IsOptional()
+  @IsString()
+  carteiraId?: string;
+
+  @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))
   @IsString()
   @MaxLength(500)

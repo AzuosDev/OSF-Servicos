@@ -6,17 +6,27 @@ import { useShowValues } from "../hooks/useShowValues";
 
 import { api } from "../lib/api";
 import { cn } from "../lib/utils";
-import { detectBankIcon, getWalletIcon } from "../lib/bankIcons";
+import { detectBankIcon } from "../lib/bankIcons";
+import { BankLogo } from "../components/ui/BankLogo";
 import type { Wallet } from "../types/api";
 
 const brlFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-function formatCurrency(v: number) { return brlFormatter.format(v); }
+
+const BANKS = [
+  "Nubank", "Banco Inter", "Itaú", "Bradesco", "Santander",
+  "Caixa Econômica Federal", "Banco do Brasil", "C6 Bank",
+  "XP Investimentos", "PicPay", "Mercado Pago", "PagBank",
+  "BTG Pactual", "Sicredi", "Sicoob", "Neon", "Next",
+  "Wise", "Revolut", "Stone", "Original", "Warren", "Rico",
+  "Clear", "Nomad", "Avenue",
+];
 
 export function WalletsPage() {
   const queryClient = useQueryClient();
   const { show, toggle } = useShowValues();
   const fmt = (v: number) => (show ? brlFormatter.format(v) : "R$ ••••");
   const [showForm, setShowForm] = useState(false);
+  const [isCustomBank, setIsCustomBank] = useState(false);
   const [nome, setNome] = useState("");
   const [saldo, setSaldo] = useState("");
   const [icone, setIcone] = useState("🏦");
@@ -40,6 +50,7 @@ export function WalletsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wallets"] });
       setShowForm(false);
+      setIsCustomBank(false);
       setNome("");
       setSaldo("");
       setIcone("🏦");
@@ -86,45 +97,84 @@ export function WalletsPage() {
       {showForm && (
         <div className="rounded-2xl bg-bg-card p-5 space-y-4">
           <h2 className="font-bold">Nova Carteira</h2>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <label className="block sm:col-span-1">
-              <span className="mb-1 block text-sm text-text-secondary">Ícone (emoji)</span>
-              <input
-                value={icone}
-                onChange={(e) => setIcone(e.target.value)}
-                placeholder="🏦"
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
-              />
-            </label>
-            <label className="block sm:col-span-1">
-              <span className="mb-1 block text-sm text-text-secondary">Nome *</span>
-              <input
-                value={nome}
-                onChange={(e) => {
-                  setNome(e.target.value);
-                  const auto = detectBankIcon(e.target.value);
-                  if (auto) setIcone(auto);
-                }}
-                placeholder="Ex: Nubank, Caixa…"
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
-              />
-            </label>
-            <label className="block sm:col-span-1">
-              <span className="mb-1 block text-sm text-text-secondary">Saldo inicial</span>
-              <input
-                value={saldo}
-                onChange={(e) => setSaldo(e.target.value)}
-                placeholder="0,00"
-                type="number"
-                min="0"
-                step="0.01"
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
-              />
-            </label>
+          <div className="grid gap-4 sm:grid-cols-[auto_1fr]">
+            {/* Logo/ícone auto-detectado — apenas visualização */}
+            <div className="flex h-[50px] w-[50px] items-center justify-center self-end rounded-xl bg-bg-muted text-3xl">
+              <BankLogo nome={nome} icone={icone} className="h-8 w-8" />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* Banco: select ou input livre */}
+              <div className="block">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-sm text-text-secondary">
+                    {isCustomBank ? "Nome do banco *" : "Banco *"}
+                  </span>
+                  {isCustomBank && (
+                    <button
+                      type="button"
+                      onClick={() => { setIsCustomBank(false); setNome(""); setIcone("🏦"); }}
+                      className="text-xs text-accent-lime hover:underline"
+                    >
+                      ← Voltar para a lista
+                    </button>
+                  )}
+                </div>
+                {isCustomBank ? (
+                  <input
+                    autoFocus
+                    value={nome}
+                    onChange={(e) => {
+                      setNome(e.target.value);
+                      const auto = detectBankIcon(e.target.value);
+                      if (auto) setIcone(auto);
+                    }}
+                    placeholder="Ex: Banco Safra, Sicoob…"
+                    className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+                  />
+                ) : (
+                  <select
+                    value={nome}
+                    onChange={(e) => {
+                      if (e.target.value === "__outro__") {
+                        setIsCustomBank(true);
+                        setNome("");
+                        setIcone("🏦");
+                      } else {
+                        setNome(e.target.value);
+                        const auto = detectBankIcon(e.target.value);
+                        if (auto) setIcone(auto); else setIcone("🏦");
+                      }
+                    }}
+                    className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+                  >
+                    <option value="">Selecione um banco…</option>
+                    {BANKS.map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                    <option value="__outro__">Outro (Digitar nome)</option>
+                  </select>
+                )}
+              </div>
+
+              {/* Saldo inicial */}
+              <label className="block">
+                <span className="mb-1 block text-sm text-text-secondary">Saldo inicial</span>
+                <input
+                  value={saldo}
+                  onChange={(e) => setSaldo(e.target.value)}
+                  placeholder="0,00"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+                />
+              </label>
+            </div>
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => setShowForm(false)}
+              onClick={() => { setShowForm(false); setIsCustomBank(false); setNome(""); setIcone("🏦"); }}
               className="flex-1 rounded-xl border border-bg-muted py-3 text-sm font-bold transition hover:bg-bg-muted"
             >
               Cancelar
@@ -162,7 +212,7 @@ export function WalletsPage() {
               to={`/carteiras/${wallet._id}`}
               className="flex flex-col gap-3 rounded-2xl bg-bg-card p-5 transition hover:bg-bg-muted"
             >
-              <span className="text-3xl">{getWalletIcon(wallet)}</span>
+              <BankLogo nome={wallet.nome} icone={wallet.icone} className="h-10 w-10" />
               <div>
                 <p className="text-sm text-text-secondary">{wallet.nome}</p>
                 <strong className={cn("font-sans text-2xl font-bold", wallet.saldo < 0 ? "text-accent-red" : "text-accent-lime")}>

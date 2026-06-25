@@ -160,6 +160,57 @@ export function CategoryField({
   );
 }
 
+export function useWallets() {
+  return useQuery<Array<{ _id: string; nome: string }>>({
+    queryKey: ["wallets"],
+    queryFn: async () => {
+      const { data } = await api.get("/api/wallets");
+      return Array.isArray(data) ? data : [];
+    },
+  });
+}
+
+export function WalletField({
+  wallets,
+  value,
+  onChange,
+  error,
+  loading,
+}: {
+  wallets: Array<{ _id: string; nome: string }>;
+  value?: string;
+  onChange: (id: string) => void;
+  error?: string;
+  loading: boolean;
+}) {
+  if (loading) return <div className="h-12 animate-pulse rounded-xl bg-bg-muted" />;
+
+  if (wallets.length === 0) {
+    return (
+      <div className="rounded-xl bg-yellow-500/10 p-3 text-sm text-yellow-400">
+        ⚠️ Nenhuma carteira encontrada. Crie uma na aba <strong>Carteiras</strong> antes de lançar um registro.
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <span className="mb-2 block text-sm text-text-secondary">Carteira</span>
+      <select
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-lime"
+      >
+        <option value="">Selecione uma carteira…</option>
+        {wallets.map((w) => (
+          <option key={w._id} value={w._id}>{w.nome}</option>
+        ))}
+      </select>
+      {error && <p className="mt-2 text-xs text-accent-red">{error}</p>}
+    </div>
+  );
+}
+
 export function DateAndDescriptionFields({
   register,
   watch,

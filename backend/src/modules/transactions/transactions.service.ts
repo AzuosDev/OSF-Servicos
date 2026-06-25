@@ -4,6 +4,7 @@ import { FilterQuery, Model, Types } from 'mongoose';
 import { Transaction, TransactionDocument, TransactionType } from './schemas/transaction.schema';
 import { Category, CategoryDocument } from '../categories/schemas/category.schema';
 import { Goal, GoalDocument } from '../goals/schemas/goal.schema';
+import { Wallet, WalletDocument } from '../wallets/schemas/wallet.schema';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 
@@ -13,6 +14,7 @@ export class TransactionsService {
     @InjectModel(Transaction.name) private transactionModel: Model<TransactionDocument>,
     @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
     @InjectModel(Goal.name) private goalModel: Model<GoalDocument>,
+    @InjectModel(Wallet.name) private walletModel: Model<WalletDocument>,
   ) {}
 
   private toObjectId(value: string, fieldName: string) {
@@ -52,6 +54,14 @@ export class TransactionsService {
 
     if (dto.type === TransactionType.EXPENSE && categoryObjectId) {
       await this.incrementLinkedGoal(userObjectId, categoryObjectId, dto.value);
+    }
+
+    if (dto.carteiraId && Types.ObjectId.isValid(dto.carteiraId)) {
+      const inc = dto.type === TransactionType.INCOME ? dto.value : -dto.value;
+      await this.walletModel.findOneAndUpdate(
+        { _id: new Types.ObjectId(dto.carteiraId), userId: userObjectId },
+        { $inc: { saldo: inc } },
+      ).exec();
     }
 
     return transaction;

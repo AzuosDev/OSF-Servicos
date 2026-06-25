@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import type { Wallet as WalletType } from "../types/api";
-import { getWalletIcon } from "../lib/bankIcons";
+import { BankLogo } from "../components/ui/BankLogo";
 import {
   Area,
   AreaChart,
@@ -513,7 +513,7 @@ export function DashboardPage() {
                 to={`/carteiras/${wallet._id}`}
                 className="flex shrink-0 flex-row items-center gap-2 rounded-full bg-bg-card px-4 py-2 text-sm transition hover:bg-bg-muted"
               >
-                <span className="text-base leading-none">{getWalletIcon(wallet)}</span>
+                <BankLogo nome={wallet.nome} icone={wallet.icone} className="h-5 w-5" />
                 <span className="max-w-[120px] truncate text-text-secondary">{wallet.nome}</span>
                 <strong className={cn("font-sans font-bold", wallet.saldo < 0 ? "text-accent-red" : "text-accent-lime")}>
                   {fmt(wallet.saldo)}
