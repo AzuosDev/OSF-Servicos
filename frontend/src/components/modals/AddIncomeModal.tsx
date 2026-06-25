@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { Loader2, TrendingUp } from "lucide-react";
 import { z } from "zod";
 
@@ -10,15 +10,16 @@ import { getApiErrorMessages, setFieldErrorsFromApi } from "../../lib/errors";
 import { buildTransactionPayload } from "../../lib/finance";
 import {
   AmountField,
+  CategoryField,
   DateAndDescriptionFields,
-  type TransactionFormValues,
+  useIncomeCategories,
 } from "./TransactionFormFields";
 import { ModalShell } from "./ModalShell";
 import type { Transaction as ApiTransaction } from "../../types/api";
 
 const schema = z.object({
   amount: z.number().positive("Informe um valor maior que zero."),
-  categoryId: z.string().default(""),
+  categoryId: z.string().optional().default(""),
   date: z.string().min(1, "Informe a data."),
   description: z.string().max(500, "Use até 500 caracteres.").optional(),
 });
@@ -35,6 +36,7 @@ export function AddIncomeModal({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  const categoriesQuery = useIncomeCategories();
   const form = useForm<any>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -108,6 +110,21 @@ export function AddIncomeModal({
         onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
       >
         <AmountField register={form.register} errors={form.formState.errors} />
+
+        <Controller
+          control={form.control}
+          name="categoryId"
+          render={({ field, fieldState }) => (
+            <CategoryField
+              categories={categoriesQuery.data ?? []}
+              value={field.value}
+              onChange={field.onChange}
+              error={fieldState.error?.message}
+              loading={categoriesQuery.isLoading}
+            />
+          )}
+        />
+
         <DateAndDescriptionFields
           register={form.register}
           watch={form.watch}
@@ -116,7 +133,7 @@ export function AddIncomeModal({
 
         {mutation.isError && (
           <div className="rounded-xl bg-accent-red/10 p-3 text-sm text-accent-red">
-            {getApiErrorMessages(mutation.error, "Nao foi possivel salvar o ganho.").map((message) => (
+            {getApiErrorMessages(mutation.error, "Não foi possível salvar o ganho.").map((message) => (
               <p key={message}>{message}</p>
             ))}
           </div>
@@ -125,4 +142,3 @@ export function AddIncomeModal({
     </ModalShell>
   );
 }
-

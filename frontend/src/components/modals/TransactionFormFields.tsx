@@ -32,6 +32,21 @@ export function useCategories() {
   });
 }
 
+export function useIncomeCategories() {
+  return useQuery<Category[]>({
+    queryKey: ["categories", "income"],
+    queryFn: async () => {
+      const { data } = await api.get<ApiCategory[]>("/api/categories", { params: { income: "true" } });
+      const source =
+        typeof data === "object" && data !== null && "categories" in data
+          ? (data as { categories?: unknown }).categories
+          : data;
+
+      return asArray(source).map((item, index) => normalizeCategory(item, index));
+    },
+  });
+}
+
 export function AmountField({
   register,
   errors,

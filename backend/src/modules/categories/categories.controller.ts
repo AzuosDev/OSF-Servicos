@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -14,8 +14,8 @@ export class CategoriesController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  async getAll(@CurrentUser() user: ICurrentUser) {
-    return this.categoriesService.findAll(user._id.toString());
+  async getAll(@CurrentUser() user: ICurrentUser, @Query('income') income?: string) {
+    return this.categoriesService.findAll(user._id.toString(), income === 'true' ? true : income === 'false' ? false : undefined);
   }
 
   @UseGuards(JwtAuthGuard)

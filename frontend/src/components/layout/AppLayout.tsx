@@ -6,6 +6,7 @@ import {
   Clock,
   Coins,
   Home,
+  Landmark,
   LayoutDashboard,
   List,
   LogOut,
@@ -46,6 +47,7 @@ const navigation: NavItem[] = [
     icon: TrendingUp,
   },
   { to: "/transactions", label: "Transações", icon: List },
+  { to: "/carteiras", label: "Carteiras", icon: Landmark },
   { to: "/pending", label: "Contas Pendentes", icon: Clock },
   { to: "/goals", label: "Metas Financeiras", icon: Target },
 ] as const;
@@ -61,6 +63,7 @@ const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/expenses": "Gastos",
   "/transactions": "Transações",
+  "/carteiras": "Carteiras",
   "/pending": "Contas Pendentes",
   "/goals": "Metas Financeiras",
   "/budget": "Orçamento",
@@ -228,7 +231,9 @@ function SidebarContent({
         )}
       >
         {navigation.map(({ to, match, label, icon: Icon }) => {
-          const active = match ? currentUrl === match : currentPath === to;
+          const active = match
+            ? currentUrl === match
+            : currentPath === to || (to === "/carteiras" && currentPath.startsWith("/carteiras"));
 
           return (
             <Link

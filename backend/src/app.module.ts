@@ -12,6 +12,7 @@ import { PendingModule } from './modules/pending/pending.module';
 import { GoalsModule } from './modules/goals/goals.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
+import { WalletsModule } from './modules/wallets/wallets.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
     GoalsModule,
     DashboardModule,
     ExpensesModule,
+    WalletsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

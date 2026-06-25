@@ -21,9 +21,11 @@ export class CategoriesService implements OnModuleInit {
     }
   }
 
-  async findAll(userId: string) {
+  async findAll(userId: string, income?: boolean) {
+    const userFilter = { $or: [{ userId: null }, { userId: new Types.ObjectId(userId) }] };
+    const incomeFilter = income === true ? { isIncome: true } : { isIncome: { $ne: true } };
     return this.categoryModel
-      .find({ $or: [{ userId: null }, { userId: new Types.ObjectId(userId) }] })
+      .find({ ...userFilter, ...incomeFilter })
       .sort({ name: 1 })
       .exec();
   }

@@ -21,15 +21,26 @@ export type AuthTokens = {
   refreshToken: string;
 };
 
-export type TransactionType = "EXPENSE" | "INCOME";
+export type TransactionType = "EXPENSE" | "INCOME" | "TRANSFER";
+export type TipoTransacao = "entrada" | "saida" | "transferencia";
 
 export type Transaction = MongoDocument & {
   userId: ApiId;
   type: TransactionType;
+  tipoTransacao?: TipoTransacao;
   value: number;
   categoryId?: ApiId;
   description?: string;
   date: ApiDate;
+  carteiraId?: ApiId;
+  carteiraDestinoId?: ApiId;
+};
+
+export type Wallet = MongoDocument & {
+  userId: ApiId;
+  nome: string;
+  saldo: number;
+  icone?: string;
 };
 
 export type TransactionsResponse = {

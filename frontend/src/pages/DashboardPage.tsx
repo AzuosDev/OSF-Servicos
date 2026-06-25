@@ -3,6 +3,8 @@ import { TransactionModalContext } from "../components/layout/AppLayout";
 import { Plus } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import type { Wallet as WalletType } from "../types/api";
+import { getWalletIcon } from "../lib/bankIcons";
 import {
   Area,
   AreaChart,
@@ -13,12 +15,15 @@ import {
 } from "recharts";
 import {
   Clock,
+  Eye,
+  EyeOff,
   PiggyBank,
   ReceiptText,
   TrendingDown,
   TrendingUp,
   Wallet,
 } from "lucide-react";
+import { useShowValues } from "../hooks/useShowValues";
 
 import { api } from "../lib/api";
 import { cn } from "../lib/utils";
@@ -383,6 +388,8 @@ export function DashboardPage() {
   const [year, setYear] = useState(currentYear);
   const navigate = useNavigate();
   const { setOpen: setAddModalOpen } = useContext(TransactionModalContext);
+  const { show, toggle } = useShowValues();
+  const fmt = (v: number) => (show ? formatCurrency(v) : "R$ ••••");
 
 
   const years = useMemo(() => Array.from({ length: 11 }, (_, index) => currentYear + 5 - index), [currentYear]);
@@ -395,6 +402,14 @@ export function DashboardPage() {
       });
 
       return normalizeDashboard(data);
+    },
+  });
+
+  const walletsQuery = useQuery<WalletType[]>({
+    queryKey: ["wallets"],
+    queryFn: async () => {
+      const { data } = await api.get<Wallet[]>("/api/wallets");
+      return Array.isArray(data) ? data : [];
     },
   });
 
@@ -459,21 +474,55 @@ export function DashboardPage() {
       )}
 
       <div className="rounded-2xl bg-bg-card p-6">
-        <p className="text-sm uppercase tracking-widest text-text-secondary">
-          Saldo
-        </p>
-        <strong className={cn("mt-3 block font-sans text-3xl font-extrabold sm:text-5xl", dashboard.balance < 0 ? "text-accent-red" : "text-accent-lime")}>
-          {formatCurrency(dashboard.balance)}
-        </strong>
+        <p className="text-sm uppercase tracking-widest text-text-secondary">Saldo</p>
+        <div className="mt-3 flex items-center gap-3">
+          <strong className={cn("font-sans text-3xl font-extrabold sm:text-5xl", dashboard.balance < 0 ? "text-accent-red" : "text-accent-lime")}>
+            {fmt(dashboard.balance)}
+          </strong>
+          <button
+            onClick={toggle}
+            className="rounded-lg p-1 text-text-secondary transition hover:text-white"
+            aria-label={show ? "Ocultar valores" : "Mostrar valores"}
+          >
+            {show ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
+          </button>
+        </div>
         <div className="mt-5 flex flex-wrap gap-4 text-sm">
           <span className="text-accent-lime">
-            Entradas: {formatCurrency(dashboard.totalIncome)}
+            Entradas: {fmt(dashboard.totalIncome)}
           </span>
           <span className="text-accent-red">
-            Saídas: {formatCurrency(dashboard.totalExpense)}
+            Saídas: {fmt(dashboard.totalExpense)}
           </span>
         </div>
       </div>
+
+      {/* Carteiras */}
+      {(walletsQuery.data && walletsQuery.data.length > 0) && (
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-sans text-lg font-bold">Carteiras</h2>
+            <Link to="/carteiras" className="text-sm font-semibold text-accent-lime">
+              Gerenciar
+            </Link>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
+            {walletsQuery.data.map((wallet) => (
+              <Link
+                key={wallet._id}
+                to={`/carteiras/${wallet._id}`}
+                className="flex shrink-0 flex-row items-center gap-2 rounded-full bg-bg-card px-4 py-2 text-sm transition hover:bg-bg-muted"
+              >
+                <span className="text-base leading-none">{getWalletIcon(wallet)}</span>
+                <span className="max-w-[120px] truncate text-text-secondary">{wallet.nome}</span>
+                <strong className={cn("font-sans font-bold", wallet.saldo < 0 ? "text-accent-red" : "text-accent-lime")}>
+                  {fmt(wallet.saldo)}
+                </strong>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="rounded-2xl bg-bg-card p-5">
         <div className="mb-5 flex items-center justify-between gap-3">
@@ -531,14 +580,14 @@ export function DashboardPage() {
             <SummaryCard
               icon={TrendingUp}
               label="Entradas"
-              value={formatCurrency(dashboard.totalIncome)}
+              value={fmt(dashboard.totalIncome)}
               iconClassName="text-accent-lime"
               onClick={() => navigate("/transactions?type=INCOME")}
             />
             <SummaryCard
               icon={TrendingDown}
               label="Saídas"
-              value={formatCurrency(dashboard.totalExpense)}
+              value={fmt(dashboard.totalExpense)}
               iconClassName="text-accent-red"
               onClick={() => navigate("/expenses")}
             />
@@ -548,7 +597,7 @@ export function DashboardPage() {
             >
               <Clock className="mb-4 h-6 w-6 text-accent-yellow" />
               <strong className="block text-xl">
-                {formatCurrency(dashboard.pendingTotal)}
+                {fmt(dashboard.pendingTotal)}
               </strong>
               <span className="text-sm text-text-secondary">
                 Contas Pendentes
@@ -557,7 +606,7 @@ export function DashboardPage() {
             <SummaryCard
               icon={PiggyBank}
               label="Taxa de Poupança"
-              value={`${dashboard.savingsRate.toFixed(1)}%`}
+              value={show ? `${dashboard.savingsRate.toFixed(1)}%` : "••••"}
               iconClassName="text-accent-lime"
             />
           </div>
@@ -590,7 +639,7 @@ export function DashboardPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold">{category.name}</p>
                       <p className="text-sm text-text-secondary">
-                        {formatCurrency(category.amount)}
+                        {fmt(category.amount)}
                       </p>
                     </div>
                   </div>
@@ -662,7 +711,7 @@ export function DashboardPage() {
                     )}
                   >
                     {transaction.type === "INCOME" ? "+" : "-"}{" "}
-                    {formatCurrency(transaction.amount)}
+                    {fmt(transaction.amount)}
                   </strong>
                 </div>
               ))}
