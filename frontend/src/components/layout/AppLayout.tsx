@@ -30,7 +30,7 @@ import type { User } from "../../types/api";
 import { useToast } from "../ui/Toast";
 import { useQuery } from "@tanstack/react-query";
 import { UserProfileModal } from "../modals/UserProfileModal";
-import { TransferModal } from "../modals/TransferModal";
+import { TransactionModal } from "../modals/TransactionModal";
 
 type NavItem = {
   to: string;
@@ -328,7 +328,8 @@ export function AppLayout() {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [transferOpen, setTransferOpen] = useState(false);
+  const [txOpen, setTxOpen] = useState(false);
+  const [txTab, setTxTab] = useState<"INCOME" | "EXPENSE" | "TRANSFER">("EXPENSE");
   const [userProfileOpen, setUserProfileOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
@@ -394,9 +395,10 @@ export function AppLayout() {
     }
   };
 
-  const goToCreate = (type: "EXPENSE" | "INCOME") => {
+  const openTx = (tab: "INCOME" | "EXPENSE" | "TRANSFER") => {
     setAddModalOpen(false);
-    navigate(`/transactions?type=${type}&action=create`);
+    setTxTab(tab);
+    setTxOpen(true);
   };
 
   return (
@@ -545,14 +547,14 @@ export function AppLayout() {
             </div>
             <div className="grid gap-3">
               <button
-                onClick={() => goToCreate("EXPENSE")}
+                onClick={() => openTx("EXPENSE")}
                 className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
               >
                 <TrendingDown className="h-5 w-5 text-accent-red" />
                 <span className="font-semibold">Adicionar Gasto</span>
               </button>
               <button
-                onClick={() => goToCreate("INCOME")}
+                onClick={() => openTx("INCOME")}
                 className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
               >
                 <TrendingUp className="h-5 w-5 text-accent-lime" />
@@ -573,7 +575,7 @@ export function AppLayout() {
                 <span className="font-semibold">Nova Meta</span>
               </button>
               <button
-                onClick={() => { setAddModalOpen(false); setTransferOpen(true); }}
+                onClick={() => openTx("TRANSFER")}
                 className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
               >
                 <ArrowLeftRight className="h-5 w-5 text-blue-400" />
@@ -591,7 +593,7 @@ export function AppLayout() {
         </div>
       )}
 
-      <TransferModal open={transferOpen} onClose={() => setTransferOpen(false)} />
+      <TransactionModal open={txOpen} onClose={() => setTxOpen(false)} defaultTab={txTab} />
 
       <UserProfileModal
         open={userProfileOpen}

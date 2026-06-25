@@ -1,4 +1,4 @@
-export type TransactionType = "INCOME" | "EXPENSE";
+export type TransactionType = "INCOME" | "EXPENSE" | "TRANSFER";
 
 export type Category = {
   id: string;
@@ -17,6 +17,7 @@ export type Transaction = {
   categoryId?: string;
   category?: Category;
   carteiraId?: string;
+  carteiraDestinoId?: string;
   agendado?: boolean;
 };
 

@@ -3,16 +3,14 @@ import { useSearchParams } from "react-router-dom";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Filter, Loader2, Plus, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 
-import { TransactionRow } from "../components/TransactionRow";
-import { AddExpenseModal } from "../components/modals/AddExpenseModal";
-import { AddIncomeModal } from "../components/modals/AddIncomeModal";
-import { EditTransactionModal } from "../components/modals/EditTransactionModal";
+import { TxRow } from "../components/TxRow";
+import { TransactionModal } from "../components/modals/TransactionModal";
 import { useCategories } from "../components/modals/TransactionFormFields";
 import { api } from "../lib/api";
 import { normalizeTransactionsResponse, readString } from "../lib/finance";
 import { cn } from "../lib/utils";
 import type { TransactionsResponse } from "../types/api";
-import type { Category, Transaction, TransactionType } from "../types/finance";
+import type { Transaction, TransactionType } from "../types/finance";
 
 const tabs: Array<{ label: string; value: "ALL" | TransactionType }> = [
   { label: "Todos", value: "ALL" },
@@ -64,8 +62,17 @@ export function TransactionsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [choiceOpen, setChoiceOpen] = useState(false);
-  const [editing, setEditing] = useState<Transaction | null>(null);
+  const [txOpen, setTxOpen] = useState(false);
+  const [txTab, setTxTab] = useState<TransactionType>("EXPENSE");
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState<Transaction | null>(null);
+
+  const handleEdit = (tx: Transaction) => {
+    setSelectedTx(tx);
+    setTxTab(tx.type);
+    setTxOpen(true);
+  };
+
   const queryClient = useQueryClient();
 
   const type = readString(searchParams.get("type")).toUpperCase();
@@ -74,9 +81,6 @@ export function TransactionsPage() {
   const categoryId = searchParams.get("categoryId") ?? "";
   const month = Number(searchParams.get("month") ?? today.getMonth() + 1);
   const year = Number(searchParams.get("year") ?? currentYear);
-  const action = searchParams.get("action");
-  const addExpenseOpen = action === "create" && selectedType !== "INCOME";
-  const addIncomeOpen = action === "create" && selectedType === "INCOME";
   const years = useMemo(
     () => Array.from({ length: 4 }, (_, index) => currentYear - index),
     [currentYear],
@@ -118,12 +122,6 @@ export function TransactionsPage() {
 
         return matchesCategory && matchesPeriod;
       }) ?? [];
-
-  const categoriesMap = useMemo(() => {
-    const map = new Map<string, Category>();
-    (categoriesQuery.data ?? []).forEach((c) => map.set(c.id, c));
-    return map;
-  }, [categoriesQuery.data]);
 
   const groupedTransactions = useMemo(() => {
     const groups = new Map<string, Transaction[]>();
@@ -169,10 +167,6 @@ export function TransactionsPage() {
     setSearchParams(next);
   };
 
-  const closeCreateModal = () => {
-    patchParams({ action: undefined });
-  };
-
   return (
     <section className="space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -183,10 +177,12 @@ export function TransactionsPage() {
         <button
           type="button"
           onClick={() => {
+            setSelectedTx(null);
             if (selectedType === "ALL") {
               setChoiceOpen(true);
             } else {
-              patchParams({ action: "create" });
+              setTxTab(selectedType);
+              setTxOpen(true);
             }
           }}
           className="flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
@@ -300,12 +296,11 @@ export function TransactionsPage() {
                   {group.label}
                 </p>
                 {group.items.map((transaction) => (
-                  <TransactionRow
+                  <TxRow
                     key={transaction.id}
-                    transaction={transaction}
-                    onEdit={setEditing}
+                    tx={transaction}
+                    onEdit={handleEdit}
                     onDelete={setDeleting}
-                    categoriesMap={categoriesMap}
                   />
                 ))}
               </div>
@@ -342,10 +337,7 @@ export function TransactionsPage() {
             <div className="grid gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  setChoiceOpen(false);
-                  patchParams({ type: "EXPENSE", action: "create" });
-                }}
+                onClick={() => { setChoiceOpen(false); setSelectedTx(null); setTxTab("EXPENSE"); setTxOpen(true); }}
                 className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
               >
                 <TrendingDown className="h-5 w-5 text-accent-red" />
@@ -353,10 +345,7 @@ export function TransactionsPage() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setChoiceOpen(false);
-                  patchParams({ type: "INCOME", action: "create", categoryId: undefined });
-                }}
+                onClick={() => { setChoiceOpen(false); setSelectedTx(null); setTxTab("INCOME"); setTxOpen(true); }}
                 className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
               >
                 <TrendingUp className="h-5 w-5 text-accent-lime" />
@@ -367,9 +356,12 @@ export function TransactionsPage() {
         </div>
       )}
 
-      <AddExpenseModal open={addExpenseOpen} onClose={closeCreateModal} />
-      <AddIncomeModal open={addIncomeOpen} onClose={closeCreateModal} />
-      <EditTransactionModal transaction={editing} onClose={() => setEditing(null)} />
+      <TransactionModal
+        open={txOpen}
+        onClose={() => { setTxOpen(false); setSelectedTx(null); }}
+        defaultTab={txTab}
+        transaction={selectedTx}
+      />
 
       {deleting && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm">

@@ -1,58 +1,21 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowLeftRight, Calendar, Loader2, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Pencil, Trash2 } from "lucide-react";
 
 import { api } from "../lib/api";
 import { cn } from "../lib/utils";
 import { detectBankIcon } from "../lib/bankIcons";
 import { getApiErrorMessages } from "../lib/errors";
+import { brlFormatter, normalizeTransaction } from "../lib/finance";
 import { BankLogo } from "../components/ui/BankLogo";
+import { TxRow } from "../components/TxRow";
+import { TransactionModal } from "../components/modals/TransactionModal";
 import { useToast } from "../components/ui/Toast";
-import type { Transaction, TransactionsResponse, Wallet } from "../types/api";
+import type { TransactionsResponse, Wallet } from "../types/api";
+import type { Transaction, TransactionType } from "../types/finance";
 
-const brlFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-function fmt(v: number) { return brlFormatter.format(v); }
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  if (!iso || isNaN(d.getTime())) return "--/--/--";
-  return new Intl.DateTimeFormat("pt-BR").format(d);
-}
-
-function TxRow({ tx }: { tx: Transaction }) {
-  const isTransfer = tx.type === "TRANSFER";
-  const isIncome = tx.type === "INCOME";
-  const label = tx.description || (isIncome ? "Entrada" : isTransfer ? "Transferência" : "Saída");
-  const colorCls = tx.agendado
-    ? "text-text-muted"
-    : isIncome
-      ? "text-accent-lime"
-      : isTransfer
-        ? "text-blue-400"
-        : "text-accent-red";
-  const sign = isIncome || isTransfer ? "+" : "–";
-
-  return (
-    <div className="flex items-center justify-between py-4">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          {isTransfer && <ArrowLeftRight className="h-3.5 w-3.5 shrink-0 text-blue-400" />}
-          <p className="truncate text-sm font-semibold">{label}</p>
-          {tx.agendado && (
-            <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-semibold text-blue-400">
-              <Calendar className="h-3 w-3" />
-              Agendado
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-text-secondary">{formatDate(tx.date)}</p>
-      </div>
-      <span className={cn("ml-4 shrink-0 font-bold", colorCls)}>
-        {sign}{fmt(tx.value)}
-      </span>
-    </div>
-  );
-}
+const fmt = (v: number) => brlFormatter.format(v);
 
 export function WalletPage() {
   const { id } = useParams<{ id: string }>();
@@ -62,6 +25,15 @@ export function WalletPage() {
   const [editing, setEditing] = useState(false);
   const [nome, setNome] = useState("");
   const [icone, setIcone] = useState("");
+  const [txOpen, setTxOpen] = useState(false);
+  const [txTab, setTxTab] = useState<TransactionType>("EXPENSE");
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+
+  const handleEditTx = (tx: Transaction) => {
+    setSelectedTx(tx);
+    setTxTab(tx.type);
+    setTxOpen(true);
+  };
 
   const walletQuery = useQuery<Wallet>({
     queryKey: ["wallets", id],
@@ -87,7 +59,7 @@ export function WalletPage() {
       last.page * last.limit < last.total ? last.page + 1 : undefined,
   });
 
-  const transactions: Transaction[] = txQuery.data?.pages.flatMap((p) => p.data) ?? [];
+  const transactions = txQuery.data?.pages.flatMap((p) => p.data.map(normalizeTransaction)) ?? [];
 
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -256,7 +228,7 @@ export function WalletPage() {
         ) : (
           <div className="divide-y divide-bg-muted">
             {transactions.map((tx) => (
-              <TxRow key={tx._id} tx={tx} />
+              <TxRow key={tx.id} tx={tx} onEdit={handleEditTx} />
             ))}
           </div>
         )}
@@ -273,6 +245,12 @@ export function WalletPage() {
           </button>
         )}
       </div>
+      <TransactionModal
+        open={txOpen}
+        onClose={() => { setTxOpen(false); setSelectedTx(null); }}
+        defaultTab={txTab}
+        transaction={selectedTx}
+      />
     </section>
   );
 }

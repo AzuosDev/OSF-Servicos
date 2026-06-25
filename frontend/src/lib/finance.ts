@@ -79,7 +79,7 @@ export function normalizeTransaction(
 
   return {
     id: readString(item.id, item._id) || `transaction-${fallbackIndex}`,
-    type: type === "INCOME" ? "INCOME" : "EXPENSE",
+    type: type === "INCOME" ? "INCOME" : type === "TRANSFER" ? "TRANSFER" : "EXPENSE",
     amount: readNumber(item.amount, item.value, item.total),
     date:
       readString(item.date, item.createdAt, item.paidAt, item.dueDate) ||
@@ -91,6 +91,7 @@ export function normalizeTransaction(
       nestedCategory._id,
     ),
     carteiraId: readString(item.carteiraId) || undefined,
+    carteiraDestinoId: readString(item.carteiraDestinoId) || undefined,
     agendado: Boolean(item.agendado),
     category:
       category ??
