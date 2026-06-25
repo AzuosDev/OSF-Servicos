@@ -14,6 +14,9 @@ export class DashboardService {
     @InjectModel(Goal.name) private goalModel: Model<GoalDocument>,
   ) {}
 
+  // Saldo acumulado conta a partir de junho/2026. Meses anteriores mostram balanço do período.
+  private static readonly CUMULATIVE_START = new Date(Date.UTC(2026, 5, 1, 0, 0, 0));
+
   async getDashboard(userId: string, query: GetDashboardDto) {
     const now = new Date();
     const month = query.month ?? now.getMonth() + 1;
@@ -42,12 +45,16 @@ export class DashboardService {
     }
     const userObjectId = new Types.ObjectId(userId);
 
+    // Outer match must cover CUMULATIVE_START when it precedes yearStart (e.g. selecting 2027+)
+    const cumulativeStart = DashboardService.CUMULATIVE_START;
+    const matchStart = cumulativeStart < yearStart ? cumulativeStart : yearStart;
+
     // All 5 transaction queries consolidated into a single $facet round-trip.
     // Pending and goals run in parallel with it via Promise.all.
     const [facetResult, pendingAccounts, goals] = await Promise.all([
       this.transactionModel
         .aggregate([
-          { $match: { userId: userObjectId, date: { $gte: yearStart, $lte: yearEnd } } },
+          { $match: { userId: userObjectId, date: { $gte: matchStart, $lte: yearEnd } } },
           {
             $facet: {
               totalIncome: [
@@ -56,6 +63,14 @@ export class DashboardService {
               ],
               totalExpenses: [
                 { $match: { type: TransactionType.EXPENSE, date: { $gte: startDate, $lte: endDate } } },
+                { $group: { _id: null, total: { $sum: '$value' } } },
+              ],
+              cumulativeIncome: [
+                { $match: { type: TransactionType.INCOME, date: { $gte: cumulativeStart, $lte: endDate } } },
+                { $group: { _id: null, total: { $sum: '$value' } } },
+              ],
+              cumulativeExpenses: [
+                { $match: { type: TransactionType.EXPENSE, date: { $gte: cumulativeStart, $lte: endDate } } },
                 { $group: { _id: null, total: { $sum: '$value' } } },
               ],
               expensesByCategory: [
@@ -143,8 +158,13 @@ export class DashboardService {
 
     const totalIncome = facet.totalIncome[0]?.total ?? 0;
     const totalExpenses = facet.totalExpenses[0]?.total ?? 0;
-    const balance = totalIncome - totalExpenses;
-    const savingsRate = totalIncome > 0 ? parseFloat(((balance / totalIncome) * 100).toFixed(1)) : 0;
+
+    const isCumulativePeriod = endDate >= cumulativeStart;
+    const balance = isCumulativePeriod
+      ? (facet.cumulativeIncome[0]?.total ?? 0) - (facet.cumulativeExpenses[0]?.total ?? 0)
+      : totalIncome - totalExpenses;
+
+    const savingsRate = totalIncome > 0 ? parseFloat((((totalIncome - totalExpenses) / totalIncome) * 100).toFixed(1)) : 0;
 
     const monthlyEvolution = Array.from({ length: 12 }, (_, index) => ({
       month: index + 1,

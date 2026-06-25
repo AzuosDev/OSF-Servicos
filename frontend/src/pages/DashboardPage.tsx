@@ -458,6 +458,60 @@ export function DashboardPage() {
         </div>
       )}
 
+      <div className="rounded-2xl bg-bg-card p-6">
+        <p className="text-sm uppercase tracking-widest text-text-secondary">
+          Saldo
+        </p>
+        <strong className={cn("mt-3 block font-sans text-3xl font-extrabold sm:text-5xl", dashboard.balance < 0 ? "text-accent-red" : "text-accent-lime")}>
+          {formatCurrency(dashboard.balance)}
+        </strong>
+        <div className="mt-5 flex flex-wrap gap-4 text-sm">
+          <span className="text-accent-lime">
+            Entradas: {formatCurrency(dashboard.totalIncome)}
+          </span>
+          <span className="text-accent-red">
+            Saídas: {formatCurrency(dashboard.totalExpense)}
+          </span>
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-bg-card p-5">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <h2 className="font-sans text-xl font-bold">Evolução Mensal</h2>
+          <div className="flex gap-4 text-xs text-text-secondary">
+            <span className="flex items-center gap-2">
+              <i className="h-2.5 w-2.5 rounded-full bg-accent-lime" />{" "}
+              Entradas
+            </span>
+            <span className="flex items-center gap-2">
+              <i className="h-2.5 w-2.5 rounded-full bg-accent-orange" />{" "}
+              Saídas
+            </span>
+          </div>
+        </div>
+        <div className="h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={dashboard.monthlyEvolution}>
+              <defs>
+                <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#A3E635" stopOpacity={0.18} />
+                  <stop offset="95%" stopColor="#A3E635" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#F97316" stopOpacity={0.18} />
+                  <stop offset="95%" stopColor="#F97316" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="month" stroke="#9CA3AF" tickLine={false} axisLine={false} />
+              <YAxis stroke="#9CA3AF" tickLine={false} axisLine={false} tickFormatter={formatCompact} />
+              <Tooltip content={<CustomTooltip />} />
+              <Area type="monotone" name="Entradas" dataKey="income" stroke="#A3E635" fill="url(#incomeGradient)" strokeWidth={2} />
+              <Area type="monotone" name="Saídas" dataKey="expense" stroke="#F97316" fill="url(#expenseGradient)" strokeWidth={2} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       {!hasTransactions ? (
         <div className="rounded-2xl border border-bg-muted bg-bg-card p-8 text-center">
           <EmptyWallet />
@@ -473,23 +527,6 @@ export function DashboardPage() {
         </div>
       ) : (
         <>
-          <div className="rounded-2xl bg-bg-card p-6">
-            <p className="text-sm uppercase tracking-widest text-text-secondary">
-              Saldo
-            </p>
-            <strong className={cn("mt-3 block font-sans text-3xl font-extrabold sm:text-5xl", dashboard.balance < 0 ? "text-accent-red" : "text-accent-lime")}>
-              {formatCurrency(dashboard.balance)}
-            </strong>
-            <div className="mt-5 flex flex-wrap gap-4 text-sm">
-              <span className="text-accent-lime">
-                Entradas: {formatCurrency(dashboard.totalIncome)}
-              </span>
-              <span className="text-accent-red">
-                Saídas: {formatCurrency(dashboard.totalExpense)}
-              </span>
-            </div>
-          </div>
-
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <SummaryCard
               icon={TrendingUp}
@@ -523,87 +560,6 @@ export function DashboardPage() {
               value={`${dashboard.savingsRate.toFixed(1)}%`}
               iconClassName="text-accent-lime"
             />
-          </div>
-
-          <div className="rounded-2xl bg-bg-card p-5">
-            <div className="mb-5 flex items-center justify-between gap-3">
-              <h2 className="font-sans text-xl font-bold">Evolução Mensal</h2>
-              <div className="flex gap-4 text-xs text-text-secondary">
-                <span className="flex items-center gap-2">
-                  <i className="h-2.5 w-2.5 rounded-full bg-accent-lime" />{" "}
-                  Entradas
-                </span>
-                <span className="flex items-center gap-2">
-                  <i className="h-2.5 w-2.5 rounded-full bg-accent-orange" />{" "}
-                  Saídas
-                </span>
-              </div>
-            </div>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={dashboard.monthlyEvolution}>
-                  <defs>
-                    <linearGradient
-                      id="incomeGradient"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop
-                        offset="5%"
-                        stopColor="#A3E635"
-                        stopOpacity={0.18}
-                      />
-                      <stop offset="95%" stopColor="#A3E635" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient
-                      id="expenseGradient"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop
-                        offset="5%"
-                        stopColor="#F97316"
-                        stopOpacity={0.18}
-                      />
-                      <stop offset="95%" stopColor="#F97316" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis
-                    dataKey="month"
-                    stroke="#9CA3AF"
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="#9CA3AF"
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={formatCompact}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area
-                    type="monotone"
-                    name="Entradas"
-                    dataKey="income"
-                    stroke="#A3E635"
-                    fill="url(#incomeGradient)"
-                    strokeWidth={2}
-                  />
-                  <Area
-                    type="monotone"
-                    name="Saídas"
-                    dataKey="expense"
-                    stroke="#F97316"
-                    fill="url(#expenseGradient)"
-                    strokeWidth={2}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
           </div>
 
           <div className="rounded-2xl bg-bg-card p-5">
