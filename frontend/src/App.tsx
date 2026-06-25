@@ -6,6 +6,7 @@ import { ToastProvider } from "./components/ui/Toast";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { getAccessToken, hasRefreshToken, refreshAccessToken } from "./lib/auth";
 import { SpeedInsights } from "@vercel/speed-insights/react";
+import { Analytics } from "@vercel/analytics/next"
 
 const BudgetPage = lazy(() => import("./pages/BudgetPage").then((m) => ({ default: m.BudgetPage })));
 const DashboardPage = lazy(() => import("./pages/DashboardPage").then((m) => ({ default: m.DashboardPage })));
@@ -96,6 +97,7 @@ export default function App() {
             </Routes>
           </Suspense>
           <SpeedInsights />
+          <Analytics />
         </AppBoot>
       </ToastProvider>
     </ThemeProvider>
