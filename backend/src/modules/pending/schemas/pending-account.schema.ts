@@ -1,10 +1,93 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+﻿import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
 export type PendingAccountDocument = PendingAccount & Document;
 
 @Schema({ timestamps: true })
 export class PendingAccount {
+  /**
+   * Indica se a conta é parcelada.
+   * @default false
+   */
+  @Prop({ type: Boolean, default: false })
+  isParcelada!: boolean;
+
+  /**
+   * Indica se a conta é recorrente.
+   * @default false
+   */
+  @Prop({ type: Boolean, default: false })
+  isRecorrente!: boolean;
+
+  /**
+   * Categoria da conta.
+   * @default 'Outro'
+   */
+  @Prop({ type: String, default: 'Outro' })
+  categoria!: string;
+
+  /**
+   * Forma de pagamento.
+   * @default 'Outro'
+   */
+  @Prop({
+    type: String,
+    enum: ['Cartão de Crédito', 'Pix', 'Dinheiro', 'Outro'],
+    default: 'Outro',
+  })
+  formatoPagamento!: string;
+
+  @Prop({ type: Number })
+  numeroParcela?: number;
+
+  @Prop({ type: String })
+  grupoParceladoId?: string;
+
+  // Subdocumento de parcelas (presente apenas se isParcelada = true)
+  @Prop({
+    type: {
+      totalParcelas: { type: Number, required: true },
+      valorParcela: { type: Number, required: true },
+      qtdParcelasPagas: { type: Number, default: 0 },
+      parcelasPagas: { type: [Number], default: [] },
+      dataInicio: { type: Date, required: true },
+      dataFim: { type: Date, required: true },
+    },
+    required: false,
+  })
+  parcelas?: {
+    totalParcelas: number;
+    valorParcela: number;
+    qtdParcelasPagas: number;
+    parcelasPagas: number[];
+    dataInicio: Date;
+    dataFim: Date;
+  };
+
+  // Subdocumento de recorrência (presente apenas se isRecorrente = true)
+  @Prop({
+    type: {
+      periodoRecorrencia: {
+        type: String,
+        enum: ['Diário', 'Semanal', 'Mensal', 'Anual'],
+        default: 'Mensal',
+      },
+      dataProxima: { type: Date, required: false },
+    },
+    required: false,
+  })
+  recorrencia?: {
+    periodoRecorrencia: string;
+    dataProxima?: Date;
+  };
+
+  // ID do molde recorrente — presente apenas em instâncias geradas ao pagar
+  @Prop({ type: String })
+  recorrenciaTemplateId?: string;
+
+  // Marca o mês como pulado sem alterar o molde
+  @Prop({ type: Boolean, default: false })
+  skipped?: boolean;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   userId!: Types.ObjectId;
@@ -30,3 +113,8 @@ export class PendingAccount {
 
 export const PendingAccountSchema = SchemaFactory.createForClass(PendingAccount);
 PendingAccountSchema.index({ userId: 1, dueDate: 1 });
+PendingAccountSchema.index({ userId: 1, paid: 1, dueDate: 1 });
+PendingAccountSchema.index({ userId: 1, recorrenciaTemplateId: 1, dueDate: 1 });
+
+
+

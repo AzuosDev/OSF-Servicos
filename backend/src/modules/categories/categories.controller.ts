@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ICurrentUser } from '../../common/types/current-user.type';
 import { CreateCategoryDto } from './dto/create-category.dto';
 
 @ApiTags('Categories')
@@ -13,13 +14,19 @@ export class CategoriesController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  async getAll(@CurrentUser() user: any) {
+  async getAll(@CurrentUser() user: ICurrentUser) {
     return this.categoriesService.findAll(user._id.toString());
   }
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@CurrentUser() user: any, @Body() dto: CreateCategoryDto) {
+  async create(@CurrentUser() user: ICurrentUser, @Body() dto: CreateCategoryDto) {
     return this.categoriesService.create(user._id.toString(), dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  async remove(@CurrentUser() user: ICurrentUser, @Param('id') id: string) {
+    return this.categoriesService.remove(user._id.toString(), id);
   }
 }

@@ -5,6 +5,7 @@ export type Category = {
   name: string;
   color: string;
   icon?: string;
+  isDefault?: boolean;
 };
 
 export type Transaction = {

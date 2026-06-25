@@ -12,7 +12,7 @@ import { api } from "../lib/api";
 import { normalizeTransactionsResponse, readString } from "../lib/finance";
 import { cn } from "../lib/utils";
 import type { TransactionsResponse } from "../types/api";
-import type { Transaction, TransactionType } from "../types/finance";
+import type { Category, Transaction, TransactionType } from "../types/finance";
 
 const tabs: Array<{ label: string; value: "ALL" | TransactionType }> = [
   { label: "Todos", value: "ALL" },
@@ -119,6 +119,12 @@ export function TransactionsPage() {
         return matchesCategory && matchesPeriod;
       }) ?? [];
 
+  const categoriesMap = useMemo(() => {
+    const map = new Map<string, Category>();
+    (categoriesQuery.data ?? []).forEach((c) => map.set(c.id, c));
+    return map;
+  }, [categoriesQuery.data]);
+
   const groupedTransactions = useMemo(() => {
     const groups = new Map<string, Transaction[]>();
 
@@ -138,12 +144,11 @@ export function TransactionsPage() {
     mutationFn: async (transactionId: string) => {
       await api.delete(`/api/transactions/${transactionId}`);
     },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
-        queryClient.invalidateQueries({ queryKey: ["transactions"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] }),
-      ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["goals"] });
       setDeleting(null);
     },
   });
@@ -176,7 +181,13 @@ export function TransactionsPage() {
         </div>
         <button
           type="button"
-          onClick={() => setChoiceOpen(true)}
+          onClick={() => {
+            if (selectedType === "ALL") {
+              setChoiceOpen(true);
+            } else {
+              patchParams({ action: "create" });
+            }
+          }}
           className="flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
         >
           <Plus className="h-4 w-4" />
@@ -226,7 +237,7 @@ export function TransactionsPage() {
         </button>
 
         {filtersOpen && (
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
             <select
               value={categoryId}
               disabled={selectedType === "INCOME"}
@@ -293,7 +304,7 @@ export function TransactionsPage() {
                     transaction={transaction}
                     onEdit={setEditing}
                     onDelete={setDeleting}
-                    categories={categoriesQuery.data ?? []}
+                    categoriesMap={categoriesMap}
                   />
                 ))}
               </div>

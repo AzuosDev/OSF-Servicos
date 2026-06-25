@@ -1,4 +1,4 @@
-import { IsOptional, IsInt, Min, Max } from 'class-validator';
+import { IsOptional, IsInt, Min, Max, IsString, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class GetDashboardDto {
@@ -14,4 +14,9 @@ export class GetDashboardDto {
   @IsInt()
   @Min(1970)
   year?: number;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['weekly', 'monthly', 'yearly'])
+  period?: 'weekly' | 'monthly' | 'yearly';
 }

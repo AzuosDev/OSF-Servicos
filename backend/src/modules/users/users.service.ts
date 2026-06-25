@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
@@ -18,10 +18,10 @@ export class UsersService {
       emailVerified: false,
       emailVerificationToken,
     });
-    const obj: any = created.toObject();
-    delete obj.password;
-    delete obj.passwordResetToken;
-    delete obj.passwordResetExpires;
+    const obj = created.toObject() as Record<string, unknown>;
+    delete obj['password'];
+    delete obj['passwordResetToken'];
+    delete obj['passwordResetExpires'];
     return obj;
   }
 
@@ -32,7 +32,21 @@ export class UsersService {
   async findById(id: string) {
     const doc = await this.userModel.findById(id).select('-password').exec();
     if (!doc) throw new NotFoundException('User not found');
-    return doc;
+    const hash = crypto.createHash('md5').update(doc.email.toLowerCase().trim()).digest('hex');
+    return {
+      ...doc.toObject(),
+      gravatarUrl: `https://www.gravatar.com/avatar/${hash}?s=200&d=404`,
+    };
+  }
+
+  async updateAvatar(userId: string, avatarUrl: string | null) {
+    if (avatarUrl && avatarUrl.length > 500_000) {
+      throw new BadRequestException('Imagem muito grande. Use uma foto menor.');
+    }
+    const update = avatarUrl ? { avatarUrl } : { $unset: { avatarUrl: 1 } };
+    const user = await this.userModel.findByIdAndUpdate(userId, update, { new: true }).select('-password').exec();
+    if (!user) throw new NotFoundException('User not found');
+    return user;
   }
 
   async markEmailVerified(userId: string) {
@@ -51,16 +65,38 @@ export class UsersService {
     return token;
   }
 
+  async updateName(userId: string, name: string) {
+    const user = await this.userModel.findByIdAndUpdate(userId, { name: name.trim() }, { new: true }).select('-password').exec();
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.userModel.findById(userId).exec();
+    if (!user) throw new NotFoundException('User not found');
+    const match = await bcrypt.compare(currentPassword, user.password);
+    if (!match) throw new BadRequestException('Senha atual incorreta.');
+    const hashed = await bcrypt.hash(newPassword, 12);
+    Object.assign(user, { password: hashed });
+    await user.save();
+    return { ok: true };
+  }
+
+  async deleteAccount(userId: string) {
+    const user = await this.userModel.findByIdAndDelete(userId).exec();
+    if (!user) throw new NotFoundException('User not found');
+    return { deleted: true };
+  }
+
   async resetPassword(token: string, newPassword: string) {
     const user = await this.userModel.findOne({ passwordResetToken: token, passwordResetExpires: { $gt: new Date() } }).exec();
     if (!user) throw new NotFoundException('Token inválido ou expirado');
     const hashed = await bcrypt.hash(newPassword, 12);
-    user.password = hashed as any;
-    user.passwordResetToken = undefined as any;
-    user.passwordResetExpires = undefined as any;
+    // Mongoose marks these fields as readonly on the class; bypass via Object.assign
+    Object.assign(user, { password: hashed, passwordResetToken: undefined, passwordResetExpires: undefined });
     await user.save();
-    const obj: any = user.toObject();
-    delete obj.password;
+    const obj = user.toObject() as Record<string, unknown>;
+    delete obj['password'];
     return obj;
   }
 }

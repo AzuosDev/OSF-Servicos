@@ -7,7 +7,7 @@ export function BudgetPage() {
         <p className="text-sm text-text-secondary">Planejamento</p>
         <h1 className="text-3xl font-bold">Orçamento</h1>
       </header>
-      <div className="rounded-card border border-bg-overlay bg-bg-card p-5">
+      <div className="rounded-2xl border border-bg-overlay bg-bg-card p-5">
         <BarChart3 className="mb-3 h-6 w-6 text-accent-lime" />
         <p className="text-sm text-text-secondary">Área preparada para metas de orçamento mensal.</p>
       </div>

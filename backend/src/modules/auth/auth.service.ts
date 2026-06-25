@@ -1,4 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Types } from 'mongoose';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
@@ -19,8 +20,8 @@ export class AuthService {
 
   async register(dto: { email: string; password: string }) {
     const user = await this.usersService.create(dto);
-    await this.emailService.sendVerificationEmail(user.email, user.emailVerificationToken);
-    const { emailVerificationToken, password, passwordResetToken, passwordResetExpires, ...safeUser } = user as any;
+    await this.emailService.sendVerificationEmail(user['email'] as string, user['emailVerificationToken'] as string);
+    const { emailVerificationToken, password, passwordResetToken, passwordResetExpires, ...safeUser } = user;
     return safeUser;
   }
 
@@ -36,7 +37,7 @@ export class AuthService {
     return this.login(user);
   }
 
-  async login(user: any) {
+  async login(user: { _id: Types.ObjectId | string; email: string }) {
     const payload = { sub: user._id.toString(), email: user.email };
     const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
     const rawRefresh = crypto.randomBytes(64).toString('hex');
@@ -86,6 +87,6 @@ export class AuthService {
 
   async resetPassword(token: string, newPassword: string) {
     const user = await this.usersService.resetPassword(token, newPassword);
-    return this.login(user);
+    return this.login(user as unknown as { _id: Types.ObjectId; email: string });
   }
 }

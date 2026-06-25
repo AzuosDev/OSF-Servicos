@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { FieldErrors, UseFormRegister, UseFormWatch } from "react-hook-form";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { X } from "lucide-react";
 
 import { DynamicIcon } from "../DynamicIcon";
 import { api } from "../../lib/api";
@@ -72,6 +73,20 @@ export function CategoryField({
   error?: string;
   loading: boolean;
 }) {
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: async (categoryId: string) => {
+      await api.delete(`/api/categories/${categoryId}`);
+    },
+    onSuccess: (_, categoryId) => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      if (value === categoryId) {
+        onChange("");
+      }
+    },
+  });
+
   return (
     <div>
       <span className="mb-2 block text-sm text-text-secondary">Categoria</span>
@@ -85,29 +100,42 @@ export function CategoryField({
                 const active = category.id === value;
 
                 return (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => onChange(category.id)}
-                    className={cn(
-                      "flex min-h-20 flex-col items-center justify-center gap-2 rounded-xl border bg-bg-muted p-3 text-center text-xs font-semibold transition",
-                      active
-                        ? "border-accent-lime text-white"
-                        : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-white",
-                    )}
-                  >
-                    <span
-                      className="grid h-9 w-9 place-items-center rounded-xl"
-                      style={{ backgroundColor: `${category.color}22` }}
+                  <div key={category.id} className="group/cat relative">
+                    <button
+                      type="button"
+                      onClick={() => onChange(category.id)}
+                      className={cn(
+                        "flex min-h-20 w-full flex-col items-center justify-center gap-2 rounded-xl border bg-bg-muted p-3 text-center text-xs font-semibold transition",
+                        active
+                          ? "border-accent-lime text-white"
+                          : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-white",
+                      )}
                     >
-                      <DynamicIcon
-                        name={category.icon}
-                        className="h-5 w-5"
-                        style={{ color: category.color }}
-                      />
-                    </span>
-                    <span className="line-clamp-2">{category.name}</span>
-                  </button>
+                      <span
+                        className="grid h-9 w-9 place-items-center rounded-xl"
+                        style={{ backgroundColor: `${category.color}22` }}
+                      >
+                        <DynamicIcon
+                          name={category.icon}
+                          className="h-5 w-5"
+                          style={{ color: category.color }}
+                        />
+                      </span>
+                      <span className="line-clamp-2">{category.name}</span>
+                    </button>
+
+                    {!category.isDefault && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(category.id); }}
+                        disabled={deleteMutation.isPending}
+                        className="absolute right-1 top-1 flex rounded-md p-0.5 text-text-muted transition hover:bg-accent-red/10 hover:text-accent-red disabled:opacity-40"
+                        aria-label={`Excluir categoria ${category.name}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 );
               })}
         </div>
@@ -162,4 +190,3 @@ export function DateAndDescriptionFields({
     </div>
   );
 }
-

@@ -43,19 +43,19 @@ html.dark {
     color-scheme: light;
 
     /* backgrounds */
-    --bg-base: #f6f8f4; /* fundo da página */
-    --bg-card: #ffffff; /* cartões e painéis */
-    --bg-muted: #e8eee2; /* inputs, chips inativos */
-    --bg-overlay: #dfe8d6; /* hover, seções secundárias */
+    --bg-base: #e8ede4; /* fundo da página */
+    --bg-card: #f8faf6; /* cartões e painéis */
+    --bg-muted: #d4dccb; /* inputs, chips inativos */
+    --bg-overlay: #c8d4be; /* hover, seções secundárias */
 
     /* textos */
-    --text-primary: #172013; /* AAA 15.8:1 */
-    --text-secondary: #5f6f57; /* AA  5.1:1  */
-    --text-muted: #8a9783; /* AA  3.1:1 (texto grande) */
+    --text-primary: #0f1a0c; /* AAA 18.1:1 */
+    --text-secondary: #1e3318; /* AAA 13.2:1 */
+    --text-muted: #3a5233; /* AAA  8.6:1 */
 
     /* bordas */
-    --border-default: #dfe8d6; /* separadores sutis */
-    --border-strong: #c5d4bc; /* foco, cards ativos */
+    --border-default: #c0ccb5; /* separadores sutis */
+    --border-strong: #a8b89e; /* foco, cards ativos */
 
     /* semânticas financeiras */
     --color-income: #3a7d2c; /* ganhos  — AAA 7.2:1 */

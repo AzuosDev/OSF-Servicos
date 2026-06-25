@@ -21,7 +21,7 @@ export function AuthCard({
               <Coins className="h-5 w-5 text-accent-lime" />
             </span>
             <span className="font-sans text-xl font-bold tracking-tight">
-              ContaCerta
+              MeuGasto
             </span>
           </div>
           <h1 className="font-sans text-2xl font-bold text-text-primary">

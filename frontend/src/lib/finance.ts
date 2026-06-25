@@ -61,6 +61,7 @@ export function normalizeCategory(value: unknown, fallbackIndex = 0): Category {
     name: readString(item.name, item.categoryName, item.label) || "Categoria",
     color: readString(item.color, item.categoryColor) || "#6B7280",
     icon: readString(item.icon, item.iconName, item.categoryIcon) || "Receipt",
+    isDefault: item.isDefault === true,
   };
 }
 

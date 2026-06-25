@@ -1,15 +1,18 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { FilterQuery, Model, Types } from 'mongoose';
 import { Transaction, TransactionDocument, TransactionType } from './schemas/transaction.schema';
 import { Category, CategoryDocument } from '../categories/schemas/category.schema';
+import { Goal, GoalDocument } from '../goals/schemas/goal.schema';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
+import { UpdateTransactionDto } from './dto/update-transaction.dto';
 
 @Injectable()
 export class TransactionsService {
   constructor(
     @InjectModel(Transaction.name) private transactionModel: Model<TransactionDocument>,
     @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
+    @InjectModel(Goal.name) private goalModel: Model<GoalDocument>,
   ) {}
 
   private toObjectId(value: string, fieldName: string) {
@@ -38,7 +41,7 @@ export class TransactionsService {
       }
     }
 
-    return this.transactionModel.create({
+    const transaction = await this.transactionModel.create({
       userId: userObjectId,
       type: dto.type,
       value: dto.value,
@@ -46,6 +49,28 @@ export class TransactionsService {
       description: dto.description,
       date: new Date(dto.date),
     });
+
+    if (dto.type === TransactionType.EXPENSE && categoryObjectId) {
+      await this.incrementLinkedGoal(userObjectId, categoryObjectId, dto.value);
+    }
+
+    return transaction;
+  }
+
+  private async incrementLinkedGoal(userId: Types.ObjectId, categoryId: Types.ObjectId, amount: number) {
+    const goal = await this.goalModel.findOne({ userId, linkedCategoryId: categoryId }).exec();
+    if (!goal) return;
+    goal.currentValue = Math.max(0, goal.currentValue + amount);
+    goal.completed = goal.currentValue >= goal.targetValue;
+    await goal.save();
+  }
+
+  private async decrementLinkedGoal(userId: Types.ObjectId, categoryId: Types.ObjectId, amount: number) {
+    const goal = await this.goalModel.findOne({ userId, linkedCategoryId: categoryId }).exec();
+    if (!goal) return;
+    goal.currentValue = Math.max(0, goal.currentValue - amount);
+    goal.completed = goal.currentValue >= goal.targetValue;
+    await goal.save();
   }
 
   async findAll(
@@ -57,7 +82,7 @@ export class TransactionsService {
     month?: number,
     year?: number,
   ) {
-    const filter: any = { userId: new Types.ObjectId(userId) };
+    const filter: FilterQuery<TransactionDocument> = { userId: new Types.ObjectId(userId) };
     if (type) {
       filter.type = type;
     }
@@ -91,7 +116,7 @@ export class TransactionsService {
     return transaction;
   }
 
-  async update(userId: string, id: string, dto: any) {
+  async update(userId: string, id: string, dto: UpdateTransactionDto) {
     const transaction = await this.transactionModel.findOne({
       _id: this.toObjectId(id, 'id'),
       userId: this.toObjectId(userId, 'userId'),
@@ -111,13 +136,21 @@ export class TransactionsService {
   }
 
   async remove(userId: string, id: string) {
-    const result = await this.transactionModel.findOneAndDelete({
+    const userObjectId = this.toObjectId(userId, 'userId');
+    const transaction = await this.transactionModel.findOne({
       _id: this.toObjectId(id, 'id'),
-      userId: this.toObjectId(userId, 'userId'),
+      userId: userObjectId,
     }).exec();
-    if (!result) {
+    if (!transaction) {
       throw new NotFoundException('Transaction not found');
     }
+
+    await transaction.deleteOne();
+
+    if (transaction.type === TransactionType.EXPENSE && transaction.categoryId) {
+      await this.decrementLinkedGoal(userObjectId, transaction.categoryId as Types.ObjectId, transaction.value);
+    }
+
     return { deleted: true };
   }
 }

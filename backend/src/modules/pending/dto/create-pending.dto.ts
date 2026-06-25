@@ -1,8 +1,76 @@
-import { IsNotEmpty, IsString, IsNumber, Min, MaxLength, IsDateString, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, IsInt, Min, MaxLength, IsDateString, IsOptional, IsBoolean, IsIn, ValidateIf, ValidateNested } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import sanitizeHtml from 'sanitize-html';
 
+export class ParcelasDto {
+  @IsInt()
+  @Min(2)
+  @Type(() => Number)
+  totalParcelas!: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  valorParcela?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  qtdParcelasPagas?: number;
+
+  @IsOptional()
+  parcelasPagas?: number[];
+
+  @IsOptional()
+  @IsDateString()
+  dataInicio?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dataFim?: string;
+}
+
+export class RecorrenciaDto {
+  @IsString()
+  @IsIn(['Diário', 'Semanal', 'Mensal', 'Anual'])
+  periodoRecorrencia!: string;
+
+  @IsOptional()
+  @IsDateString()
+  dataProxima?: string;
+}
+
 export class CreatePendingDto {
+  @IsOptional()
+  @IsBoolean()
+  isParcelada?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isRecorrente?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  categoria?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['Cartão de Crédito', 'Pix', 'Dinheiro', 'Outro'])
+  formatoPagamento?: string;
+
+  @IsOptional()
+  @ValidateIf(o => o.isParcelada)
+  @ValidateNested()
+  @Type(() => ParcelasDto)
+  parcelas?: ParcelasDto;
+
+  @IsOptional()
+  @ValidateIf(o => o.isRecorrente)
+  @ValidateNested()
+  @Type(() => RecorrenciaDto)
+  recorrencia?: RecorrenciaDto;
+
   @IsNotEmpty()
   @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))
   @IsString()

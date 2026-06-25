@@ -1,22 +1,31 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 
 import { AppLayout } from "./components/layout/AppLayout";
 import { ToastProvider } from "./components/ui/Toast";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { getAccessToken, hasRefreshToken, refreshAccessToken } from "./lib/auth";
-import { BudgetPage } from "./pages/BudgetPage";
-import { DashboardPage } from "./pages/DashboardPage";
-import { ExpensesPage } from "./pages/ExpensesPage";
-import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
-import { GoalsPage } from "./pages/GoalsPage";
-import { LoginPage } from "./pages/LoginPage";
-import { PendingPage } from "./pages/PendingPage";
-import { RegisterPage } from "./pages/RegisterPage";
-import { ResetPasswordPage } from "./pages/ResetPasswordPage";
-import { TransactionsPage } from "./pages/TransactionsPage";
-import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { SpeedInsights } from "@vercel/speed-insights/react";
+
+const BudgetPage = lazy(() => import("./pages/BudgetPage").then((m) => ({ default: m.BudgetPage })));
+const DashboardPage = lazy(() => import("./pages/DashboardPage").then((m) => ({ default: m.DashboardPage })));
+const ExpensesPage = lazy(() => import("./pages/ExpensesPage").then((m) => ({ default: m.ExpensesPage })));
+const GoalsPage = lazy(() => import("./pages/GoalsPage").then((m) => ({ default: m.GoalsPage })));
+const PendingPage = lazy(() => import("./pages/PendingPage").then((m) => ({ default: m.PendingPage })));
+const TransactionsPage = lazy(() => import("./pages/TransactionsPage").then((m) => ({ default: m.TransactionsPage })));
+const LoginPage = lazy(() => import("./pages/LoginPage").then((m) => ({ default: m.LoginPage })));
+const RegisterPage = lazy(() => import("./pages/RegisterPage").then((m) => ({ default: m.RegisterPage })));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage").then((m) => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage })));
+const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage").then((m) => ({ default: m.VerifyEmailPage })));
+
+function PageLoader() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-bg-base">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-bg-overlay border-t-accent-lime" />
+    </div>
+  );
+}
 
 function PrivateRoute() {
   const location = useLocation();
@@ -59,27 +68,29 @@ export default function App() {
     <ThemeProvider>
       <ToastProvider>
         <AppBoot>
-          <Routes>
-            <Route path="/" element={<RootRedirect />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/verify-email" element={<VerifyEmailPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<RootRedirect />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-            <Route element={<PrivateRoute />}>
-              <Route element={<AppLayout />}>
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/expenses" element={<ExpensesPage />} />
-                <Route path="/transactions" element={<TransactionsPage />} />
-                <Route path="/budget" element={<BudgetPage />} />
-                <Route path="/goals" element={<GoalsPage />} />
-                <Route path="/pending" element={<PendingPage />} />
+              <Route element={<PrivateRoute />}>
+                <Route element={<AppLayout />}>
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/expenses" element={<ExpensesPage />} />
+                  <Route path="/transactions" element={<TransactionsPage />} />
+                  <Route path="/budget" element={<BudgetPage />} />
+                  <Route path="/goals" element={<GoalsPage />} />
+                  <Route path="/pending" element={<PendingPage />} />
+                </Route>
               </Route>
-            </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
           <SpeedInsights />
         </AppBoot>
       </ToastProvider>
