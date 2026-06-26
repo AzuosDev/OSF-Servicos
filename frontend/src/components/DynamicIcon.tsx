@@ -1,6 +1,64 @@
-import * as icons from "lucide-react";
+import {
+  ArrowLeftRight,
+  Banknote,
+  Briefcase,
+  Car,
+  CreditCard,
+  Dumbbell,
+  FileText,
+  Gift,
+  GraduationCap,
+  HeartPulse,
+  Home,
+  Laptop,
+  MoreHorizontal,
+  Package,
+  Percent,
+  Plane,
+  Receipt,
+  RefreshCcw,
+  Repeat,
+  Shirt,
+  ShoppingBag,
+  ShoppingCart,
+  TrendingDown,
+  TrendingUp,
+  UtensilsCrossed,
+  Wallet,
+  Wrench,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { CSSProperties } from "react";
+
+const iconRegistry: Record<string, LucideIcon> = {
+  ArrowLeftRight,
+  Banknote,
+  Briefcase,
+  Car,
+  CreditCard,
+  Dumbbell,
+  FileText,
+  Gift,
+  GraduationCap,
+  HeartPulse,
+  Home,
+  Laptop,
+  MoreHorizontal,
+  Package,
+  Percent,
+  Plane,
+  Receipt,
+  RefreshCcw,
+  Repeat,
+  Shirt,
+  ShoppingBag,
+  ShoppingCart,
+  TrendingDown,
+  TrendingUp,
+  UtensilsCrossed,
+  Wallet,
+  Wrench,
+};
 
 type IconProps = {
   name?: string;
@@ -9,9 +67,6 @@ type IconProps = {
 };
 
 export function DynamicIcon({ name, className, style }: IconProps) {
-  const fallback = icons.Receipt;
-  const iconName = name && name in icons ? name : "Receipt";
-  const Icon = (icons as unknown as Record<string, LucideIcon>)[iconName] ?? fallback;
-
+  const Icon = (name && iconRegistry[name]) || iconRegistry.Receipt;
   return <Icon className={className} style={style} />;
 }
