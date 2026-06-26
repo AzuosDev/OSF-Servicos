@@ -11,6 +11,7 @@ import { brlFormatter, normalizeTransaction } from "../lib/finance";
 import { BankLogo } from "../components/ui/BankLogo";
 import { TxRow } from "../components/TxRow";
 import { TransactionModal } from "../components/modals/TransactionModal";
+import { DeleteWalletModal } from "../components/modals/DeleteWalletModal";
 import { useToast } from "../components/ui/Toast";
 import type { TransactionsResponse, Wallet } from "../types/api";
 import type { Transaction, TransactionType } from "../types/finance";
@@ -28,6 +29,7 @@ export function WalletPage() {
   const [txOpen, setTxOpen] = useState(false);
   const [txTab, setTxTab] = useState<TransactionType>("EXPENSE");
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const handleEditTx = (tx: Transaction) => {
     setSelectedTx(tx);
@@ -155,9 +157,7 @@ export function WalletPage() {
               <Pencil className="h-4 w-4" />
             </button>
             <button
-              onClick={() => {
-                if (confirm("Excluir esta carteira?")) deleteMutation.mutate();
-              }}
+              onClick={() => setDeleteOpen(true)}
               disabled={deleteMutation.isPending}
               className="rounded-xl border border-accent-red/30 p-2 text-accent-red transition hover:bg-accent-red/10 disabled:opacity-50"
               title="Excluir"
@@ -250,6 +250,13 @@ export function WalletPage() {
         onClose={() => { setTxOpen(false); setSelectedTx(null); }}
         defaultTab={txTab}
         transaction={selectedTx}
+      />
+      <DeleteWalletModal
+        isOpen={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={() => deleteMutation.mutate()}
+        walletName={wallet.nome}
+        isLoading={deleteMutation.isPending}
       />
     </section>
   );

@@ -11,6 +11,7 @@ import { cn } from "../lib/utils";
 import { useToast } from "../components/ui/Toast";
 import { ConfirmDeleteModal } from "../components/modals/ConfirmDeleteModal";
 import { PayBillModal } from "../components/modals/PayBillModal";
+import { PendingFormModal } from "../components/modals/PendingFormModal";
 import { DynamicIcon } from "../components/DynamicIcon";
 import { useCategories, useWallets } from "../components/modals/TransactionFormFields";
 import type { PendingAccount } from "../types/api";
@@ -93,19 +94,6 @@ function buildPendingPayload(data: {
       : undefined,
   };
 }
-
-type PendingFormData = {
-  title: string;
-  value: string;
-  dueDate: string;
-  description: string;
-  isParcelada: boolean;
-  isRecorrente: boolean;
-  categoria: string;
-  formatoPagamento: string;
-  parcelas: { totalParcelas: string; dataInicio: string; dataFim: string };
-  recorrencia: { periodoRecorrencia: string; dataProxima: string };
-};
 
 function normalizePending(data: unknown): PendingItem[] {
   if (Array.isArray(data)) {
@@ -263,19 +251,6 @@ export function PendingPage() {
   const [selectedAccount, setSelectedAccount] = useState<PendingItem | null>(
     null,
   );
-  const [editFormData, setEditFormData] = useState<PendingFormData>({
-    title: "",
-    value: "",
-    dueDate: "",
-    description: "",
-    isParcelada: false,
-    isRecorrente: false,
-    categoria: "Outro",
-    formatoPagamento: "Outro",
-    parcelas: { totalParcelas: "", dataInicio: "", dataFim: "" },
-    recorrencia: { periodoRecorrencia: "Mensal", dataProxima: "" },
-  });
-
   // ? state dos campos do formulário
   const [formTitle, setFormTitle] = useState("");
   const [formValue, setFormValue] = useState("");
@@ -403,35 +378,6 @@ export function PendingPage() {
     onError: () => addToast("Não foi possível atualizar a conta.", "error"),
   });
 
-  const editPending = useMutation({
-    mutationFn: async ({
-      id,
-      payload,
-    }: {
-      id: string;
-      payload: {
-        title?: string;
-        value?: number;
-        dueDate?: string;
-        description?: string;
-        paid?: boolean;
-        isParcelada?: boolean;
-        isRecorrente?: boolean;
-        categoria?: string;
-        formatoPagamento?: string;
-        parcelas?: { totalParcelas?: number; dataInicio?: string; dataFim?: string };
-        recorrencia?: { periodoRecorrencia?: string; dataProxima?: string };
-      };
-    }) => api.patch<PendingAccount>(`/api/pending/${id}`, payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pending"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      addToast("Conta atualizada com sucesso.", "success");
-      fecharModal();
-    },
-    onError: () => addToast("Não foi possível editar a conta.", "error"),
-  });
-
   const deletePending = useMutation({
     mutationFn: async (id: string) => api.delete(`/api/pending/${id}`),
     onSuccess: () => {
@@ -470,75 +416,14 @@ export function PendingPage() {
   });
   function abrirModalEdicao(item: PendingItem) {
     setSelectedAccount(item);
-    setEditFormData({
-      title: item.title,
-      value: String(item.value),
-      dueDate: item.dueDate.slice(0, 10),
-      description: item.description ?? "",
-      isParcelada: !!item.isParcelada,
-      isRecorrente: !!item.isRecorrente,
-      categoria: item.categoria ?? "Outro",
-      formatoPagamento: item.formatoPagamento ?? "Outro",
-      parcelas: {
-        totalParcelas: item.parcelas?.totalParcelas?.toString() ?? "",
-        dataInicio: item.parcelas?.dataInicio?.slice(0, 10) ?? "",
-        dataFim: item.parcelas?.dataFim?.slice(0, 10) ?? "",
-      },
-      recorrencia: {
-        periodoRecorrencia: item.recorrencia?.periodoRecorrencia ?? "Mensal",
-        dataProxima: item.recorrencia?.dataProxima?.slice(0, 10) ?? "",
-      },
-    });
     setIsEditModalOpen(true);
   }
 
   function fecharModal() {
     setIsEditModalOpen(false);
     setSelectedAccount(null);
-    setEditFormData({
-      title: "",
-      value: "",
-      dueDate: "",
-      description: "",
-      isParcelada: false,
-      isRecorrente: false,
-      categoria: "Outro",
-      formatoPagamento: "Outro",
-      parcelas: { totalParcelas: "", dataInicio: "", dataFim: "" },
-      recorrencia: { periodoRecorrencia: "Mensal", dataProxima: "" },
-    });
   }
 
-  function salvarEdicao() {
-    if (!selectedAccount) return;
-
-    editPending.mutate({
-      id: selectedAccount.id,
-      payload: {
-        title: editFormData.title.trim(),
-        value: parseFloat(editFormData.value),
-        dueDate: toIsoDate(editFormData.dueDate),
-        description: editFormData.description.trim() || undefined,
-        isParcelada: editFormData.isParcelada,
-        isRecorrente: editFormData.isRecorrente,
-        categoria: editFormData.categoria?.trim() || undefined,
-        formatoPagamento: isPaymentFormat(editFormData.formatoPagamento) ? editFormData.formatoPagamento : undefined,
-        parcelas: editFormData.isParcelada
-          ? {
-              totalParcelas: Number(editFormData.parcelas.totalParcelas),
-              dataInicio: toIsoDate(editFormData.parcelas.dataInicio),
-              dataFim: toIsoDate(editFormData.parcelas.dataFim),
-            }
-          : undefined,
-        recorrencia: editFormData.isRecorrente
-          ? {
-              periodoRecorrencia: editFormData.recorrencia.periodoRecorrencia,
-              dataProxima: toIsoDate(editFormData.recorrencia.dataProxima),
-            }
-          : undefined,
-      },
-    });
-  }
 
   function abrirParcelStatus(item: PendingDisplayItem) {
     setSelectedParcelItem(item);
@@ -1058,86 +943,12 @@ export function PendingPage() {
         </div>
       )}
 
-      {isEditModalOpen && selectedAccount && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="flex w-full max-w-md max-h-[90vh] flex-col overflow-hidden rounded-2xl border border-bg-muted bg-bg-card">
-            <h2 className="text-lg font-bold text-white">
-              Editar conta pendente
-            </h2>
-            <p className="mt-1 text-sm text-text-secondary">
-              Atualize os dados da conta selecionada.
-            </p>
-            <div className="mt-4 flex-1 overflow-y-auto px-5 pb-3 space-y-3">
-              <input
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="Título"
-                value={editFormData.title}
-                onChange={(e) =>
-                  setEditFormData((prev) => ({
-                    ...prev,
-                    title: e.target.value,
-                  }))
-                }
-              />
-              <input
-                type="number"
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="Valor"
-                value={editFormData.value}
-                onChange={(e) =>
-                  setEditFormData((prev) => ({
-                    ...prev,
-                    value: e.target.value,
-                  }))
-                }
-              />
-              <input
-                type="date"
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                value={editFormData.dueDate}
-                onChange={(e) =>
-                  setEditFormData((prev) => ({
-                    ...prev,
-                    dueDate: e.target.value,
-                  }))
-                }
-              />
-              <textarea
-                rows={3}
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white"
-                placeholder="Descrição (opcional)"
-                value={editFormData.description}
-                onChange={(e) =>
-                  setEditFormData((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="flex shrink-0 justify-end gap-2 border-t border-bg-muted px-5 py-3">
-              <button
-                type="button"
-                onClick={fecharModal}
-                className="rounded-xl border border-bg-muted px-4 py-2 text-sm text-white"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={salvarEdicao}
-                disabled={editPending.isPending}
-                className="flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-2 text-sm font-bold text-black disabled:opacity-70"
-              >
-                {editPending.isPending && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
-                Salvar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <PendingFormModal
+        open={isEditModalOpen}
+        onClose={fecharModal}
+        editAccount={selectedAccount ?? undefined}
+        onSuccess={() => addToast("Conta atualizada com sucesso.", "success")}
+      />
       {parcelStatusOpen && selectedParcelItem && (() => {
         const liveItem = items.find((i) => i.id === selectedParcelItem.id) ?? selectedParcelItem;
         const grupoItems = groupQuery.data && groupQuery.data.length > 0

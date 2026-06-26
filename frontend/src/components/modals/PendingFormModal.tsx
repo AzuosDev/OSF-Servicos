@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Wallet } from "lucide-react";
 
 import { api } from "../../lib/api";
-import { getApiErrorMessages, setFieldErrorsFromApi } from "../../lib/errors";
+import { getApiErrorMessages } from "../../lib/errors";
 import { ModalShell } from "./ModalShell";
 import { useCategories } from "./TransactionFormFields";
 import { DynamicIcon } from "../DynamicIcon";
@@ -178,27 +178,13 @@ export function PendingFormModal({
         parcelas: formParcelas,
         recorrencia: formRecorrencia,
       });
-
-      console.log("[PendingFormModal] create payload", payload);
-      try {
-        const response = await api.post("/api/pending", payload);
-        console.log("[PendingFormModal] create response", response.data);
-      } catch (error) {
-        console.error("[PendingFormModal] create error", error);
-        throw error;
-      }
+      await api.post("/api/pending", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pending"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       onClose();
       onSuccess?.();
-    },
-    onError: (error) => {
-      console.error('Erro ao salvar conta pendente:', error);
-      const msg = error?.response?.data?.message || error?.message || 'Erro desconhecido';
-      alert(msg);
-      setFieldErrorsFromApi(error, (field, msg) => console.error(field, msg));
     },
   });
 
@@ -222,12 +208,6 @@ export function PendingFormModal({
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       onClose();
       onSuccess?.();
-    },
-    onError: (error) => {
-      console.error('Erro ao atualizar conta pendente:', error);
-      const msg = error?.response?.data?.message || error?.message || 'Erro desconhecido';
-      alert(msg);
-      setFieldErrorsFromApi(error, (field, msg) => console.error(field, msg));
     },
   });
 
@@ -296,7 +276,7 @@ export function PendingFormModal({
           <input
             type="text"
             placeholder="Ex.: Conta de luz"
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-lime"
             value={formTitle}
             onChange={(e) => setFormTitle(e.target.value)}
           />
@@ -309,7 +289,7 @@ export function PendingFormModal({
           <input
             type="number"
             placeholder="R$"
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-lime"
             value={formValue}
             onChange={(e) => setFormValue(e.target.value)}
           />
@@ -325,7 +305,7 @@ export function PendingFormModal({
               placeholder="Ex.: 2"
               value={formParcelas.totalParcelas ?? ""}
               onChange={(e) => setFormParcelas({ totalParcelas: e.target.value })}
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-lime"
             />
             {formParcelas.totalParcelas && formValue && (
               <p className="mt-1 text-xs text-text-secondary">
@@ -344,7 +324,7 @@ export function PendingFormModal({
                 onChange={(e) =>
                   setFormRecorrencia((prev) => ({ ...prev, periodoRecorrencia: e.target.value }))
                 }
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-lime"
               >
                 <option value="Diário">Diário</option>
                 <option value="Semanal">Semanal</option>
@@ -356,7 +336,7 @@ export function PendingFormModal({
               <span className="mb-1 block text-sm text-text-secondary">Próxima data</span>
               <input
                 type="date"
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-lime"
                 value={formRecorrencia.dataProxima ?? ""}
                 onChange={(e) =>
                   setFormRecorrencia((prev) => ({ ...prev, dataProxima: e.target.value }))
@@ -419,7 +399,7 @@ export function PendingFormModal({
             <input
               type="text"
               placeholder="Digite a categoria personalizada"
-              className="mt-2 w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+              className="mt-2 w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-lime"
               value={categoriaCustom}
               onChange={(e) => setCategoriaCustom(e.target.value)}
             />
@@ -434,7 +414,7 @@ export function PendingFormModal({
               setFormForma(e.target.value);
               if (e.target.value !== "Outro") setFormaCustom("");
             }}
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-lime"
           >
             <option value="">Selecione</option>
             {PAYMENT_FORMATS.map((format) => (
@@ -447,7 +427,7 @@ export function PendingFormModal({
             <input
               type="text"
               placeholder="Digite a forma de pagamento personalizada"
-              className="mt-2 w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+              className="mt-2 w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-lime"
               value={formaCustom}
               onChange={(e) => setFormaCustom(e.target.value)}
             />
@@ -458,7 +438,7 @@ export function PendingFormModal({
           <span className="mb-1 block text-sm text-text-secondary">Data de vencimento</span>
           <input
             type="date"
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-lime"
             value={formDueDate}
             onChange={(e) => setFormDueDate(e.target.value)}
           />
@@ -468,7 +448,8 @@ export function PendingFormModal({
           <span className="mb-1 block text-sm text-text-secondary">Descrição (opcional)</span>
           <textarea
             rows={3}
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+            className="w-full resize-none rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition placeholder:text-text-muted focus:border-accent-lime"
+            placeholder="Observação opcional"
             value={formDescription}
             onChange={(e) => setFormDescription(e.target.value)}
           />
