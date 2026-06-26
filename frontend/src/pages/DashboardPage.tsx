@@ -408,7 +408,7 @@ export function DashboardPage() {
   const walletsQuery = useQuery<WalletType[]>({
     queryKey: ["wallets"],
     queryFn: async () => {
-      const { data } = await api.get<Wallet[]>("/api/wallets");
+      const { data } = await api.get<WalletType[]>("/api/wallets");
       return Array.isArray(data) ? data : [];
     },
   });

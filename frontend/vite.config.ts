@@ -6,7 +6,7 @@ export default defineConfig(() => ({
   plugins: [
     react(),
     ...(process.env.ANALYZE === "true"
-      ? [visualizer({ open: true, gzip: true, brotliSize: true, filename: "dist/stats.html" })]
+      ? [visualizer({ open: true, filename: "dist/stats.html" })]
       : []),
   ],
   build: {
