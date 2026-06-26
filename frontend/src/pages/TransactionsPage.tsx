@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Filter, Loader2, Plus, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { ArrowLeftRight, ChevronDown, Filter, Loader2, Plus, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 
 import { TxRow } from "../components/TxRow";
 import { TransactionModal } from "../components/modals/TransactionModal";
@@ -350,6 +350,14 @@ export function TransactionsPage() {
               >
                 <TrendingUp className="h-5 w-5 text-accent-lime" />
                 <span className="font-semibold">Adicionar Ganho</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setChoiceOpen(false); setSelectedTx(null); setTxTab("TRANSFER"); setTxOpen(true); }}
+                className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
+              >
+                <ArrowLeftRight className="h-5 w-5 text-blue-400" />
+                <span className="font-semibold">Nova Transferência</span>
               </button>
             </div>
           </div>

@@ -39,8 +39,9 @@ export class PendingController {
     @Param('templateId') templateId: string,
     @Body('month') month: number,
     @Body('year') year: number,
+    @Body('carteiraId') carteiraId?: string,
   ) {
-    return this.pendingService.payRecurringInstance(user._id.toString(), templateId, month, year);
+    return this.pendingService.payRecurringInstance(user._id.toString(), templateId, month, year, carteiraId);
   }
 
   @Patch(':id')

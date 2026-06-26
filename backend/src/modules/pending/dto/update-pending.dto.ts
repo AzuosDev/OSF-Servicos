@@ -56,6 +56,10 @@ export class UpdatePendingDto {
   dueDate?: string;
 
   @IsOptional()
+  @IsString()
+  carteiraId?: string;
+
+  @IsOptional()
   @IsBoolean()
   paid?: boolean;
 

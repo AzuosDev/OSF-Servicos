@@ -110,6 +110,7 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [hasGravatar, setHasGravatar] = useState<boolean | null>(null);
 
   const userQuery = useQuery<User>({
     queryKey: ["user-profile"],
@@ -127,6 +128,16 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
   useEffect(() => {
     setImgError(false);
   }, [avatarUrl]);
+
+  useEffect(() => {
+    if (!gravatarUrl) return;
+    setHasGravatar(null);
+    const probeUrl = gravatarUrl.replace("d=mp", "d=404");
+    const img = new Image();
+    img.onload = () => setHasGravatar(true);
+    img.onerror = () => setHasGravatar(false);
+    img.src = probeUrl;
+  }, [gravatarUrl]);
 
   // ─── Forms ────────────────────────────────────────────────────────────────
 
@@ -310,12 +321,18 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
           <button
             type="button"
             onClick={handleUseGravatar}
-            disabled={updateAvatarMutation.isPending || !gravatarUrl}
+            disabled={updateAvatarMutation.isPending || hasGravatar !== true}
             className="flex items-center gap-1.5 rounded-lg bg-bg-muted px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary disabled:opacity-50"
-            title="Usa a foto do seu perfil Gravatar (gravatar.com)"
+            title={
+              hasGravatar === null
+                ? "Verificando Gravatar..."
+                : hasGravatar
+                  ? "Usar a foto do seu perfil Gravatar (gravatar.com)"
+                  : "Nenhuma foto encontrada no Gravatar com este e-mail"
+            }
           >
             <Globe className="h-3.5 w-3.5" />
-            Usar Gravatar
+            {hasGravatar === null ? "Verificando..." : "Usar Gravatar"}
           </button>
 
           {avatarUrl && (

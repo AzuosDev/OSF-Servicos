@@ -92,6 +92,9 @@ export class PendingAccount {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   userId!: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: 'Wallet' })
+  carteiraId?: Types.ObjectId;
+
   @Prop({ required: true, maxlength: 200 })
   title!: string;
 

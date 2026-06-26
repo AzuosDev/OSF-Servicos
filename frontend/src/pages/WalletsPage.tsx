@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Loader2, Eye, EyeOff } from "lucide-react";
+import { Plus, Loader2, Eye, EyeOff, Trash2 } from "lucide-react";
 import { useShowValues } from "../hooks/useShowValues";
 
 import { api } from "../lib/api";
 import { cn } from "../lib/utils";
 import { detectBankIcon } from "../lib/bankIcons";
 import { BankLogo } from "../components/ui/BankLogo";
+import { DeleteWalletModal } from "../components/modals/DeleteWalletModal";
+import { useToast } from "../components/ui/Toast";
 import type { Wallet } from "../types/api";
 
 const brlFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -23,7 +25,9 @@ const BANKS = [
 
 export function WalletsPage() {
   const queryClient = useQueryClient();
+  const { addToast } = useToast();
   const { show, toggle } = useShowValues();
+  const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null);
   const fmt = (v: number) => (show ? brlFormatter.format(v) : "R$ ••••");
   const [searchParams, setSearchParams] = useSearchParams();
   const [showForm, setShowForm] = useState(false);
@@ -62,6 +66,20 @@ export function WalletsPage() {
       setNome("");
       setSaldo("");
       setIcone("🏦");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/api/wallets/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wallets"] });
+      addToast("Carteira excluída com sucesso.", "success");
+      setWalletToDelete(null);
+    },
+    onError: (error: unknown) => {
+      const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      addToast(msg || "Erro ao excluir carteira.", "error");
+      setWalletToDelete(null);
     },
   });
 
@@ -215,22 +233,38 @@ export function WalletsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {wallets.map((wallet) => (
-            <Link
-              key={wallet._id}
-              to={`/carteiras/${wallet._id}`}
-              className="flex flex-col gap-3 rounded-2xl bg-bg-card p-5 transition hover:bg-bg-muted"
-            >
-              <BankLogo nome={wallet.nome} icone={wallet.icone} className="h-10 w-10" />
-              <div>
-                <p className="text-sm text-text-secondary">{wallet.nome}</p>
-                <strong className={cn("font-sans text-2xl font-bold", wallet.saldo < 0 ? "text-accent-red" : "text-accent-lime")}>
-                  {fmt(wallet.saldo)}
-                </strong>
-              </div>
-            </Link>
+            <div key={wallet._id} className="relative group">
+              <Link
+                to={`/carteiras/${wallet._id}`}
+                className="flex flex-col gap-3 rounded-2xl bg-bg-card p-5 transition hover:bg-bg-muted"
+              >
+                <BankLogo nome={wallet.nome} icone={wallet.icone} className="h-10 w-10" />
+                <div>
+                  <p className="text-sm text-text-secondary">{wallet.nome}</p>
+                  <strong className={cn("font-sans text-2xl font-bold", wallet.saldo < 0 ? "text-accent-red" : "text-accent-lime")}>
+                    {fmt(wallet.saldo)}
+                  </strong>
+                </div>
+              </Link>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); setWalletToDelete(wallet); }}
+                className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-lg text-text-muted opacity-0 transition hover:bg-accent-red/10 hover:text-accent-red group-hover:opacity-100"
+                title="Excluir carteira"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
           ))}
         </div>
       )}
+      <DeleteWalletModal
+        isOpen={!!walletToDelete}
+        onClose={() => setWalletToDelete(null)}
+        onConfirm={() => walletToDelete && deleteMutation.mutate(walletToDelete._id)}
+        walletName={walletToDelete?.nome ?? ""}
+        isLoading={deleteMutation.isPending}
+      />
     </section>
   );
 }

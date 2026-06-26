@@ -100,6 +100,7 @@ export class PendingService {
       type: TransactionType.EXPENSE,
       value: pending.value,
       categoryId: category?._id ?? undefined,
+      carteiraId: pending.carteiraId ?? undefined,
       description: pending.title,
       date: pending.dueDate,
       pendingAccountId: pending._id,
@@ -134,6 +135,7 @@ export class PendingService {
           isRecorrente: false,
           categoria: dto.categoria,
           formatoPagamento: dto.formatoPagamento,
+          carteiraId: dto.carteiraId ? new Types.ObjectId(dto.carteiraId) : undefined,
           numeroParcela,
           grupoParceladoId,
           parcelas: {
@@ -165,6 +167,7 @@ export class PendingService {
       isRecorrente: dto.isRecorrente ?? false,
       categoria: dto.categoria,
       formatoPagamento: dto.formatoPagamento,
+      carteiraId: dto.carteiraId ? new Types.ObjectId(dto.carteiraId) : undefined,
       recorrencia: dto.recorrencia
         ? {
             periodoRecorrencia: dto.recorrencia.periodoRecorrencia,
@@ -283,7 +286,7 @@ export class PendingService {
     );
   }
 
-  async payRecurringInstance(userId: string, templateId: string, month: number, year: number) {
+  async payRecurringInstance(userId: string, templateId: string, month: number, year: number, carteiraId?: string) {
     const uid = new Types.ObjectId(userId);
 
     const template = await this.pendingModel
@@ -307,6 +310,7 @@ export class PendingService {
       if (!existing.paid) {
         existing.paid = true;
         existing.paidAt = new Date();
+        if (carteiraId) existing.carteiraId = new Types.ObjectId(carteiraId);
         await existing.save();
         await this.createExpenseTransaction(existing);
       }
@@ -328,6 +332,7 @@ export class PendingService {
       isRecorrente: false,
       categoria: template.categoria,
       formatoPagamento: template.formatoPagamento,
+      carteiraId: carteiraId ? new Types.ObjectId(carteiraId) : template.carteiraId,
       recorrenciaTemplateId: templateId,
       paid: true,
       paidAt: new Date(),
@@ -348,6 +353,7 @@ export class PendingService {
     if (typeof dto.value !== 'undefined') pending.value = dto.value;
     if (typeof dto.dueDate !== 'undefined') pending.dueDate = new Date(dto.dueDate);
     if (typeof dto.description !== 'undefined') pending.description = dto.description;
+    if (typeof dto.carteiraId !== 'undefined') pending.carteiraId = dto.carteiraId ? new Types.ObjectId(dto.carteiraId) : undefined;
 
     if (dto.isRecorrente === true && !dto.recorrencia && !pending.recorrencia) {
       throw new BadRequestException('Recorrencia e obrigatoria quando isRecorrente = true');
@@ -364,6 +370,17 @@ export class PendingService {
     // Auto-cria transação de gasto quando conta é paga pela primeira vez
     if (dto.paid === true && !wasPaid) {
       await this.createExpenseTransaction(pending);
+
+      // Sincroniza metadados do grupo parcelado (parcelasPagas / qtdParcelasPagas)
+      if (pending.grupoParceladoId && pending.numeroParcela) {
+        await this.pendingModel.updateMany(
+          { userId: pending.userId, grupoParceladoId: pending.grupoParceladoId },
+          {
+            $addToSet: { 'parcelas.parcelasPagas': pending.numeroParcela },
+            $inc: { 'parcelas.qtdParcelasPagas': 1 },
+          },
+        ).exec();
+      }
     }
 
     return pending;

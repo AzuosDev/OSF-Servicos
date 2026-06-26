@@ -10,8 +10,9 @@ import { formatCurrency } from "../lib/finance";
 import { cn } from "../lib/utils";
 import { useToast } from "../components/ui/Toast";
 import { ConfirmDeleteModal } from "../components/modals/ConfirmDeleteModal";
+import { PayBillModal } from "../components/modals/PayBillModal";
 import { DynamicIcon } from "../components/DynamicIcon";
-import { useCategories } from "../components/modals/TransactionFormFields";
+import { useCategories, useWallets } from "../components/modals/TransactionFormFields";
 import type { PendingAccount } from "../types/api";
 
 type PendingItem = {
@@ -19,6 +20,7 @@ type PendingItem = {
   isRecorrente?: boolean;
   categoria?: string;
   formatoPagamento?: string;
+  carteiraId?: string;
   parcelas?: { totalParcelas?: number; valorParcela?: number; parcelasPagas?: number[]; dataInicio?: string; dataFim?: string; };
   numeroParcela?: number;
   grupoParceladoId?: string;
@@ -118,6 +120,7 @@ function normalizePending(data: unknown): PendingItem[] {
       isRecorrente: item.isRecorrente,
       categoria: item.categoria,
       formatoPagamento: item.formatoPagamento,
+      carteiraId: item.carteiraId,
       parcelas: item.parcelas ? {
         totalParcelas: item.parcelas.totalParcelas,
         valorParcela: item.parcelas.valorParcela,
@@ -225,6 +228,7 @@ export function PendingPage() {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const categoriesQuery = useCategories();
+  const walletsQuery = useWallets();
   const [creating, setCreating] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -239,6 +243,7 @@ export function PendingPage() {
     }
   }, []);
 
+  const [payBillItem, setPayBillItem] = useState<PendingDisplayItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [parcelStatusOpen, setParcelStatusOpen] = useState(false);
@@ -284,6 +289,7 @@ export function PendingPage() {
   const [categoriaCustom, setCategoriaCustom] = useState("");
   const [formFormatoPagamento, setFormFormatoPagamento] = useState("");
   const [formaCustom, setFormaCustom] = useState("");
+  const [formCarteiraId, setFormCarteiraId] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -368,26 +374,31 @@ export function PendingPage() {
       numeroParcela,
       month,
       year,
+      carteiraId,
     }: {
       id: string;
       isVirtual?: boolean;
       numeroParcela?: number;
       month: number;
       year: number;
+      carteiraId?: string;
     }) => {
       if (isVirtual) {
-        return api.post(`/api/pending/${id}/pay-month`, { month, year });
+        return api.post(`/api/pending/${id}/pay-month`, { month, year, carteiraId });
       }
-      return api.patch<PendingAccount>(`/api/pending/${id}`, { paid: true, numeroParcela });
+      return api.patch<PendingAccount>(`/api/pending/${id}`, { paid: true, numeroParcela, carteiraId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pending"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-group"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["wallets"] });
       addToast("Conta marcada como paga com sucesso.", "success");
       setParcelStatusOpen(false);
       setSelectedParcelItem(null);
+      setPayBillItem(null);
     },
     onError: () => addToast("Não foi possível atualizar a conta.", "error"),
   });
@@ -427,6 +438,7 @@ export function PendingPage() {
       queryClient.invalidateQueries({ queryKey: ["pending"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["wallets"] });
       addToast("Conta apagada com sucesso.", "success");
     },
     onError: () => addToast("Não foi possível apagar a conta.", "error"),
@@ -439,6 +451,7 @@ export function PendingPage() {
       queryClient.invalidateQueries({ queryKey: ["pending"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["wallets"] });
       addToast("Mês excluído com sucesso.", "success");
     },
     onError: () => addToast("Não foi possível excluir.", "error"),
@@ -449,6 +462,8 @@ export function PendingPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pending"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["wallets"] });
       addToast("Conta apagada com sucesso.", "success");
     },
     onError: () => addToast("Não foi possível apagar a conta.", "error"),
@@ -552,18 +567,21 @@ export function PendingPage() {
   const createPending = useMutation({
     mutationFn: async () => {
       setCreateError(null);
-      const payload = buildPendingPayload({
-        title: formTitle,
-        value: formValue,
-        dueDate: formIsParcelada ? (formParcelas.dataInicio || formDueDate) : formDueDate,
-        description: formDescription,
-        isParcelada: formIsParcelada,
-        isRecorrente: formIsRecorrente,
-        categoria: formCategoria === "Outro" && categoriaCustom.trim() ? categoriaCustom.trim() : formCategoria,
-        formatoPagamento: formFormatoPagamento && formFormatoPagamento !== "Outro" ? formFormatoPagamento : formaCustom,
-        parcelas: formParcelas,
-        recorrencia: formRecorrencia,
-      });
+      const payload = {
+        ...buildPendingPayload({
+          title: formTitle,
+          value: formValue,
+          dueDate: formIsParcelada ? (formParcelas.dataInicio || formDueDate) : formDueDate,
+          description: formDescription,
+          isParcelada: formIsParcelada,
+          isRecorrente: formIsRecorrente,
+          categoria: formCategoria === "Outro" && categoriaCustom.trim() ? categoriaCustom.trim() : formCategoria,
+          formatoPagamento: formFormatoPagamento && formFormatoPagamento !== "Outro" ? formFormatoPagamento : formaCustom,
+          parcelas: formParcelas,
+          recorrencia: formRecorrencia,
+        }),
+        carteiraId: formCarteiraId || undefined,
+      };
 
       console.log("[PendingPage] create payload", payload);
       try {
@@ -591,6 +609,7 @@ export function PendingPage() {
       setCategoriaCustom("");
       setFormFormatoPagamento("");
       setFormaCustom("");
+      setFormCarteiraId("");
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : "Não foi possível salvar a conta.";
@@ -727,17 +746,10 @@ export function PendingPage() {
                         {!item.paid && (
                           <button
                             type="button"
-                            onClick={() => markPaid.mutate({
-                              id: item.id,
-                              isVirtual: item.isVirtual,
-                              numeroParcela: item.numeroParcela,
-                              month: selectedMonth,
-                              year: selectedYear,
-                            })}
-                            disabled={markPaid.isPending}
-                            className="inline-flex items-center gap-2 rounded-xl bg-accent-lime/10 px-3 py-2 text-sm font-semibold text-accent-lime hover:bg-accent-lime/20 disabled:opacity-60"
+                            onClick={() => setPayBillItem(item)}
+                            className="inline-flex items-center gap-2 rounded-xl bg-accent-lime/10 px-3 py-2 text-sm font-semibold text-accent-lime hover:bg-accent-lime/20"
                           >
-                            {markPaid.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                            <Check className="h-4 w-4" />
                             Marcar como pago
                           </button>
                         )}
@@ -994,6 +1006,21 @@ export function PendingPage() {
                 )}
               </div>
 
+              {/* Carteira */}
+              <div>
+                <label className="block text-sm text-text-secondary mb-2">Carteira <span className="text-text-muted">(opcional)</span></label>
+                <select
+                  value={formCarteiraId}
+                  onChange={(e) => setFormCarteiraId(e.target.value)}
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
+                >
+                  <option value="">Nenhuma</option>
+                  {(walletsQuery.data ?? []).map((w) => (
+                    <option key={w._id} value={w._id}>{w.nome}</option>
+                  ))}
+                </select>
+              </div>
+
               {/* Descrição */}
               <div>
                 <label className="block text-sm text-text-secondary mb-2">Descrição <span className="text-text-muted">(opcional)</span></label>
@@ -1213,6 +1240,25 @@ export function PendingPage() {
           </div>
         );
       })()}
+      <PayBillModal
+        open={!!payBillItem}
+        onClose={() => setPayBillItem(null)}
+        title={payBillItem?.title ?? ""}
+        value={payBillItem?.value ?? 0}
+        defaultCarteiraId={payBillItem?.carteiraId}
+        isPending={markPaid.isPending}
+        onConfirm={(carteiraId) => {
+          if (!payBillItem || !carteiraId) return;
+          markPaid.mutate({
+            id: payBillItem.id,
+            isVirtual: payBillItem.isVirtual,
+            numeroParcela: payBillItem.numeroParcela,
+            month: selectedMonth,
+            year: selectedYear,
+            carteiraId,
+          });
+        }}
+      />
       <ConfirmDeleteModal
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}

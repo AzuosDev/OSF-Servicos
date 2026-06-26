@@ -45,7 +45,7 @@ export class UsersService {
     const hash = crypto.createHash('md5').update(doc.email.toLowerCase().trim()).digest('hex');
     return {
       ...doc.toObject(),
-      gravatarUrl: `https://www.gravatar.com/avatar/${hash}?s=200&d=404`,
+      gravatarUrl: `https://www.gravatar.com/avatar/${hash}?s=200&d=mp`,
     };
   }
 
