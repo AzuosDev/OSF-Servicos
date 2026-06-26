@@ -188,6 +188,17 @@ export class TransactionsService {
       }
 
       transaction.carteiraId = newCarteiraId;
+    } else if (oldCarteiraId && (oldValue !== transaction.value || oldType !== transaction.type)) {
+      // Same wallet, value or type changed — apply only the diff to avoid double-counting
+      const oldEffect = oldType === TransactionType.INCOME ? oldValue : -oldValue;
+      const newEffect = transaction.type === TransactionType.INCOME ? transaction.value : -transaction.value;
+      const diff = newEffect - oldEffect;
+      if (diff !== 0) {
+        await this.walletModel.findOneAndUpdate(
+          { _id: oldCarteiraId, userId: userObjectId },
+          { $inc: { saldo: diff } },
+        ).exec();
+      }
     }
 
     await transaction.save();
