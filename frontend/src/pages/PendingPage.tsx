@@ -12,8 +12,6 @@ import { useToast } from "../components/ui/Toast";
 import { ConfirmDeleteModal } from "../components/modals/ConfirmDeleteModal";
 import { PayBillModal } from "../components/modals/PayBillModal";
 import { PendingFormModal } from "../components/modals/PendingFormModal";
-import { DynamicIcon } from "../components/DynamicIcon";
-import { useCategories, useWallets } from "../components/modals/TransactionFormFields";
 import type { PendingAccount } from "../types/api";
 
 type PendingItem = {
@@ -38,62 +36,6 @@ type PendingItem = {
 };
 
 
-const PAYMENT_FORMATS = ["Cartão de Crédito", "Pix", "Dinheiro", "Outro"] as const;
-
-type PaymentFormat = (typeof PAYMENT_FORMATS)[number];
-
-function isPaymentFormat(value: string): value is PaymentFormat {
-  return (PAYMENT_FORMATS as readonly string[]).includes(value);
-}
-
-function toIsoDate(value: string) {
-  if (!value) return undefined;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
-}
-
-function buildPendingPayload(data: {
-  title: string;
-  value: string;
-  dueDate: string;
-  description: string;
-  isParcelada: boolean;
-  isRecorrente: boolean;
-  categoria: string;
-  formatoPagamento: string;
-  parcelas: { totalParcelas: string; dataInicio: string; dataFim: string };
-  recorrencia: { periodoRecorrencia: string; dataProxima: string };
-}) {
-  const normalizedValue = parseFloat(String(data.value).replace(",", "."));
-  const totalParcelas = Number(data.parcelas.totalParcelas);
-  const baseDate = data.parcelas.dataInicio || data.dueDate;
-
-  return {
-    title: data.title.trim(),
-    value: Number.isFinite(normalizedValue) ? normalizedValue : undefined,
-    dueDate: toIsoDate(data.dueDate),
-    description: data.description.trim() || undefined,
-    isParcelada: data.isParcelada,
-    isRecorrente: data.isRecorrente,
-    categoria: data.categoria?.trim() || undefined,
-    formatoPagamento: isPaymentFormat(data.formatoPagamento) ? data.formatoPagamento : undefined,
-    parcelas: data.isParcelada && baseDate && Number.isFinite(totalParcelas) && totalParcelas > 0
-      ? {
-          totalParcelas,
-          dataInicio: toIsoDate(data.parcelas.dataInicio ?? data.dueDate),
-          dataFim: toIsoDate(data.parcelas.dataFim ?? data.dueDate),
-          valorParcela: Number((normalizedValue / totalParcelas).toFixed(2)),
-          parcelasPagas: 0,
-        }
-      : undefined,
-    recorrencia: data.isRecorrente && data.recorrencia.periodoRecorrencia
-      ? {
-          periodoRecorrencia: data.recorrencia.periodoRecorrencia,
-          dataProxima: toIsoDate(data.dueDate),
-        }
-      : undefined,
-  };
-}
 
 function normalizePending(data: unknown): PendingItem[] {
   if (Array.isArray(data)) {
@@ -215,8 +157,6 @@ const monthOptions = [
 export function PendingPage() {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
-  const categoriesQuery = useCategories();
-  const walletsQuery = useWallets();
   const [creating, setCreating] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -251,37 +191,6 @@ export function PendingPage() {
   const [selectedAccount, setSelectedAccount] = useState<PendingItem | null>(
     null,
   );
-  // ? state dos campos do formulário
-  const [formTitle, setFormTitle] = useState("");
-  const [formValue, setFormValue] = useState("");
-  const [formDueDate, setFormDueDate] = useState("");
-  const [formDescription, setFormDescription] = useState("");
-  const [formIsParcelada, setFormIsParcelada] = useState(false);
-  const [formParcelas, setFormParcelas] = useState({ totalParcelas: "", dataInicio: "", dataFim: "" });
-  const [formIsRecorrente, setFormIsRecorrente] = useState(false);
-  const [formRecorrencia, setFormRecorrencia] = useState({ periodoRecorrencia: "Mensal", dataProxima: "" });
-  const [formCategoria, setFormCategoria] = useState("");
-  const [categoriaCustom, setCategoriaCustom] = useState("");
-  const [formFormatoPagamento, setFormFormatoPagamento] = useState("");
-  const [formaCustom, setFormaCustom] = useState("");
-  const [formCarteiraId, setFormCarteiraId] = useState("");
-  const [createError, setCreateError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!createError) return;
-    const timer = window.setTimeout(() => setCreateError(null), 5000);
-    return () => window.clearTimeout(timer);
-  }, [createError]);
-
-  useEffect(() => {
-    const total = Number(formParcelas.totalParcelas);
-    if (!formParcelas.dataInicio || !total || total <= 0) return;
-    const start = new Date(`${formParcelas.dataInicio}T12:00:00`);
-    if (Number.isNaN(start.getTime())) return;
-    const end = new Date(start);
-    end.setMonth(end.getMonth() + total - 1);
-    setFormParcelas((prev) => ({ ...prev, dataFim: end.toISOString().slice(0, 10) }));
-  }, [formParcelas.dataInicio, formParcelas.totalParcelas]);
 
   const currentYear = new Date().getFullYear();
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
@@ -448,61 +357,6 @@ export function PendingPage() {
     });
     setDeleteModalOpen(true);
   }
-  // ? mutation para criar conta pendente
-  const createPending = useMutation({
-    mutationFn: async () => {
-      setCreateError(null);
-      const payload = {
-        ...buildPendingPayload({
-          title: formTitle,
-          value: formValue,
-          dueDate: formIsParcelada ? (formParcelas.dataInicio || formDueDate) : formDueDate,
-          description: formDescription,
-          isParcelada: formIsParcelada,
-          isRecorrente: formIsRecorrente,
-          categoria: formCategoria === "Outro" && categoriaCustom.trim() ? categoriaCustom.trim() : formCategoria,
-          formatoPagamento: formFormatoPagamento && formFormatoPagamento !== "Outro" ? formFormatoPagamento : formaCustom,
-          parcelas: formParcelas,
-          recorrencia: formRecorrencia,
-        }),
-        carteiraId: formCarteiraId || undefined,
-      };
-
-      console.log("[PendingPage] create payload", payload);
-      try {
-        const response = await api.post("/api/pending", payload);
-        console.log("[PendingPage] create response", response.data);
-      } catch (error) {
-        console.error("[PendingPage] create error", error);
-        throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pending"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      addToast("Conta adicionada com sucesso.", "success");
-      setCreating(false);
-      setFormTitle("");
-      setFormValue("");
-      setFormDueDate("");
-      setFormDescription("");
-      setFormIsParcelada(false);
-      setFormIsRecorrente(false);
-      setFormParcelas({ totalParcelas: "", dataInicio: "", dataFim: "" });
-      setFormRecorrencia({ periodoRecorrencia: "Mensal", dataProxima: "" });
-      setFormCategoria("");
-      setCategoriaCustom("");
-      setFormFormatoPagamento("");
-      setFormaCustom("");
-      setFormCarteiraId("");
-    },
-    onError: (error) => {
-      const message = error instanceof Error ? error.message : "Não foi possível salvar a conta.";
-      setCreateError(message);
-      addToast(message, "error");
-    },
-  });
-
   return (
     <section className="space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -562,19 +416,6 @@ export function PendingPage() {
           </p>
         </article>
       </div>
-
-      {createError && (
-        <div className="rounded-2xl border border-accent-red/30 bg-accent-red/10 p-4 text-sm text-accent-red flex items-start justify-between gap-3">
-          <p>{createError}</p>
-          <button
-            type="button"
-            onClick={() => setCreateError(null)}
-            className="shrink-0 rounded-lg border border-accent-red/30 px-2 py-1 text-xs font-semibold text-accent-red transition hover:bg-accent-red/10"
-          >
-            Fechar
-          </button>
-        </div>
-      )}
 
       {pendingQuery.isLoading ? (
         <div className="rounded-2xl bg-bg-card p-5 text-sm text-text-secondary">
@@ -672,276 +513,11 @@ export function PendingPage() {
         </div>
       )}
 
-      {creating && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="flex w-full max-w-md max-h-[90vh] flex-col overflow-hidden rounded-2xl border border-bg-muted bg-bg-card">
-            <div className="px-5 pt-5 pb-1">
-              <h2 className="text-lg font-bold text-white">Nova conta pendente</h2>
-              <p className="mt-1 text-sm text-text-secondary">Cadastre uma conta para acompanhar o pagamento.</p>
-            </div>
-            <div className="flex-1 overflow-y-auto px-5 pb-3 space-y-4 mt-4">
-              {/* Tipo de conta */}
-              <div className="flex space-x-1 rounded-xl bg-bg-muted p-1">
-                {['Não parcelada', 'Parcelada', 'Recorrente'].map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    className={`flex-1 rounded px-2 py-2 text-xs font-medium transition sm:px-3 sm:text-sm ${
-                      (formIsParcelada && type === 'Parcelada') ||
-                      (formIsRecorrente && type === 'Recorrente') ||
-                      (!formIsParcelada && !formIsRecorrente && type === 'Não parcelada')
-                        ? 'bg-accent-lime text-black'
-                        : 'text-white'
-                    }`}
-                    onClick={() => {
-                      setFormIsParcelada(type === 'Parcelada');
-                      setFormIsRecorrente(type === 'Recorrente');
-                    }}
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
-
-              {/* Valor */}
-              <div>
-                <label className="block text-sm text-text-secondary mb-2">Valor</label>
-                <div className="flex items-center gap-3 rounded-xl border border-bg-muted bg-bg-muted px-4 py-3">
-                  <span className="shrink-0 text-sm font-medium text-text-secondary">R$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0"
-                    className="flex-1 bg-transparent text-center text-xl font-bold text-accent-lime outline-none [appearance:textfield] placeholder:text-text-muted [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                    value={formValue}
-                    onChange={(e) => setFormValue(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* Campos parcelada */}
-              {formIsParcelada && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm text-text-secondary mb-2">Quantidade de parcelas</label>
-                    <input
-                      type="number"
-                      min={1}
-                      step={1}
-                      placeholder="ex: 10"
-                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
-                      value={formParcelas.totalParcelas}
-                      onChange={(e) => setFormParcelas((prev) => ({ ...prev, totalParcelas: e.target.value }))}
-                    />
-                    {formParcelas.totalParcelas && formValue && (
-                      <p className="mt-1.5 text-xs text-text-muted">
-                        Valor por parcela:{" "}
-                        <span className="font-semibold text-accent-lime">
-                          {formatCurrency(parseFloat(formValue) / Number(formParcelas.totalParcelas))}
-                        </span>
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm text-text-secondary mb-2">Data de início</label>
-                    <input
-                      type="date"
-                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
-                      value={formParcelas.dataInicio}
-                      onChange={(e) => setFormParcelas((prev) => ({ ...prev, dataInicio: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-text-secondary mb-2">Data de fim</label>
-                    <input
-                      type="date"
-                      readOnly
-                      className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-text-secondary cursor-default"
-                      value={formParcelas.dataFim}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Campos recorrente */}
-              {formIsRecorrente && (
-                <div>
-                  <label className="block text-sm text-text-secondary mb-2">Período de recorrência</label>
-                  <select
-                    value={formRecorrencia.periodoRecorrencia}
-                    onChange={(e) => setFormRecorrencia((prev) => ({ ...prev, periodoRecorrencia: e.target.value }))}
-                    className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
-                  >
-                    <option value="Diário">Diário</option>
-                    <option value="Semanal">Semanal</option>
-                    <option value="Mensal">Mensal</option>
-                    <option value="Anual">Anual</option>
-                  </select>
-                </div>
-              )}
-
-              {/* Título */}
-              <div>
-                <label className="block text-sm text-text-secondary mb-2">Título</label>
-                <input
-                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
-                  placeholder="Ex: Conta de luz"
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
-                />
-              </div>
-
-              {/* Data (não parcelada) */}
-              {!formIsParcelada && (
-                <div>
-                  <label className="block text-sm text-text-secondary mb-2">Data de vencimento</label>
-                  <input
-                    type="date"
-                    className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
-                    value={formDueDate}
-                    onChange={(e) => setFormDueDate(e.target.value)}
-                  />
-                </div>
-              )}
-
-              {/* Categoria */}
-              <div>
-                <span className="mb-2 block text-sm text-text-secondary">Categoria</span>
-                <div className="grid grid-cols-3 gap-2">
-                  {categoriesQuery.isLoading
-                    ? Array.from({ length: 6 }).map((_, i) => (
-                        <div key={i} className="h-20 animate-pulse rounded-xl bg-bg-muted" />
-                      ))
-                    : (categoriesQuery.data ?? []).map((cat) => {
-                        const active = formCategoria === cat.name;
-                        return (
-                          <button
-                            key={cat.id}
-                            type="button"
-                            onClick={() => { setFormCategoria(active ? "" : cat.name); setCategoriaCustom(""); }}
-                            className={cn(
-                              "flex flex-col items-center justify-center gap-1.5 rounded-xl border bg-bg-muted p-3 text-center text-xs font-semibold transition",
-                              active
-                                ? "border-accent-lime text-white"
-                                : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-white",
-                            )}
-                          >
-                            <span className="grid h-8 w-8 place-items-center rounded-xl" style={{ backgroundColor: `${cat.color}22` }}>
-                              <DynamicIcon name={cat.icon} className="h-4 w-4" style={{ color: cat.color }} />
-                            </span>
-                            <span className="leading-tight">{cat.name}</span>
-                          </button>
-                        );
-                      })}
-                  {!categoriesQuery.isLoading && (
-                    <button
-                      type="button"
-                      onClick={() => setFormCategoria(formCategoria === "Outro" ? "" : "Outro")}
-                      className={cn(
-                        "flex flex-col items-center justify-center gap-1.5 rounded-xl border bg-bg-muted p-3 text-center text-xs font-semibold transition",
-                        formCategoria === "Outro"
-                          ? "border-accent-lime text-white"
-                          : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-white",
-                      )}
-                    >
-                      <span className="grid h-8 w-8 place-items-center rounded-xl" style={{ backgroundColor: "#6b728022" }}>
-                        <DynamicIcon name="MoreHorizontal" className="h-4 w-4" style={{ color: "#6b7280" }} />
-                      </span>
-                      <span className="leading-tight">Outro</span>
-                    </button>
-                  )}
-                </div>
-                {formCategoria === "Outro" && (
-                  <input
-                    type="text"
-                    placeholder="Qual categoria?"
-                    maxLength={50}
-                    className="mt-2 w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
-                    value={categoriaCustom}
-                    onChange={(e) => setCategoriaCustom(e.target.value)}
-                  />
-                )}
-              </div>
-
-              {/* Forma de pagamento */}
-              <div>
-                <label className="block text-sm text-text-secondary mb-2">Forma de pagamento</label>
-                <select
-                  value={formFormatoPagamento}
-                  onChange={(e) => {
-                    setFormFormatoPagamento(e.target.value);
-                    if (e.target.value !== 'Outro') setFormaCustom('');
-                  }}
-                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
-                >
-                  <option value="">Selecione</option>
-                  {PAYMENT_FORMATS.map((format) => (
-                    <option key={format} value={format}>{format}</option>
-                  ))}
-                </select>
-                {formFormatoPagamento === 'Outro' && (
-                  <input
-                    type="text"
-                    placeholder="Digite a forma de pagamento personalizada"
-                    className="mt-2 w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
-                    value={formaCustom}
-                    onChange={(e) => setFormaCustom(e.target.value)}
-                  />
-                )}
-              </div>
-
-              {/* Carteira */}
-              <div>
-                <label className="block text-sm text-text-secondary mb-2">Carteira <span className="text-text-muted">(opcional)</span></label>
-                <select
-                  value={formCarteiraId}
-                  onChange={(e) => setFormCarteiraId(e.target.value)}
-                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50"
-                >
-                  <option value="">Nenhuma</option>
-                  {(walletsQuery.data ?? []).map((w) => (
-                    <option key={w._id} value={w._id}>{w.nome}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Descrição */}
-              <div>
-                <label className="block text-sm text-text-secondary mb-2">Descrição <span className="text-text-muted">(opcional)</span></label>
-                <textarea
-                  rows={3}
-                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime/50 resize-none"
-                  placeholder="Adicione uma observação..."
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="flex shrink-0 justify-end gap-2 border-t border-bg-muted px-5 py-3">
-              <button
-                type="button"
-                onClick={() => setCreating(false)}
-                className="rounded-xl border border-bg-muted px-4 py-2 text-sm text-white"
-              >
-                Cancelar
-              </button>
-              {/* ? onClick chama a mutation */}
-              <button
-                type="button"
-                onClick={() => createPending.mutate()}
-                disabled={createPending.isPending}
-                className="flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-2 text-sm font-bold text-black disabled:opacity-70"
-              >
-                {createPending.isPending && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
-                Salvar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <PendingFormModal
+        open={creating}
+        onClose={() => setCreating(false)}
+        onSuccess={() => addToast("Conta adicionada com sucesso.", "success")}
+      />
 
       <PendingFormModal
         open={isEditModalOpen}
