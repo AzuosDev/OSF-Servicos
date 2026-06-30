@@ -237,6 +237,18 @@ export function TransactionModal({
     ? `Transferência para ${destinoWallet.nome}`
     : "Observação opcional";
 
+  const categoryId = form.watch("categoryId");
+  const activeCategories = activeTab === "INCOME" ? incomeCatsQuery.data : expenseCatsQuery.data;
+  const selectedCategory = activeCategories?.find((c) => c.id === categoryId);
+  const expenseIncomeDescriptionPlaceholder = selectedCategory
+    ? activeTab === "INCOME"
+      ? `Receita de ${selectedCategory.name}`
+      : `Gasto com ${selectedCategory.name}`
+    : "Observação opcional";
+
+  const descriptionPlaceholder =
+    activeTab === "TRANSFER" ? transferDescriptionPlaceholder : expenseIncomeDescriptionPlaceholder;
+
   const cfg = tabConfig[activeTab];
   const submitLabel = isEditing ? "Salvar Alterações" : cfg.submitLabel;
   const submitDisabled =
@@ -398,7 +410,7 @@ export function TransactionModal({
             register={form.register as never}
             watch={form.watch as never}
             errors={form.formState.errors}
-            descriptionPlaceholder={activeTab === "TRANSFER" ? transferDescriptionPlaceholder : undefined}
+            descriptionPlaceholder={descriptionPlaceholder}
           />
 
           {mutation.isError && (
