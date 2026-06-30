@@ -43,6 +43,7 @@ export type Wallet = MongoDocument & {
   nome: string;
   saldo: number;
   icone?: string;
+  tipo?: "VIRTUAL";
 };
 
 /**

@@ -32,12 +32,18 @@ export class WalletsService {
     return { $or: [{ agendado: false }, { agendado: { $exists: false } }] };
   }
 
+  // Mesma carteira virtual usada em transactions.service.ts/pending.service.ts para
+  // dados anteriores à feature de múltiplas carteiras.
+  private static readonly LEGACY_WALLET_ID = 'legacy-wallet';
+
   async findAll(userId: string) {
     const userObjectId = new Types.ObjectId(userId);
     const [wallets, saldoAgg, transferCreditsAgg] = await Promise.all([
       this.walletModel.find({ userId: userObjectId }).sort({ createdAt: 1 }).exec(),
+      // Sem filtro de carteiraId: transações legadas (carteiraId nulo/ausente) caem no
+      // grupo `_id: null` em vez de serem descartadas antes do $group.
       this.transactionModel.aggregate([
-        { $match: { userId: userObjectId, carteiraId: { $exists: true, $ne: null }, ...this.effectiveSaldoMatch() } },
+        { $match: { userId: userObjectId, ...this.effectiveSaldoMatch() } },
         {
           $group: {
             _id: '$carteiraId',
@@ -52,12 +58,34 @@ export class WalletsService {
     ]);
 
     const saldoMap = new Map<string, number>();
-    saldoAgg.forEach((r) => saldoMap.set(r._id.toString(), r.saldo));
+    let legacySaldo = 0;
+    saldoAgg.forEach((r) => {
+      if (r._id) {
+        saldoMap.set(r._id.toString(), r.saldo);
+      } else {
+        legacySaldo += r.saldo;
+      }
+    });
     transferCreditsAgg.forEach((r) => {
       const key = r._id.toString();
       saldoMap.set(key, (saldoMap.get(key) ?? 0) + r.saldo);
     });
-    return wallets.map((w) => ({ ...w.toObject(), saldo: saldoMap.get(w._id.toString()) ?? 0 }));
+
+    const result: Array<Record<string, unknown>> = wallets.map((w) => ({
+      ...w.toObject(),
+      saldo: saldoMap.get(w._id.toString()) ?? 0,
+    }));
+
+    if (legacySaldo !== 0) {
+      result.push({
+        _id: WalletsService.LEGACY_WALLET_ID,
+        nome: 'Saldo Histórico (Sem Carteira)',
+        tipo: 'VIRTUAL',
+        saldo: legacySaldo,
+      });
+    }
+
+    return result;
   }
 
   async findOne(userId: string, id: string) {

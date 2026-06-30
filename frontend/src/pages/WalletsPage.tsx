@@ -232,30 +232,48 @@ export function WalletsPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {wallets.map((wallet) => (
-            <div key={wallet._id} className="relative group">
-              <Link
-                to={`/carteiras/${wallet._id}`}
-                className="flex flex-col gap-3 rounded-2xl bg-bg-card p-5 transition hover:bg-bg-muted"
+          {wallets.map((wallet) =>
+            wallet.tipo === "VIRTUAL" ? (
+              // Carteira virtual: não existe na coleção real, então não navega para
+              // detalhe nem pode ser excluída — só informa o saldo de dados legados.
+              <div
+                key={wallet._id}
+                title="Transações antigas ainda não associadas a uma carteira. Use a tela de transações para migrá-las."
+                className="flex cursor-default flex-col gap-3 rounded-2xl border border-dashed border-bg-muted bg-bg-card/60 p-5"
               >
-                <BankLogo nome={wallet.nome} icone={wallet.icone} className="h-10 w-10" />
+                <BankLogo nome={wallet.nome} icone={wallet.icone} className="h-10 w-10 opacity-70" />
                 <div>
                   <p className="text-sm text-text-secondary">{wallet.nome}</p>
                   <strong className={cn("font-sans text-2xl font-bold", wallet.saldo < 0 ? "text-accent-red" : "text-accent-lime")}>
                     {fmt(wallet.saldo)}
                   </strong>
                 </div>
-              </Link>
-              <button
-                type="button"
-                onClick={(e) => { e.preventDefault(); setWalletToDelete(wallet); }}
-                className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-lg text-text-muted opacity-0 transition hover:bg-accent-red/10 hover:text-accent-red group-hover:opacity-100"
-                title="Excluir carteira"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
+              </div>
+            ) : (
+              <div key={wallet._id} className="relative group">
+                <Link
+                  to={`/carteiras/${wallet._id}`}
+                  className="flex flex-col gap-3 rounded-2xl bg-bg-card p-5 transition hover:bg-bg-muted"
+                >
+                  <BankLogo nome={wallet.nome} icone={wallet.icone} className="h-10 w-10" />
+                  <div>
+                    <p className="text-sm text-text-secondary">{wallet.nome}</p>
+                    <strong className={cn("font-sans text-2xl font-bold", wallet.saldo < 0 ? "text-accent-red" : "text-accent-lime")}>
+                      {fmt(wallet.saldo)}
+                    </strong>
+                  </div>
+                </Link>
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); setWalletToDelete(wallet); }}
+                  className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-lg text-text-muted opacity-0 transition hover:bg-accent-red/10 hover:text-accent-red group-hover:opacity-100"
+                  title="Excluir carteira"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ),
+          )}
         </div>
       )}
       <DeleteWalletModal
