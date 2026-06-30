@@ -35,6 +35,7 @@ export type Transaction = MongoDocument & {
   carteiraId?: ApiId;
   carteiraDestinoId?: ApiId;
   agendado?: boolean;
+  carteira?: VirtualWallet;
 };
 
 export type Wallet = MongoDocument & {
@@ -42,6 +43,17 @@ export type Wallet = MongoDocument & {
   nome: string;
   saldo: number;
   icone?: string;
+};
+
+/**
+ * Carteira virtual injetada pelo backend quando uma transação/conta antiga não possui
+ * carteiraId (dado anterior à feature de múltiplas carteiras). Não existe na coleção de
+ * carteiras real — use sempre com optional chaining (`item.carteira?.nome`).
+ */
+export type VirtualWallet = {
+  _id: "legacy-wallet";
+  nome: string;
+  tipo: "VIRTUAL";
 };
 
 export type TransactionsResponse = {
@@ -124,6 +136,8 @@ export type PendingAccount = MongoDocument & {
   paid: boolean;
   paidAt?: ApiDate;
   description?: string;
+  carteiraId?: ApiId;
+  carteira?: VirtualWallet;
 };
 
 export type Goal = MongoDocument & {

@@ -7,6 +7,7 @@ import { ICurrentUser } from '../../common/types/current-user.type';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { GetTransactionsDto } from './dto/get-transactions.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
+import { BulkWalletDto } from './dto/bulk-wallet.dto';
 
 @ApiTags('Transactions')
 @ApiBearerAuth()
@@ -39,6 +40,16 @@ export class TransactionsController {
   @Get(':id')
   async findOne(@CurrentUser() user: ICurrentUser, @Param('id') id: string) {
     return this.transactionsService.findOne(user._id.toString(), id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('bulk-wallet')
+  async bulkWallet(@CurrentUser() user: ICurrentUser, @Body() dto: BulkWalletDto) {
+    return this.transactionsService.associateTransactionsToWallet(
+      user._id.toString(),
+      dto.transactionIds,
+      dto.targetWalletId,
+    );
   }
 
   @UseGuards(JwtAuthGuard)

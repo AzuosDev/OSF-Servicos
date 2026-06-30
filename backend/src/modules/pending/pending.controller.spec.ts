@@ -254,6 +254,20 @@ describe('PendingController (e2e)', () => {
     ).toBe(true);
   });
 
+  it('GET injects a virtual wallet for legacy accounts without carteiraId', async () => {
+    await request(app.getHttpServer())
+      .post('/api/accounts')
+      .send({ ...basePayload, title: 'Conta legada sem carteira' })
+      .expect(201);
+
+    const res = await request(app.getHttpServer()).get('/api/accounts').expect(200);
+    const item = (res.body as Array<{ title: string; carteira?: { nome: string; tipo: string } }>).find(
+      (i) => i.title === 'Conta legada sem carteira',
+    );
+    expect(item).toBeDefined();
+    expect(item!.carteira?.tipo).toBe('VIRTUAL');
+  });
+
   it('GET keeps projecting a recurring PAGAR template into months well after its creation month', async () => {
     await request(app.getHttpServer())
       .post('/api/accounts')

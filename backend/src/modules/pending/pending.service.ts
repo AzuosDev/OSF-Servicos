@@ -85,6 +85,18 @@ export class PendingService {
     return new Date(Date.UTC(year, month, 0)).getUTCDate();
   }
 
+  // Mesma carteira virtual de fallback usada em transactions.service.ts, para contas
+  // antigas sem carteiraId não chegarem como null no frontend.
+  private static readonly LEGACY_WALLET = {
+    _id: 'legacy-wallet',
+    nome: 'Saldo Histórico (Sem Carteira)',
+    tipo: 'VIRTUAL' as const,
+  };
+
+  private attachVirtualWallet(item: Record<string, unknown>): Record<string, unknown> {
+    return { ...item, carteira: item.carteiraId ? undefined : PendingService.LEGACY_WALLET };
+  }
+
   private async createSettlementTransaction(pending: PendingAccountDocument) {
     const userId = pending.userId as Types.ObjectId;
     const isReceber = pending.tipo === 'RECEBER';
@@ -233,7 +245,8 @@ export class PendingService {
       };
       if (typeof paid === 'boolean') filter.paid = paid;
       if (tipo) filter.tipo = tipo;
-      return this.pendingModel.find(filter).sort({ dueDate: 1 }).exec();
+      const docs = await this.pendingModel.find(filter).sort({ dueDate: 1 }).exec();
+      return docs.map((d) => this.attachVirtualWallet(d.toObject() as Record<string, unknown>));
     }
 
     const { start: monthStart, end: monthEnd } = this.monthRangeUtc(year, month);
@@ -323,7 +336,7 @@ export class PendingService {
     const allResults = [
       ...regularAccounts.map(d => d.toObject() as Record<string, unknown>),
       ...recurringEntries,
-    ];
+    ].map((item) => this.attachVirtualWallet(item));
 
     return allResults.sort(
       (a, b) =>

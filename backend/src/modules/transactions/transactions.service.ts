@@ -17,6 +17,20 @@ export class TransactionsService {
     @InjectModel(Wallet.name) private walletModel: Model<WalletDocument>,
   ) {}
 
+  // Dados anteriores à feature de múltiplas carteiras não têm carteiraId. Em vez de
+  // devolver null pro frontend, injeta uma carteira virtual para exibição — o nome do
+  // campo (`nome`) segue a mesma convenção de Wallet.nome para não exigir um caminho de
+  // leitura diferente entre carteira real e virtual.
+  private static readonly LEGACY_WALLET = {
+    _id: 'legacy-wallet',
+    nome: 'Saldo Histórico (Sem Carteira)',
+    tipo: 'VIRTUAL' as const,
+  };
+
+  private attachVirtualWallet<T extends { carteiraId?: Types.ObjectId }>(doc: T) {
+    return { ...doc, carteira: doc.carteiraId ? undefined : TransactionsService.LEGACY_WALLET };
+  }
+
   private toObjectId(value: string, fieldName: string) {
     if (!Types.ObjectId.isValid(value)) {
       throw new BadRequestException(`${fieldName} must be a valid ObjectId`);
@@ -124,10 +138,12 @@ export class TransactionsService {
       filter.$or = [{ carteiraId: walletOid }, { carteiraDestinoId: walletOid }];
     }
 
-    const [data, total] = await Promise.all([
+    const [docs, total] = await Promise.all([
       this.transactionModel.find(filter).sort({ date: -1 }).skip((page - 1) * limit).limit(limit).exec(),
       this.transactionModel.countDocuments(filter).exec(),
     ]);
+
+    const data = docs.map((d) => this.attachVirtualWallet(d.toObject()));
 
     return { data, total, page, limit };
   }
@@ -230,5 +246,65 @@ export class TransactionsService {
     }
 
     return { deleted: true };
+  }
+
+  // Lazy migration: associa em lote transações legadas (sem carteiraId) a uma carteira
+  // real escolhida pelo usuário. Só aceita transações ainda sem carteira para não
+  // sobrescrever um vínculo já existente sem reverter o efeito de saldo dele — esse
+  // mesmo cuidado é o que `update()` já faz transação por transação.
+  async associateTransactionsToWallet(userId: string, transactionIds: string[], targetWalletId: string) {
+    const userObjectId = this.toObjectId(userId, 'userId');
+    const walletObjectId = this.toObjectId(targetWalletId, 'targetWalletId');
+
+    const wallet = await this.walletModel.findOne({ _id: walletObjectId, userId: userObjectId }).exec();
+    if (!wallet) throw new NotFoundException('Carteira de destino não encontrada');
+
+    const uniqueIds = Array.from(new Set(transactionIds));
+    const objectIds = uniqueIds.map((id) => this.toObjectId(id, 'transactionIds'));
+
+    const transactions = await this.transactionModel
+      .find({ _id: { $in: objectIds }, userId: userObjectId })
+      .exec();
+
+    if (transactions.length !== objectIds.length) {
+      const foundIds = new Set(transactions.map((t) => t._id.toString()));
+      const missing = uniqueIds.filter((id) => !foundIds.has(id));
+      throw new BadRequestException(`Transações não encontradas: ${missing.join(', ')}`);
+    }
+
+    const alreadyLinked = transactions.filter((t) => t.carteiraId);
+    if (alreadyLinked.length) {
+      throw new BadRequestException(
+        `As transações a seguir já possuem carteira associada: ${alreadyLinked
+          .map((t) => t._id.toString())
+          .join(', ')}`,
+      );
+    }
+
+    // Saldo da carteira (wallets.service.findAll/findOne) é recalculado por agregação
+    // sobre Transaction.carteiraId, então o updateMany abaixo já é suficiente para o
+    // saldo exibido ficar correto. Ainda assim mantemos o campo estático Wallet.saldo em
+    // dia, no mesmo padrão usado em create()/update()/remove() desta classe.
+    const eligibleForSaldo = transactions.filter((t) => !t.agendado && t.type !== TransactionType.TRANSFER);
+    const impact = eligibleForSaldo.reduce(
+      (sum, t) => sum + (t.type === TransactionType.INCOME ? t.value : -t.value),
+      0,
+    );
+
+    await this.transactionModel
+      .updateMany({ _id: { $in: objectIds }, userId: userObjectId }, { $set: { carteiraId: walletObjectId } })
+      .exec();
+
+    if (impact !== 0) {
+      await this.walletModel
+        .findOneAndUpdate({ _id: walletObjectId, userId: userObjectId }, { $inc: { saldo: impact } })
+        .exec();
+    }
+
+    return {
+      updatedCount: transactions.length,
+      walletId: walletObjectId.toString(),
+      impact,
+    };
   }
 }
