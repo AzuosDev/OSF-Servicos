@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Clock, Loader2, Plus, Trash2 } from "lucide-react";
+import { Check, Clock, Inbox, Loader2, Plus, Trash2 } from "lucide-react";
 
 import { api } from "../lib/api";
 
@@ -108,35 +108,6 @@ type PendingDisplayItem = PendingItem & {
   installmentLabel?: string;
 };
 
-type PendingMonthGroup = {
-  key: string;
-  label: string;
-  items: PendingDisplayItem[];
-};
-
-function parseDate(value: string) {
-  if (!value) return null;
-
-  const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
-  const date = isDateOnly ? new Date(`${value}T12:00:00`) : new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function monthKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function monthLabel(date: Date) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    month: "long",
-    year: "numeric",
-  }).format(date);
-}
-
-function sortMonthGroups(a: PendingMonthGroup, b: PendingMonthGroup) {
-  return a.key.localeCompare(b.key);
-}
-
 const monthOptions = [
   "Jan",
   "Fev",
@@ -229,36 +200,25 @@ export function ContasPage() {
   });
 
   const activeQuery = activeTab === "PAGAR" ? pagarQuery : receberQuery;
-  const items = activeQuery.data ?? [];
-  const visibleItems = items;
+  const items = useMemo(() => activeQuery.data ?? [], [activeQuery.data]);
 
-
-  const displayGroups = useMemo(() => {
-    const grouped = new Map<string, PendingMonthGroup>();
-
-    for (const item of visibleItems) {
-      const date = parseDate(item.dueDate);
-      if (!date) continue;
-      const key = monthKey(date);
-      const current = grouped.get(key);
-      if (current) current.items.push(item);
-      else grouped.set(key, { key, label: monthLabel(date), items: [item] });
-    }
-
-    return Array.from(grouped.values()).sort(sortMonthGroups).map((group) => ({
-      ...group,
-      items: group.items.sort((a, b) => a.dueDate.localeCompare(b.dueDate)),
-    }));
-  }, [visibleItems]);
-
-  const totalPagar = useMemo(
-    () => (pagarQuery.data ?? []).reduce((sum, item) => sum + item.value, 0),
-    [pagarQuery.data],
+  const pendentes = useMemo(
+    () => items.filter((item) => !item.paid).sort((a, b) => a.dueDate.localeCompare(b.dueDate)),
+    [items],
   );
-  const totalReceber = useMemo(
-    () => (receberQuery.data ?? []).reduce((sum, item) => sum + item.value, 0),
-    [receberQuery.data],
+  const pagas = useMemo(
+    () => items.filter((item) => item.paid).sort((a, b) => a.dueDate.localeCompare(b.dueDate)),
+    [items],
   );
+
+  function breakdown(list: PendingItem[]) {
+    const total = list.reduce((sum, item) => sum + item.value, 0);
+    const pago = list.filter((item) => item.paid).reduce((sum, item) => sum + item.value, 0);
+    return { total, pago, pendente: total - pago };
+  }
+
+  const pagarBreakdown = useMemo(() => breakdown(pagarQuery.data ?? []), [pagarQuery.data]);
+  const receberBreakdown = useMemo(() => breakdown(receberQuery.data ?? []), [receberQuery.data]);
 
   const markPaid = useMutation({
     mutationFn: async ({
@@ -369,6 +329,85 @@ export function ContasPage() {
     });
     setDeleteModalOpen(true);
   }
+
+  function renderAccountCard(item: PendingDisplayItem) {
+    const status = statusLabel(item);
+    const dueDate = new Date(item.dueDate);
+    const installmentLabel = item.installmentLabel ?? (item.numeroParcela && item.parcelas?.totalParcelas ? `parcela ${item.numeroParcela}/${item.parcelas.totalParcelas}` : undefined);
+
+    return (
+      <article
+        key={`${item.id}-${item.dueDate}`}
+        className={cn(
+          "rounded-2xl border bg-bg-card p-4 transition",
+          item.paid && "opacity-60",
+          dueDate < new Date() && !item.paid ? "border-accent-red/50" : "border-bg-muted",
+          dueDate.toDateString() === new Date().toDateString() && !item.paid ? "border-accent-yellow/50" : "",
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <div className="rounded-2xl bg-bg-muted p-3">
+            <Clock className="h-5 w-5 text-accent-lime" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-semibold text-white">{item.title}</h2>
+              {installmentLabel && (
+                <span className="rounded-full bg-accent-lime/10 px-2.5 py-1 text-[11px] font-semibold text-accent-lime">{installmentLabel}</span>
+              )}
+              {(item.isRecorrente || item.isVirtual || item.recorrenciaTemplateId) && (
+                <span className="rounded-full bg-blue-500/10 px-2.5 py-1 text-[11px] font-semibold text-blue-400">Recorrente</span>
+              )}
+              <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold", status.className)}>{status.label}</span>
+            </div>
+            <p className="mt-1 text-sm text-text-secondary">{item.description ?? "Conta"}</p>
+            <p className="mt-2 text-xs text-text-muted">Vence em {dueDate.toLocaleDateString("pt-BR")}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-semibold text-white">{formatCurrency(item.value)}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {!item.paid && (
+            <button
+              type="button"
+              onClick={() => setPayBillItem(item)}
+              className="inline-flex items-center gap-2 rounded-xl bg-accent-lime/10 px-3 py-2 text-sm font-semibold text-accent-lime hover:bg-accent-lime/20"
+            >
+              <Check className="h-4 w-4" />
+              {activeTab === "RECEBER" ? "Marcar como recebido" : "Marcar como pago"}
+            </button>
+          )}
+          {item.isParcelada && (
+            <button
+              type="button"
+              onClick={() => abrirParcelStatus(item)}
+              className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-white"
+            >
+              Parcelas
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => abrirModalEdicao(item)}
+            className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-white"
+          >
+            Editar
+          </button>
+          <button
+            type="button"
+            onClick={() => confirmarDeletar(item)}
+            disabled={deletePending.isPending}
+            className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-accent-red"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </article>
+    );
+  }
+
   return (
     <section className="space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -427,21 +466,51 @@ export function ContasPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <article className="rounded-2xl border border-accent-orange/20 bg-bg-card p-5">
+        <article
+          className={cn(
+            "rounded-2xl border bg-bg-card p-5 transition",
+            activeTab === "PAGAR" ? "border-accent-orange/40 ring-1 ring-accent-orange/20" : "border-accent-orange/10 opacity-70",
+          )}
+        >
           <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
             Total Mês a Pagar
           </p>
           <p className="mt-3 text-3xl font-bold text-accent-orange">
-            {formatCurrency(totalPagar)}
+            {formatCurrency(pagarBreakdown.total)}
           </p>
+          <div className="mt-4 flex gap-4 text-sm">
+            <p>
+              <span className="text-text-muted">Pago </span>
+              <span className="font-semibold text-accent-lime">{formatCurrency(pagarBreakdown.pago)}</span>
+            </p>
+            <p>
+              <span className="text-text-muted">Pendente </span>
+              <span className="font-semibold text-accent-red">{formatCurrency(pagarBreakdown.pendente)}</span>
+            </p>
+          </div>
         </article>
-        <article className="rounded-2xl border border-accent-lime/20 bg-bg-card p-5">
+        <article
+          className={cn(
+            "rounded-2xl border bg-bg-card p-5 transition",
+            activeTab === "RECEBER" ? "border-accent-lime/40 ring-1 ring-accent-lime/20" : "border-accent-lime/10 opacity-70",
+          )}
+        >
           <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
             Total Mês a Receber
           </p>
           <p className="mt-3 text-3xl font-bold text-accent-lime">
-            {formatCurrency(totalReceber)}
+            {formatCurrency(receberBreakdown.total)}
           </p>
+          <div className="mt-4 flex gap-4 text-sm">
+            <p>
+              <span className="text-text-muted">Recebido </span>
+              <span className="font-semibold text-accent-lime">{formatCurrency(receberBreakdown.pago)}</span>
+            </p>
+            <p>
+              <span className="text-text-muted">Pendente </span>
+              <span className="font-semibold text-accent-red">{formatCurrency(receberBreakdown.pendente)}</span>
+            </p>
+          </div>
         </article>
       </div>
 
@@ -449,95 +518,36 @@ export function ContasPage() {
         <div className="rounded-2xl bg-bg-card p-5 text-sm text-text-secondary">
           Carregando contas...
         </div>
+      ) : items.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-2xl bg-bg-card p-12 text-center">
+          <Inbox className="h-10 w-10 text-text-muted" />
+          <p className="text-sm text-text-secondary">
+            Nenhum agendamento ou conta cadastrada para este mês.
+          </p>
+        </div>
       ) : (
         <div className="space-y-6">
-          {displayGroups.map((group) => (
-            <section key={group.key} className="space-y-3">
+          {pendentes.length > 0 && (
+            <section className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-white">{group.label}</h2>
-                <span className="text-sm text-text-secondary">{group.items.length} item(ns)</span>
+                <h2 className="text-lg font-semibold text-white">Pendentes</h2>
+                <span className="text-sm text-text-secondary">{pendentes.length} item(ns)</span>
               </div>
-              <div className="space-y-3">
-                {group.items.map((item) => {
-                  const status = statusLabel(item);
-                  const dueDate = new Date(item.dueDate);
-                  const installmentLabel = item.installmentLabel ?? (item.numeroParcela && item.parcelas?.totalParcelas ? `parcela ${item.numeroParcela}/${item.parcelas.totalParcelas}` : undefined);
-
-                  return (
-                    <article
-                      key={`${item.id}-${item.dueDate}`}
-                      className={cn(
-                        "rounded-2xl border bg-bg-card p-4 transition",
-                        item.paid && "opacity-60",
-                        dueDate < new Date() && !item.paid ? "border-accent-red/50" : "border-bg-muted",
-                        dueDate.toDateString() === new Date().toDateString() && !item.paid ? "border-accent-yellow/50" : "",
-                      )}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="rounded-2xl bg-bg-muted p-3">
-                          <Clock className="h-5 w-5 text-accent-lime" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="text-base font-semibold text-white">{item.title}</h2>
-                            {installmentLabel && (
-                              <span className="rounded-full bg-accent-lime/10 px-2.5 py-1 text-[11px] font-semibold text-accent-lime">{installmentLabel}</span>
-                            )}
-                            {(item.isRecorrente || item.isVirtual || item.recorrenciaTemplateId) && (
-                              <span className="rounded-full bg-blue-500/10 px-2.5 py-1 text-[11px] font-semibold text-blue-400">Recorrente</span>
-                            )}
-                            <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold", status.className)}>{status.label}</span>
-                          </div>
-                          <p className="mt-1 text-sm text-text-secondary">{item.description ?? "Conta"}</p>
-                          <p className="mt-2 text-xs text-text-muted">Vence em {dueDate.toLocaleDateString("pt-BR")}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold text-white">{formatCurrency(item.value)}</p>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {!item.paid && (
-                          <button
-                            type="button"
-                            onClick={() => setPayBillItem(item)}
-                            className="inline-flex items-center gap-2 rounded-xl bg-accent-lime/10 px-3 py-2 text-sm font-semibold text-accent-lime hover:bg-accent-lime/20"
-                          >
-                            <Check className="h-4 w-4" />
-                            {activeTab === "RECEBER" ? "Marcar como recebido" : "Marcar como pago"}
-                          </button>
-                        )}
-                        {item.isParcelada && (
-                          <button
-                            type="button"
-                            onClick={() => abrirParcelStatus(item)}
-                            className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-white"
-                          >
-                            Parcelas
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => abrirModalEdicao(item)}
-                          className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-white"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => confirmarDeletar(item)}
-                          disabled={deletePending.isPending}
-                          className="rounded-xl bg-bg-muted px-3 py-2 text-sm text-accent-red"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
+              <div className="space-y-3">{pendentes.map((item) => renderAccountCard(item))}</div>
             </section>
-          ))}
+          )}
+
+          {pagas.length > 0 && (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-white">
+                  {activeTab === "RECEBER" ? "Recebidas" : "Pagas"}
+                </h2>
+                <span className="text-sm text-text-secondary">{pagas.length} item(ns)</span>
+              </div>
+              <div className="space-y-3">{pagas.map((item) => renderAccountCard(item))}</div>
+            </section>
+          )}
         </div>
       )}
 
