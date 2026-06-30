@@ -51,6 +51,12 @@ export function TransferModal({ open, onClose }: { open: boolean; onClose: () =>
     },
   });
 
+  const carteiraDestinoId = form.watch("carteiraDestinoId");
+  const destinoWallet = wallets.find((w) => w._id === carteiraDestinoId);
+  const descriptionPlaceholder = destinoWallet
+    ? `Transferência para ${destinoWallet.nome}`
+    : "Ex: Reserva de emergência";
+
   useEffect(() => {
     if (open) {
       form.reset({
@@ -190,7 +196,7 @@ export function TransferModal({ open, onClose }: { open: boolean; onClose: () =>
               type="text"
               {...form.register("description")}
               className={inputCls}
-              placeholder="Ex: Reserva de emergência"
+              placeholder={descriptionPlaceholder}
             />
           </div>
 

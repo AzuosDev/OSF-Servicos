@@ -219,10 +219,12 @@ export function DateAndDescriptionFields({
   register,
   watch,
   errors,
+  descriptionPlaceholder = "Observação opcional",
 }: {
   register: UseFormRegister<any>;
   watch: UseFormWatch<any>;
   errors: any;
+  descriptionPlaceholder?: string;
 }) {
   const description = watch("description") ?? "";
   const count = useMemo(() => description.length, [description]);
@@ -250,7 +252,7 @@ export function DateAndDescriptionFields({
           rows={4}
           maxLength={500}
           className="w-full resize-none rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition placeholder:text-text-muted focus:border-accent-lime"
-          placeholder="Observação opcional"
+          placeholder={descriptionPlaceholder}
           {...register("description")}
         />
         {errors.description && (

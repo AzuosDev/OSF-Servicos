@@ -231,6 +231,12 @@ export function TransactionModal({
     },
   });
 
+  const carteiraDestinoId = form.watch("carteiraDestinoId");
+  const destinoWallet = wallets.find((w) => w._id === carteiraDestinoId);
+  const transferDescriptionPlaceholder = destinoWallet
+    ? `Transferência para ${destinoWallet.nome}`
+    : "Observação opcional";
+
   const cfg = tabConfig[activeTab];
   const submitLabel = isEditing ? "Salvar Alterações" : cfg.submitLabel;
   const submitDisabled =
@@ -392,6 +398,7 @@ export function TransactionModal({
             register={form.register as never}
             watch={form.watch as never}
             errors={form.formState.errors}
+            descriptionPlaceholder={activeTab === "TRANSFER" ? transferDescriptionPlaceholder : undefined}
           />
 
           {mutation.isError && (
