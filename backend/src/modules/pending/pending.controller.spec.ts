@@ -331,4 +331,77 @@ describe('PendingController (e2e)', () => {
     expect(legacy!.paid).toBe(true);
     expect(legacy!.carteira?.tipo).toBe('VIRTUAL');
   });
+
+  it('PATCH persists a date change on an installment account (parcelas was being silently ignored)', async () => {
+    const create = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .send({
+        ...basePayload,
+        title: 'Compra parcelada teste',
+        isParcelada: true,
+        parcelas: { totalParcelas: 3, dataInicio: '2026-01-10', dataFim: '2026-03-10' },
+      })
+      .expect(201);
+    const firstInstallment = (create.body as Array<{ _id: string; numeroParcela: number }>).find(
+      (item) => item.numeroParcela === 1,
+    )!;
+
+    const patchRes = await request(app.getHttpServer())
+      .patch(`/api/accounts/${firstInstallment._id}`)
+      .send({
+        title: 'Compra parcelada teste',
+        value: 1000,
+        dueDate: '2026-01-10',
+        isParcelada: true,
+        tipo: 'PAGAR',
+        parcelas: { totalParcelas: 3, dataInicio: '2026-02-15', dataFim: '2026-04-15', valorParcela: 333.33 },
+      })
+      .expect(200);
+
+    expect(new Date(patchRes.body.parcelas.dataInicio).toISOString().slice(0, 10)).toBe('2026-02-15');
+    expect(new Date(patchRes.body.parcelas.dataFim).toISOString().slice(0, 10)).toBe('2026-04-15');
+    // 1ª parcela: o próprio vencimento acompanha a nova data de início do grupo.
+    expect(new Date(patchRes.body.dueDate).toISOString().slice(0, 10)).toBe('2026-02-15');
+
+    const reread = await request(app.getHttpServer())
+      .get('/api/accounts')
+      .query({})
+      .expect(200);
+    const persisted = (reread.body as Array<{ _id: string; parcelas?: { dataInicio: string } }>).find(
+      (item) => item._id === firstInstallment._id,
+    );
+    expect(persisted?.parcelas?.dataInicio.slice(0, 10)).toBe('2026-02-15');
+  });
+
+  it('PATCH on a later installment updates group metadata but not its own dueDate', async () => {
+    const create = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .send({
+        ...basePayload,
+        title: 'Compra parcelada teste 2',
+        isParcelada: true,
+        parcelas: { totalParcelas: 2, dataInicio: '2026-05-01', dataFim: '2026-06-01' },
+      })
+      .expect(201);
+    const second = (create.body as Array<{ _id: string; numeroParcela: number; dueDate: string }>).find(
+      (item) => item.numeroParcela === 2,
+    )!;
+
+    const patchRes = await request(app.getHttpServer())
+      .patch(`/api/accounts/${second._id}`)
+      .send({
+        title: 'Compra parcelada teste 2',
+        value: 500,
+        dueDate: second.dueDate,
+        isParcelada: true,
+        tipo: 'PAGAR',
+        parcelas: { totalParcelas: 2, dataInicio: '2026-07-01', dataFim: '2026-08-01', valorParcela: 250 },
+      })
+      .expect(200);
+
+    expect(new Date(patchRes.body.parcelas.dataInicio).toISOString().slice(0, 10)).toBe('2026-07-01');
+    expect(new Date(patchRes.body.dueDate).toISOString().slice(0, 10)).toBe(
+      new Date(second.dueDate).toISOString().slice(0, 10),
+    );
+  });
 });

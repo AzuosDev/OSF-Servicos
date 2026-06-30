@@ -435,6 +435,46 @@ export class PendingService {
       throw new BadRequestException('Recorrencia e obrigatoria quando isRecorrente = true');
     }
 
+    if (typeof dto.isParcelada !== 'undefined') pending.isParcelada = dto.isParcelada;
+    if (typeof dto.isRecorrente !== 'undefined') pending.isRecorrente = dto.isRecorrente;
+
+    // dto.parcelas chegava sendo ignorado por completo aqui: o front manda
+    // totalParcelas/dataInicio/dataFim corretamente ao editar uma conta parcelada, mas
+    // nada neste método lia esse campo — o save() retornava 200 sem persistir a data
+    // nova. qtdParcelasPagas/parcelasPagas nunca são aceitos do cliente (o front hoje
+    // manda parcelasPagas: 0 só por reaproveitar o builder de criação): são progresso de
+    // pagamento controlado só pelo backend, no bloco de sincronização logo abaixo.
+    if (typeof dto.parcelas !== 'undefined') {
+      const dataInicio = dto.parcelas.dataInicio ? new Date(dto.parcelas.dataInicio) : pending.parcelas?.dataInicio;
+      const dataFim = dto.parcelas.dataFim ? new Date(dto.parcelas.dataFim) : pending.parcelas?.dataFim;
+      if (!dataInicio || !dataFim) {
+        throw new BadRequestException('Data de início e fim das parcelas são obrigatórias');
+      }
+      pending.parcelas = {
+        totalParcelas: dto.parcelas.totalParcelas,
+        valorParcela: dto.parcelas.valorParcela ?? pending.parcelas?.valorParcela ?? 0,
+        qtdParcelasPagas: pending.parcelas?.qtdParcelasPagas ?? 0,
+        parcelasPagas: pending.parcelas?.parcelasPagas ?? [],
+        dataInicio,
+        dataFim,
+      };
+      // A 1ª parcela do grupo compartilha a data com o início do parcelamento — mover
+      // "Data de início" deve mover o vencimento desta parcela também. Demais parcelas
+      // do grupo não têm seu próprio vencimento editável por este modal (o campo "Data
+      // de vencimento" fica oculto quando isParcelada=true), então só a metadata do
+      // grupo é atualizada para elas.
+      if ((pending.numeroParcela ?? 1) === 1 && dto.parcelas.dataInicio) {
+        pending.dueDate = dataInicio;
+      }
+    }
+
+    if (typeof dto.recorrencia !== 'undefined') {
+      pending.recorrencia = {
+        periodoRecorrencia: dto.recorrencia.periodoRecorrencia,
+        dataProxima: dto.recorrencia.dataProxima ? new Date(dto.recorrencia.dataProxima) : pending.recorrencia?.dataProxima,
+      };
+    }
+
     const wasPaid = pending.paid;
     const willSettle = dto.paid === true && !wasPaid;
 
