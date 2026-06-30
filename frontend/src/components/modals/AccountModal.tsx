@@ -1,17 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Wallet } from "lucide-react";
 
 import { api } from "../../lib/api";
 import { getApiErrorMessages } from "../../lib/errors";
 import { ModalShell } from "./ModalShell";
-import { useCategories, useWallets } from "./TransactionFormFields";
+import { useCategories, useIncomeCategories, useWallets } from "./TransactionFormFields";
 import { DynamicIcon } from "../DynamicIcon";
 import { cn } from "../../lib/utils";
 
 const PAYMENT_FORMATS = ["Cartão de Crédito", "Pix", "Dinheiro", "Outro"] as const;
 
 type PaymentFormat = (typeof PAYMENT_FORMATS)[number];
+
+type AccountType = "PAGAR" | "RECEBER";
 
 function isPaymentFormat(value: string): value is PaymentFormat {
   return (PAYMENT_FORMATS as readonly string[]).includes(value);
@@ -39,6 +41,7 @@ function buildPendingPayload({
   categoria,
   formatoPagamento,
   carteiraId,
+  tipo,
   parcelas,
   recorrencia,
 }: {
@@ -51,6 +54,7 @@ function buildPendingPayload({
   categoria: string;
   formatoPagamento: string;
   carteiraId: string;
+  tipo: AccountType;
   parcelas: { totalParcelas?: string; dataInicio?: string; dataFim?: string };
   recorrencia: { periodoRecorrencia?: string; dataProxima?: string };
 }) {
@@ -68,6 +72,7 @@ function buildPendingPayload({
     categoria: categoria || undefined,
     formatoPagamento: isPaymentFormat(formatoPagamento) ? formatoPagamento : undefined,
     carteiraId: carteiraId || undefined,
+    tipo,
     parcelas: isParcelada && baseDate && Number.isFinite(totalParcelas) && totalParcelas > 0
       ? {
           totalParcelas,
@@ -86,9 +91,10 @@ function buildPendingPayload({
   };
 }
 
-type PendingFormModalProps = {
+type AccountModalProps = {
   open: boolean;
   onClose: () => void;
+  defaultType?: AccountType;
   editAccount?: {
     id: string;
     title: string;
@@ -100,19 +106,24 @@ type PendingFormModalProps = {
     categoria?: string;
     formatoPagamento?: string;
     carteiraId?: string;
+    tipo?: AccountType;
     parcelas?: { totalParcelas?: number; dataInicio?: string; dataFim?: string };
     recorrencia?: { periodoRecorrencia?: string; dataProxima?: string };
   };
   onSuccess?: () => void;
 };
 
-export function PendingFormModal({
+export function AccountModal({
   open,
   onClose,
+  defaultType,
   editAccount,
   onSuccess,
-}: PendingFormModalProps) {
-  const categoriesQuery = useCategories();
+}: AccountModalProps) {
+  const [formTipo, setFormTipo] = useState<AccountType>(defaultType ?? "PAGAR");
+  const expenseCategoriesQuery = useCategories();
+  const incomeCategoriesQuery = useIncomeCategories();
+  const categoriesQuery = formTipo === "RECEBER" ? incomeCategoriesQuery : expenseCategoriesQuery;
   const walletsQuery = useWallets();
   const [formIsParcelada, setFormIsParcelada] = useState(false);
   const [formIsRecorrente, setFormIsRecorrente] = useState(false);
@@ -132,6 +143,21 @@ export function PendingFormModal({
   const [formCarteiraId, setFormCarteiraId] = useState("");
 
   const queryClient = useQueryClient();
+  const skipTipoResetRef = useRef(true);
+
+  // Ao alternar PAGAR/RECEBER manualmente, limpa a categoria selecionada
+  // (categorias de despesa e receita são conjuntos distintos).
+  // O ref evita que esse reset dispare quando formTipo muda por causa do
+  // useEffect de população (abrir para criar/editar), que já define a
+  // categoria correta logo em seguida.
+  useEffect(() => {
+    if (skipTipoResetRef.current) {
+      skipTipoResetRef.current = false;
+      return;
+    }
+    setFormCategoria("");
+    setCategoriaCustom("");
+  }, [formTipo]);
 
   useEffect(() => {
     const total = Number(formParcelas.totalParcelas);
@@ -145,7 +171,9 @@ export function PendingFormModal({
 
   useEffect(() => {
     if (open) {
+      skipTipoResetRef.current = true;
       if (editAccount) {
+        setFormTipo(editAccount.tipo ?? "PAGAR");
         setFormIsParcelada(!!editAccount.isParcelada);
         setFormIsRecorrente(!!editAccount.isRecorrente);
         setFormTitle(editAccount.title ?? "");
@@ -167,6 +195,7 @@ export function PendingFormModal({
         setFormaCustom(editAccount.formatoPagamento ?? "");
         setFormCarteiraId(editAccount.carteiraId ?? "");
       } else {
+        setFormTipo(defaultType ?? "PAGAR");
         setFormIsParcelada(false);
         setFormIsRecorrente(false);
         setFormTitle("");
@@ -182,7 +211,7 @@ export function PendingFormModal({
         setFormCarteiraId("");
       }
     }
-  }, [open, editAccount]);
+  }, [open, editAccount, defaultType]);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -196,13 +225,14 @@ export function PendingFormModal({
         categoria: formCategoria && formCategoria !== "Outro" ? formCategoria : categoriaCustom,
         formatoPagamento: formForma && formForma !== "Outro" ? formForma : formaCustom,
         carteiraId: formCarteiraId,
+        tipo: formTipo,
         parcelas: formParcelas,
         recorrencia: formRecorrencia,
       });
-      await api.post("/api/pending", payload);
+      await api.post("/api/accounts", payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pending"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       onClose();
       onSuccess?.();
@@ -211,7 +241,7 @@ export function PendingFormModal({
 
   const editMutation = useMutation({
     mutationFn: async () => {
-      await api.patch(`/api/pending/${editAccount?.id}`, buildPendingPayload({
+      await api.patch(`/api/accounts/${editAccount?.id}`, buildPendingPayload({
         title: formTitle,
         value: formValue,
         dueDate: formDueDate,
@@ -221,12 +251,13 @@ export function PendingFormModal({
         categoria: formCategoria && formCategoria !== "Outro" ? formCategoria : categoriaCustom,
         formatoPagamento: formForma && formForma !== "Outro" ? formForma : formaCustom,
         carteiraId: formCarteiraId,
+        tipo: formTipo,
         parcelas: formParcelas,
         recorrencia: formRecorrencia,
       }));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pending"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       onClose();
       onSuccess?.();
@@ -234,7 +265,8 @@ export function PendingFormModal({
   });
 
   const isSaving = createMutation.isPending || editMutation.isPending;
-  const modalTitle = editAccount ? "Editar conta pendente" : "Nova conta pendente";
+  const tipoLabel = formTipo === "RECEBER" ? "a receber" : "a pagar";
+  const modalTitle = editAccount ? `Editar conta ${tipoLabel}` : `Nova conta ${tipoLabel}`;
 
   return (
     <ModalShell
@@ -266,9 +298,25 @@ export function PendingFormModal({
     >
       <p className="mb-4 text-sm text-text-secondary">
         {editAccount
-          ? "Atualize as informações da conta pendente."
-          : "Cadastre uma conta para acompanhar o pagamento."}
+          ? "Atualize as informações da conta."
+          : "Cadastre uma conta para acompanhar o pagamento ou recebimento."}
       </p>
+
+      <div className="mb-3 flex gap-1 rounded-xl bg-bg-muted p-1">
+        {(["PAGAR", "RECEBER"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            className={cn(
+              "flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition",
+              formTipo === t ? "bg-accent-lime text-black" : "text-white hover:bg-bg-overlay",
+            )}
+            onClick={() => setFormTipo(t)}
+          >
+            {t === "PAGAR" ? "A Pagar" : "A Receber"}
+          </button>
+        ))}
+      </div>
 
       <div className="mb-3 flex gap-1 rounded-xl bg-bg-muted p-1">
         {["Não parcelada", "Parcelada", "Recorrente"].map((type) => (
@@ -524,7 +572,7 @@ export function PendingFormModal({
           <div className="rounded-xl bg-accent-red/10 p-3 text-sm text-accent-red">
             {getApiErrorMessages(
               createMutation.error || editMutation.error,
-              "Não foi possível salvar a conta pendente.",
+              "Não foi possível salvar a conta.",
             ).map((msg) => (
               <p key={msg}>{msg}</p>
             ))}

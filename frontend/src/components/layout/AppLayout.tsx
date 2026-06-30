@@ -50,14 +50,14 @@ const navigation: NavItem[] = [
   },
   { to: "/transactions", label: "Transações", icon: List },
   { to: "/carteiras", label: "Carteiras", icon: Landmark },
-  { to: "/pending", label: "Contas Pendentes", icon: Clock },
+  { to: "/contas", label: "Contas", icon: Clock },
   { to: "/goals", label: "Metas Financeiras", icon: Target },
 ] as const;
 
 const mobileNavigation = [
   { to: "/dashboard", label: "Início", icon: Home },
   { to: "/expenses", label: "Resumo", icon: BarChart2 },
-  { to: "/pending", label: "Pendentes", icon: Clock },
+  { to: "/contas", label: "Contas", icon: Clock },
   { to: "/goals", label: "Metas", icon: Target },
 ] as const;
 
@@ -66,7 +66,7 @@ const pageTitles: Record<string, string> = {
   "/expenses": "Gastos",
   "/transactions": "Transações",
   "/carteiras": "Carteiras",
-  "/pending": "Contas Pendentes",
+  "/contas": "Contas",
   "/goals": "Metas Financeiras",
   "/budget": "Orçamento",
 };
@@ -550,22 +550,15 @@ export function AppLayout() {
                 onClick={() => openTx("EXPENSE")}
                 className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
               >
-                <TrendingDown className="h-5 w-5 text-accent-red" />
-                <span className="font-semibold">Adicionar Gasto</span>
+                <ArrowLeftRight className="h-5 w-5 text-accent-lime" />
+                <span className="font-semibold">Nova Movimentação</span>
               </button>
               <button
-                onClick={() => openTx("INCOME")}
-                className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
-              >
-                <TrendingUp className="h-5 w-5 text-accent-lime" />
-                <span className="font-semibold">Adicionar Ganho</span>
-              </button>
-              <button
-                onClick={() => { setAddModalOpen(false); navigate("/pending?action=create"); }}
+                onClick={() => { setAddModalOpen(false); navigate("/contas?action=create"); }}
                 className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
               >
                 <Clock className="h-5 w-5 text-accent-yellow" />
-                <span className="font-semibold">Nova Conta Pendente</span>
+                <span className="font-semibold">Nova Conta</span>
               </button>
               <button
                 onClick={() => { setAddModalOpen(false); navigate("/goals?action=create"); }}
@@ -573,13 +566,6 @@ export function AppLayout() {
               >
                 <Target className="h-5 w-5 text-accent-lime" />
                 <span className="font-semibold">Nova Meta</span>
-              </button>
-              <button
-                onClick={() => openTx("TRANSFER")}
-                className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
-              >
-                <ArrowLeftRight className="h-5 w-5 text-blue-400" />
-                <span className="font-semibold">Transferir entre Carteiras</span>
               </button>
               <button
                 onClick={() => { setAddModalOpen(false); navigate("/carteiras?action=create"); }}

@@ -23,6 +23,11 @@ export class UpdatePendingDto {
   formatoPagamento?: string;
 
   @IsOptional()
+  @IsString()
+  @IsIn(['PAGAR', 'RECEBER'])
+  tipo?: string;
+
+  @IsOptional()
   @ValidateIf(o => o.isParcelada)
   @ValidateNested()
   @Type(() => ParcelasDto)

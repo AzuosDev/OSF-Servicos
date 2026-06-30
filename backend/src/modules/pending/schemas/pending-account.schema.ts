@@ -37,6 +37,13 @@ export class PendingAccount {
   })
   formatoPagamento!: string;
 
+  /**
+   * Indica se a conta é a pagar (despesa) ou a receber (receita).
+   * @default 'PAGAR'
+   */
+  @Prop({ type: String, enum: ['PAGAR', 'RECEBER'], default: 'PAGAR' })
+  tipo!: string;
+
   @Prop({ type: Number })
   numeroParcela?: number;
 
@@ -118,6 +125,7 @@ export const PendingAccountSchema = SchemaFactory.createForClass(PendingAccount)
 PendingAccountSchema.index({ userId: 1, dueDate: 1 });
 PendingAccountSchema.index({ userId: 1, paid: 1, dueDate: 1 });
 PendingAccountSchema.index({ userId: 1, recorrenciaTemplateId: 1, dueDate: 1 });
+PendingAccountSchema.index({ userId: 1, tipo: 1, dueDate: 1 });
 
 
 

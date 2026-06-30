@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { isAxiosError } from "axios";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Clock, Loader2, Plus, Trash2 } from "lucide-react";
 
@@ -11,8 +10,10 @@ import { cn } from "../lib/utils";
 import { useToast } from "../components/ui/Toast";
 import { ConfirmDeleteModal } from "../components/modals/ConfirmDeleteModal";
 import { PayBillModal } from "../components/modals/PayBillModal";
-import { PendingFormModal } from "../components/modals/PendingFormModal";
+import { AccountModal } from "../components/modals/AccountModal";
 import type { PendingAccount } from "../types/api";
+
+type AccountType = "PAGAR" | "RECEBER";
 
 type PendingItem = {
   isParcelada?: boolean;
@@ -20,6 +21,7 @@ type PendingItem = {
   categoria?: string;
   formatoPagamento?: string;
   carteiraId?: string;
+  tipo?: AccountType;
   parcelas?: { totalParcelas?: number; valorParcela?: number; parcelasPagas?: number[]; dataInicio?: string; dataFim?: string; };
   numeroParcela?: number;
   grupoParceladoId?: string;
@@ -37,7 +39,7 @@ type PendingItem = {
 
 
 
-function normalizePending(data: unknown): PendingItem[] {
+function normalizeAccounts(data: unknown): PendingItem[] {
   if (Array.isArray(data)) {
     return data.map((item) => ({
       id: item.isVirtual ? (item.templateId ?? item._id ?? item.id) : (item._id ?? item.id),
@@ -51,6 +53,7 @@ function normalizePending(data: unknown): PendingItem[] {
       categoria: item.categoria,
       formatoPagamento: item.formatoPagamento,
       carteiraId: item.carteiraId,
+      tipo: item.tipo,
       parcelas: item.parcelas ? {
         totalParcelas: item.parcelas.totalParcelas,
         valorParcela: item.parcelas.valorParcela,
@@ -76,7 +79,7 @@ function normalizePending(data: unknown): PendingItem[] {
     "items" in data &&
     Array.isArray((data as { items?: unknown }).items)
   ) {
-    return normalizePending((data as { items: unknown[] }).items);
+    return normalizeAccounts((data as { items: unknown[] }).items);
   }
 
   return [];
@@ -86,9 +89,10 @@ function statusLabel(item: PendingItem) {
   const dueDate = new Date(item.dueDate);
   const today = new Date();
   const sameDay = dueDate.toDateString() === today.toDateString();
+  const paidLabel = item.tipo === "RECEBER" ? "Recebido" : "Pago";
 
   if (item.paid)
-    return { label: "Pago", className: "bg-accent-lime/10 text-accent-lime" };
+    return { label: paidLabel, className: "bg-accent-lime/10 text-accent-lime" };
   if (dueDate < today)
     return { label: "Vencida", className: "bg-accent-red/10 text-accent-red" };
   if (sameDay)
@@ -116,12 +120,6 @@ function parseDate(value: string) {
   const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
   const date = isDateOnly ? new Date(`${value}T12:00:00`) : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function addMonths(date: Date, months: number) {
-  const nextDate = new Date(date);
-  nextDate.setMonth(nextDate.getMonth() + months);
-  return nextDate;
 }
 
 function monthKey(date: Date) {
@@ -154,10 +152,11 @@ const monthOptions = [
   "Dez",
 ];
 
-export function PendingPage() {
+export function ContasPage() {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const [creating, setCreating] = useState(false);
+  const [activeTab, setActiveTab] = useState<AccountType>("PAGAR");
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
@@ -201,25 +200,36 @@ export function PendingPage() {
   }, []);
 
   const groupQuery = useQuery<PendingItem[]>({
-    queryKey: ["pending-group", selectedParcelItem?.grupoParceladoId],
+    queryKey: ["accounts-group", selectedParcelItem?.grupoParceladoId],
     queryFn: async () => {
-      const { data } = await api.get<unknown[]>(`/api/pending/group/${selectedParcelItem!.grupoParceladoId}`);
-      return normalizePending(data);
+      const { data } = await api.get<unknown[]>(`/api/accounts/group/${selectedParcelItem!.grupoParceladoId}`);
+      return normalizeAccounts(data);
     },
     enabled: parcelStatusOpen && !!selectedParcelItem?.grupoParceladoId,
   });
 
-  const pendingQuery = useQuery<PendingItem[]>({
-    queryKey: ["pending", selectedMonth, selectedYear],
+  const pagarQuery = useQuery<PendingItem[]>({
+    queryKey: ["accounts", "PAGAR", selectedMonth, selectedYear],
     queryFn: async () => {
       const { data } = await api.get<PendingAccount[]>(
-        `/api/pending?month=${selectedMonth}&year=${selectedYear}`,
+        `/api/accounts?tipo=PAGAR&month=${selectedMonth}&year=${selectedYear}`,
       );
-      return normalizePending(data);
+      return normalizeAccounts(data);
     },
   });
 
-  const items = pendingQuery.data ?? [];
+  const receberQuery = useQuery<PendingItem[]>({
+    queryKey: ["accounts", "RECEBER", selectedMonth, selectedYear],
+    queryFn: async () => {
+      const { data } = await api.get<PendingAccount[]>(
+        `/api/accounts?tipo=RECEBER&month=${selectedMonth}&year=${selectedYear}`,
+      );
+      return normalizeAccounts(data);
+    },
+  });
+
+  const activeQuery = activeTab === "PAGAR" ? pagarQuery : receberQuery;
+  const items = activeQuery.data ?? [];
   const visibleItems = items;
 
 
@@ -241,15 +251,14 @@ export function PendingPage() {
     }));
   }, [visibleItems]);
 
-  const totals = useMemo(() => {
-    const pendingTotal = items
-      .filter((item) => !item.paid)
-      .reduce((sum, item) => sum + item.value, 0);
-    const paidTotal = items
-      .filter((item) => item.paid)
-      .reduce((sum, item) => sum + item.value, 0);
-    return { pendingTotal, paidTotal };
-  }, [items]);
+  const totalPagar = useMemo(
+    () => (pagarQuery.data ?? []).reduce((sum, item) => sum + item.value, 0),
+    [pagarQuery.data],
+  );
+  const totalReceber = useMemo(
+    () => (receberQuery.data ?? []).reduce((sum, item) => sum + item.value, 0),
+    [receberQuery.data],
+  );
 
   const markPaid = useMutation({
     mutationFn: async ({
@@ -268,18 +277,21 @@ export function PendingPage() {
       carteiraId?: string;
     }) => {
       if (isVirtual) {
-        return api.post(`/api/pending/${id}/pay-month`, { month, year, carteiraId });
+        return api.post(`/api/accounts/${id}/pay-month`, { month, year, carteiraId });
       }
-      return api.patch<PendingAccount>(`/api/pending/${id}`, { paid: true, numeroParcela, carteiraId });
+      return api.patch<PendingAccount>(`/api/accounts/${id}`, { paid: true, numeroParcela, carteiraId });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pending"] });
-      queryClient.invalidateQueries({ queryKey: ["pending-group"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts-group"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["wallets"] });
-      addToast("Conta marcada como paga com sucesso.", "success");
+      addToast(
+        activeTab === "RECEBER" ? "Conta marcada como recebida com sucesso." : "Conta marcada como paga com sucesso.",
+        "success",
+      );
       setParcelStatusOpen(false);
       setSelectedParcelItem(null);
       setPayBillItem(null);
@@ -288,9 +300,9 @@ export function PendingPage() {
   });
 
   const deletePending = useMutation({
-    mutationFn: async (id: string) => api.delete(`/api/pending/${id}`),
+    mutationFn: async (id: string) => api.delete(`/api/accounts/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pending"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["wallets"] });
@@ -301,9 +313,9 @@ export function PendingPage() {
 
   const deleteRecurringMonth = useMutation({
     mutationFn: async ({ templateId, month, year }: { templateId: string; month: number; year: number }) =>
-      api.delete(`/api/pending/${templateId}/month`, { params: { month, year } }),
+      api.delete(`/api/accounts/${templateId}/month`, { params: { month, year } }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pending"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["wallets"] });
@@ -313,9 +325,9 @@ export function PendingPage() {
   });
 
   const deleteGroupPending = useMutation({
-    mutationFn: async (grupoParceladoId: string) => api.delete(`/api/pending/group/${grupoParceladoId}`),
+    mutationFn: async (grupoParceladoId: string) => api.delete(`/api/accounts/group/${grupoParceladoId}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pending"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["wallets"] });
@@ -361,8 +373,8 @@ export function PendingPage() {
     <section className="space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm text-text-secondary">Itens em aberto</p>
-          <h1 className="text-3xl font-bold">Contas Pendentes</h1>
+          <p className="text-sm text-text-secondary">Pagamentos e recebimentos</p>
+          <h1 className="text-3xl font-bold">Contas</h1>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
@@ -398,26 +410,42 @@ export function PendingPage() {
         </div>
       </header>
 
+      <div className="flex w-fit gap-1 rounded-xl bg-bg-muted p-1">
+        {(["PAGAR", "RECEBER"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              "rounded-lg px-4 py-2 text-sm font-semibold transition",
+              activeTab === tab ? "bg-accent-lime text-black" : "text-white hover:bg-bg-overlay",
+            )}
+          >
+            {tab === "PAGAR" ? "Contas a Pagar" : "Contas a Receber"}
+          </button>
+        ))}
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
-        <article className="rounded-2xl border border-accent-red/20 bg-bg-card p-5">
+        <article className="rounded-2xl border border-accent-orange/20 bg-bg-card p-5">
           <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-            Total em aberto
+            Total Mês a Pagar
           </p>
-          <p className="mt-3 text-3xl font-bold text-accent-red">
-            {formatCurrency(totals.pendingTotal)}
+          <p className="mt-3 text-3xl font-bold text-accent-orange">
+            {formatCurrency(totalPagar)}
           </p>
         </article>
         <article className="rounded-2xl border border-accent-lime/20 bg-bg-card p-5">
           <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-            Total pago no mês
+            Total Mês a Receber
           </p>
           <p className="mt-3 text-3xl font-bold text-accent-lime">
-            {formatCurrency(totals.paidTotal)}
+            {formatCurrency(totalReceber)}
           </p>
         </article>
       </div>
 
-      {pendingQuery.isLoading ? (
+      {activeQuery.isLoading ? (
         <div className="rounded-2xl bg-bg-card p-5 text-sm text-text-secondary">
           Carregando contas...
         </div>
@@ -460,7 +488,7 @@ export function PendingPage() {
                             )}
                             <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold", status.className)}>{status.label}</span>
                           </div>
-                          <p className="mt-1 text-sm text-text-secondary">{item.description ?? "Conta pendente"}</p>
+                          <p className="mt-1 text-sm text-text-secondary">{item.description ?? "Conta"}</p>
                           <p className="mt-2 text-xs text-text-muted">Vence em {dueDate.toLocaleDateString("pt-BR")}</p>
                         </div>
                         <div className="text-right">
@@ -476,7 +504,7 @@ export function PendingPage() {
                             className="inline-flex items-center gap-2 rounded-xl bg-accent-lime/10 px-3 py-2 text-sm font-semibold text-accent-lime hover:bg-accent-lime/20"
                           >
                             <Check className="h-4 w-4" />
-                            Marcar como pago
+                            {activeTab === "RECEBER" ? "Marcar como recebido" : "Marcar como pago"}
                           </button>
                         )}
                         {item.isParcelada && (
@@ -513,13 +541,14 @@ export function PendingPage() {
         </div>
       )}
 
-      <PendingFormModal
+      <AccountModal
         open={creating}
         onClose={() => setCreating(false)}
+        defaultType={activeTab}
         onSuccess={() => addToast("Conta adicionada com sucesso.", "success")}
       />
 
-      <PendingFormModal
+      <AccountModal
         open={isEditModalOpen}
         onClose={fecharModal}
         editAccount={selectedAccount ?? undefined}
@@ -634,6 +663,7 @@ export function PendingPage() {
         value={payBillItem?.value ?? 0}
         defaultCarteiraId={payBillItem?.carteiraId}
         isPending={markPaid.isPending}
+        tipo={activeTab}
         onConfirm={(carteiraId) => {
           if (!payBillItem || !carteiraId) return;
           markPaid.mutate({
@@ -679,51 +709,3 @@ export function PendingPage() {
       </section>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

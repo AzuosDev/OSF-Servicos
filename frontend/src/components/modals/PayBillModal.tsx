@@ -12,11 +12,13 @@ type Props = {
   defaultCarteiraId?: string;
   isPending: boolean;
   onConfirm: (carteiraId: string | undefined) => void;
+  tipo?: "PAGAR" | "RECEBER";
 };
 
-export function PayBillModal({ open, onClose, title, value, defaultCarteiraId, isPending, onConfirm }: Props) {
+export function PayBillModal({ open, onClose, title, value, defaultCarteiraId, isPending, onConfirm, tipo = "PAGAR" }: Props) {
   const walletsQuery = useWallets();
   const [selectedId, setSelectedId] = useState(defaultCarteiraId ?? "");
+  const isReceber = tipo === "RECEBER";
 
   useEffect(() => {
     if (open) setSelectedId(defaultCarteiraId ?? "");
@@ -26,7 +28,7 @@ export function PayBillModal({ open, onClose, title, value, defaultCarteiraId, i
     <ModalShell
       open={open}
       onClose={onClose}
-      title="Confirmar Pagamento"
+      title={isReceber ? "Confirmar Recebimento" : "Confirmar Pagamento"}
       icon={<Wallet className="h-6 w-6 text-accent-lime" />}
       footer={
         <div className="flex gap-3">
@@ -45,7 +47,7 @@ export function PayBillModal({ open, onClose, title, value, defaultCarteiraId, i
             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Confirmar Pagamento
+            {isReceber ? "Confirmar Recebimento" : "Confirmar Pagamento"}
           </button>
         </div>
       }
@@ -58,7 +60,7 @@ export function PayBillModal({ open, onClose, title, value, defaultCarteiraId, i
 
         <div>
           <p className="mb-3 text-sm text-text-secondary">
-            Debitar da carteira <span className="text-accent-red">*</span>
+            {isReceber ? "Creditar na carteira" : "Debitar da carteira"} <span className="text-accent-red">*</span>
           </p>
           {walletsQuery.isLoading ? (
             <div className="flex flex-wrap gap-2">

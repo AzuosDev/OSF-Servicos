@@ -144,6 +144,7 @@ export class DashboardService {
       this.pendingModel
         .find({
           userId: userObjectId,
+          tipo: 'PAGAR',
           paid: false,
           skipped: { $ne: true },
           isRecorrente: { $ne: true },

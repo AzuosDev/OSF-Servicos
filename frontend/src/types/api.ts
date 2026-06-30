@@ -90,6 +90,12 @@ export type PendingAccount = MongoDocument & {
   formatoPagamento?: 'Cartão de Crédito' | 'Pix' | 'Dinheiro' | 'Outro';
 
   /**
+   * Indica se a conta é a pagar (despesa) ou a receber (receita).
+   * @default 'PAGAR'
+   */
+  tipo?: 'PAGAR' | 'RECEBER';
+
+  /**
    * Sub‑documento de parcelas – presente somente se isParcelada = true.
    */
   parcelas?: {

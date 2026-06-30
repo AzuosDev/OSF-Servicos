@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { PendingAccount, PendingAccountDocument } from './schemas/pending-account.schema';
@@ -9,6 +9,8 @@ import { UpdatePendingDto } from './dto/update-pending.dto';
 
 @Injectable()
 export class PendingService {
+  private readonly logger = new Logger(PendingService.name);
+
   constructor(
     @InjectModel(PendingAccount.name) private pendingModel: Model<PendingAccountDocument>,
     @InjectModel(Transaction.name) private transactionModel: Model<TransactionDocument>,
@@ -68,8 +70,24 @@ export class PendingService {
     return nextDate;
   }
 
-  private async createExpenseTransaction(pending: PendingAccountDocument) {
+  // Datas-only (ex.: '2026-06-05') são parseadas pelo JS como meia-noite UTC, não local.
+  // Toda a matemática de mês/dia de contas recorrentes precisa operar em UTC para não
+  // sofrer deslocamento de ±1 dia conforme o fuso horário do servidor (mesma convenção já
+  // usada em transactions.service.ts).
+  private monthRangeUtc(year: number, month: number) {
+    return {
+      start: new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0)),
+      end: new Date(Date.UTC(year, month, 0, 23, 59, 59, 999)),
+    };
+  }
+
+  private daysInMonthUtc(year: number, month: number) {
+    return new Date(Date.UTC(year, month, 0)).getUTCDate();
+  }
+
+  private async createSettlementTransaction(pending: PendingAccountDocument) {
     const userId = pending.userId as Types.ObjectId;
+    const isReceber = pending.tipo === 'RECEBER';
     let category = null;
 
     if (pending.categoria && pending.categoria.toLowerCase() !== 'outro') {
@@ -77,17 +95,19 @@ export class PendingService {
       category = await this.categoryModel
         .findOne({
           name: { $regex: new RegExp(`^${pending.categoria}$`, 'i') },
+          isIncome: isReceber,
           $or: [{ userId: null }, { userId: userId }],
         })
         .exec();
 
       // 2. Sem match exato → tenta mapeamento por palavras-chave
-      if (!category) {
+      if (!category && !isReceber) {
         const mapped = this.resolveCategory(pending.categoria);
         if (mapped) {
           category = await this.categoryModel
             .findOne({
               name: { $regex: new RegExp(`^${mapped}$`, 'i') },
+              isIncome: false,
               $or: [{ userId: null }, { userId: userId }],
             })
             .exec();
@@ -95,16 +115,35 @@ export class PendingService {
       }
     }
 
-    await this.transactionModel.create({
-      userId,
-      type: TransactionType.EXPENSE,
-      value: pending.value,
-      categoryId: category?._id ?? undefined,
-      carteiraId: pending.carteiraId ?? undefined,
-      description: pending.title,
-      date: pending.dueDate,
-      pendingAccountId: pending._id,
-    });
+    // Fallback seguro: se uma conta RECEBER não encontrou categoria de receita
+    // correspondente pelo nome, usa a primeira categoria de receita disponível para o
+    // usuário em vez de deixar a transação sem categoria.
+    if (!category && isReceber) {
+      category = await this.categoryModel
+        .findOne({ isIncome: true, $or: [{ userId: null }, { userId: userId }] })
+        .exec();
+    }
+
+    try {
+      await this.transactionModel.create({
+        userId,
+        type: isReceber ? TransactionType.INCOME : TransactionType.EXPENSE,
+        value: pending.value,
+        categoryId: category?._id ?? undefined,
+        carteiraId: pending.carteiraId ?? undefined,
+        description: pending.title,
+        date: pending.dueDate,
+        pendingAccountId: pending._id,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Falha ao criar transação de liquidação da conta ${pending._id?.toString()} (tipo=${pending.tipo}): ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    }
   }
 
   async create(userId: string, dto: CreatePendingDto) {
@@ -135,6 +174,7 @@ export class PendingService {
           isRecorrente: false,
           categoria: dto.categoria,
           formatoPagamento: dto.formatoPagamento,
+          tipo: dto.tipo ?? 'PAGAR',
           carteiraId: dto.carteiraId ? new Types.ObjectId(dto.carteiraId) : undefined,
           numeroParcela,
           grupoParceladoId,
@@ -167,6 +207,7 @@ export class PendingService {
       isRecorrente: dto.isRecorrente ?? false,
       categoria: dto.categoria,
       formatoPagamento: dto.formatoPagamento,
+      tipo: dto.tipo ?? 'PAGAR',
       carteiraId: dto.carteiraId ? new Types.ObjectId(dto.carteiraId) : undefined,
       recorrencia: dto.recorrencia
         ? {
@@ -181,7 +222,7 @@ export class PendingService {
     return created.save();
   }
 
-  async findAll(userId: string, month?: number, year?: number, paid?: boolean) {
+  async findAll(userId: string, month?: number, year?: number, paid?: boolean, tipo?: string) {
     const uid = new Types.ObjectId(userId);
 
     // Sem filtro de mês: retorna moldes e contas normais
@@ -191,11 +232,11 @@ export class PendingService {
         recorrenciaTemplateId: { $exists: false },
       };
       if (typeof paid === 'boolean') filter.paid = paid;
+      if (tipo) filter.tipo = tipo;
       return this.pendingModel.find(filter).sort({ dueDate: 1 }).exec();
     }
 
-    const monthStart = new Date(year, month - 1, 1);
-    const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
+    const { start: monthStart, end: monthEnd } = this.monthRangeUtc(year, month);
 
     // 1. Contas normais (não recorrentes, não instâncias)
     const regularFilter: Record<string, unknown> = {
@@ -205,21 +246,26 @@ export class PendingService {
       dueDate: { $gte: monthStart, $lte: monthEnd },
     };
     if (typeof paid === 'boolean') regularFilter.paid = paid;
+    if (tipo) regularFilter.tipo = tipo;
     const regularAccounts = await this.pendingModel.find(regularFilter).sort({ dueDate: 1 }).exec();
 
     // 2. Moldes recorrentes
-    const templates = await this.pendingModel
-      .find({ userId: uid, isRecorrente: true, recorrenciaTemplateId: { $exists: false } })
-      .exec();
+    const templatesFilter: Record<string, unknown> = {
+      userId: uid,
+      isRecorrente: true,
+      recorrenciaTemplateId: { $exists: false },
+    };
+    if (tipo) templatesFilter.tipo = tipo;
+    const templates = await this.pendingModel.find(templatesFilter).exec();
 
     // 3. Instâncias já criadas para este mês (pagamentos)
-    const instances = await this.pendingModel
-      .find({
-        userId: uid,
-        recorrenciaTemplateId: { $exists: true, $ne: null },
-        dueDate: { $gte: monthStart, $lte: monthEnd },
-      })
-      .exec();
+    const instancesFilter: Record<string, unknown> = {
+      userId: uid,
+      recorrenciaTemplateId: { $exists: true, $ne: null },
+      dueDate: { $gte: monthStart, $lte: monthEnd },
+    };
+    if (tipo) instancesFilter.tipo = tipo;
+    const instances = await this.pendingModel.find(instancesFilter).exec();
 
     const instanceByTemplate = new Map<string, PendingAccountDocument>();
     for (const inst of instances) {
@@ -234,9 +280,9 @@ export class PendingService {
     for (const template of templates) {
       const templateId = template._id.toString();
       const startDate = new Date(template.dueDate);
-      const startYear = startDate.getFullYear();
-      const startMonth = startDate.getMonth() + 1;
-      const startDay = startDate.getDate();
+      const startYear = startDate.getUTCFullYear();
+      const startMonth = startDate.getUTCMonth() + 1;
+      const startDay = startDate.getUTCDate();
       const periodo = template.recorrencia?.periodoRecorrencia ?? 'Mensal';
 
       let shouldProject = false;
@@ -257,9 +303,9 @@ export class PendingService {
       } else {
         if (paid === true) continue; // virtual sempre é não paga
 
-        const daysInMonth = new Date(year, month, 0).getDate();
+        const daysInMonth = this.daysInMonthUtc(year, month);
         const day = Math.min(startDay, daysInMonth);
-        const projectedDueDate = new Date(year, month - 1, day);
+        const projectedDueDate = new Date(Date.UTC(year, month - 1, day));
 
         const templateObj = template.toObject() as Record<string, unknown>;
         recurringEntries.push({
@@ -295,8 +341,7 @@ export class PendingService {
 
     if (!template) throw new NotFoundException('Molde recorrente não encontrado');
 
-    const monthStart = new Date(year, month - 1, 1);
-    const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
+    const { start: monthStart, end: monthEnd } = this.monthRangeUtc(year, month);
 
     const existing = await this.pendingModel
       .findOne({
@@ -308,19 +353,20 @@ export class PendingService {
 
     if (existing) {
       if (!existing.paid) {
+        if (carteiraId) existing.carteiraId = new Types.ObjectId(carteiraId);
+        // Cria a transação de liquidação ANTES de persistir paid=true (ver update()).
+        await this.createSettlementTransaction(existing);
         existing.paid = true;
         existing.paidAt = new Date();
-        if (carteiraId) existing.carteiraId = new Types.ObjectId(carteiraId);
         await existing.save();
-        await this.createExpenseTransaction(existing);
       }
       return existing;
     }
 
-    const startDay = new Date(template.dueDate).getDate();
-    const daysInMonth = new Date(year, month, 0).getDate();
+    const startDay = new Date(template.dueDate).getUTCDate();
+    const daysInMonth = this.daysInMonthUtc(year, month);
     const day = Math.min(startDay, daysInMonth);
-    const dueDate = new Date(year, month - 1, day);
+    const dueDate = new Date(Date.UTC(year, month - 1, day));
 
     const instance = new this.pendingModel({
       userId: uid,
@@ -332,14 +378,17 @@ export class PendingService {
       isRecorrente: false,
       categoria: template.categoria,
       formatoPagamento: template.formatoPagamento,
+      tipo: template.tipo,
       carteiraId: carteiraId ? new Types.ObjectId(carteiraId) : template.carteiraId,
       recorrenciaTemplateId: templateId,
-      paid: true,
-      paidAt: new Date(),
+      paid: false,
     });
 
+    // Cria a transação de liquidação ANTES de persistir paid=true (ver update()).
+    await this.createSettlementTransaction(instance);
+    instance.paid = true;
+    instance.paidAt = new Date();
     await instance.save();
-    await this.createExpenseTransaction(instance);
     return instance;
   }
 
@@ -354,12 +403,21 @@ export class PendingService {
     if (typeof dto.dueDate !== 'undefined') pending.dueDate = new Date(dto.dueDate);
     if (typeof dto.description !== 'undefined') pending.description = dto.description;
     if (typeof dto.carteiraId !== 'undefined') pending.carteiraId = dto.carteiraId ? new Types.ObjectId(dto.carteiraId) : undefined;
+    if (typeof dto.tipo !== 'undefined') pending.tipo = dto.tipo;
 
     if (dto.isRecorrente === true && !dto.recorrencia && !pending.recorrencia) {
       throw new BadRequestException('Recorrencia e obrigatoria quando isRecorrente = true');
     }
 
     const wasPaid = pending.paid;
+    const willSettle = dto.paid === true && !wasPaid;
+
+    // Cria a transação de liquidação ANTES de persistir paid=true: se isso falhar, a
+    // conta nunca fica marcada como paga/recebida sem o lançamento correspondente.
+    if (willSettle) {
+      await this.createSettlementTransaction(pending);
+    }
+
     if (typeof dto.paid !== 'undefined') {
       pending.paid = dto.paid;
       if (dto.paid) pending.paidAt = pending.paidAt ?? new Date();
@@ -367,20 +425,15 @@ export class PendingService {
 
     await pending.save();
 
-    // Auto-cria transação de gasto quando conta é paga pela primeira vez
-    if (dto.paid === true && !wasPaid) {
-      await this.createExpenseTransaction(pending);
-
-      // Sincroniza metadados do grupo parcelado (parcelasPagas / qtdParcelasPagas)
-      if (pending.grupoParceladoId && pending.numeroParcela) {
-        await this.pendingModel.updateMany(
-          { userId: pending.userId, grupoParceladoId: pending.grupoParceladoId },
-          {
-            $addToSet: { 'parcelas.parcelasPagas': pending.numeroParcela },
-            $inc: { 'parcelas.qtdParcelasPagas': 1 },
-          },
-        ).exec();
-      }
+    // Sincroniza metadados do grupo parcelado (parcelasPagas / qtdParcelasPagas)
+    if (willSettle && pending.grupoParceladoId && pending.numeroParcela) {
+      await this.pendingModel.updateMany(
+        { userId: pending.userId, grupoParceladoId: pending.grupoParceladoId },
+        {
+          $addToSet: { 'parcelas.parcelasPagas': pending.numeroParcela },
+          $inc: { 'parcelas.qtdParcelasPagas': 1 },
+        },
+      ).exec();
     }
 
     return pending;
@@ -393,8 +446,7 @@ export class PendingService {
       .exec();
     if (!template) throw new NotFoundException('Molde recorrente não encontrado');
 
-    const monthStart = new Date(year, month - 1, 1);
-    const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
+    const { start: monthStart, end: monthEnd } = this.monthRangeUtc(year, month);
 
     const existing = await this.pendingModel
       .findOne({ userId: uid, recorrenciaTemplateId: templateId, dueDate: { $gte: monthStart, $lte: monthEnd } })
@@ -408,16 +460,17 @@ export class PendingService {
     }
 
     // Cria marcador de mês pulado para o JIT não projetar este mês
-    const startDay = new Date(template.dueDate).getDate();
-    const day = Math.min(startDay, new Date(year, month, 0).getDate());
+    const startDay = new Date(template.dueDate).getUTCDate();
+    const day = Math.min(startDay, this.daysInMonthUtc(year, month));
     await this.pendingModel.create({
       userId: uid,
       title: template.title,
       value: template.value,
-      dueDate: new Date(year, month - 1, day),
+      dueDate: new Date(Date.UTC(year, month - 1, day)),
       isParcelada: false,
       isRecorrente: false,
       categoria: template.categoria,
+      tipo: template.tipo,
       recorrenciaTemplateId: templateId,
       paid: false,
       skipped: true,
