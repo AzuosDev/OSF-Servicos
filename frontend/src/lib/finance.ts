@@ -3,6 +3,7 @@ import type {
   CategoryExpense,
   Transaction,
   TransactionType,
+  VirtualWallet,
 } from "../types/finance";
 
 export const brlFormatter = new Intl.NumberFormat("pt-BR", {
@@ -76,6 +77,15 @@ export function normalizeTransaction(
     Object.keys(nestedCategory).length > 0
       ? normalizeCategory(nestedCategory, fallbackIndex)
       : undefined;
+  const nestedCarteira = asRecord(item.carteira);
+  const carteira: VirtualWallet | undefined =
+    nestedCarteira._id === "legacy-wallet"
+      ? {
+          _id: "legacy-wallet",
+          nome: readString(nestedCarteira.nome) || "Saldo Histórico (Sem Carteira)",
+          tipo: "VIRTUAL",
+        }
+      : undefined;
 
   return {
     id: readString(item.id, item._id) || `transaction-${fallbackIndex}`,
@@ -93,6 +103,7 @@ export function normalizeTransaction(
     carteiraId: readString(item.carteiraId) || undefined,
     carteiraDestinoId: readString(item.carteiraDestinoId) || undefined,
     agendado: Boolean(item.agendado),
+    carteira,
     category:
       category ??
       (type === "INCOME"

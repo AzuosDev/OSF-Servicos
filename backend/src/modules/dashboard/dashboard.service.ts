@@ -144,7 +144,11 @@ export class DashboardService {
       this.pendingModel
         .find({
           userId: userObjectId,
-          tipo: 'PAGAR',
+          // 'tipo' não existe em documentos legados (anteriores a essa feature); o
+          // default 'PAGAR' do schema só é aplicado depois que o Mongo já leu o
+          // documento, então o filtro de query precisa aceitar tipo ausente também
+          // (mesmo critério usado em pending.service.ts/tipoMatch).
+          $or: [{ tipo: 'PAGAR' }, { tipo: { $exists: false } }],
           paid: false,
           skipped: { $ne: true },
           isRecorrente: { $ne: true },

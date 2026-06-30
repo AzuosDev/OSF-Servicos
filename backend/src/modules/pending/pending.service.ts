@@ -97,6 +97,19 @@ export class PendingService {
     return { ...item, carteira: item.carteiraId ? undefined : PendingService.LEGACY_WALLET };
   }
 
+  // 'tipo' foi adicionado depois da criação do módulo: documentos legados (gravados antes
+  // dessa feature, ex.: pelo deploy antigo) não têm o campo no banco. O default do schema
+  // ('PAGAR') só é aplicado pelo Mongoose DEPOIS que o Mongo já leu o documento — o filtro
+  // de query roda antes e um match exato `{ tipo: 'PAGAR' }` não casa com campo ausente.
+  // Por isso o filtro de 'PAGAR' precisa aceitar também o caso de tipo inexistente.
+  private tipoMatch(tipo?: string): Record<string, unknown> {
+    if (!tipo) return {};
+    if (tipo === 'PAGAR') {
+      return { $or: [{ tipo: 'PAGAR' }, { tipo: { $exists: false } }] };
+    }
+    return { tipo };
+  }
+
   private async createSettlementTransaction(pending: PendingAccountDocument) {
     const userId = pending.userId as Types.ObjectId;
     const isReceber = pending.tipo === 'RECEBER';
@@ -244,7 +257,7 @@ export class PendingService {
         recorrenciaTemplateId: { $exists: false },
       };
       if (typeof paid === 'boolean') filter.paid = paid;
-      if (tipo) filter.tipo = tipo;
+      Object.assign(filter, this.tipoMatch(tipo));
       const docs = await this.pendingModel.find(filter).sort({ dueDate: 1 }).exec();
       return docs.map((d) => this.attachVirtualWallet(d.toObject() as Record<string, unknown>));
     }
@@ -259,7 +272,7 @@ export class PendingService {
       dueDate: { $gte: monthStart, $lte: monthEnd },
     };
     if (typeof paid === 'boolean') regularFilter.paid = paid;
-    if (tipo) regularFilter.tipo = tipo;
+    Object.assign(regularFilter, this.tipoMatch(tipo));
     const regularAccounts = await this.pendingModel.find(regularFilter).sort({ dueDate: 1 }).exec();
 
     // 2. Moldes recorrentes
@@ -268,7 +281,7 @@ export class PendingService {
       isRecorrente: true,
       recorrenciaTemplateId: { $exists: false },
     };
-    if (tipo) templatesFilter.tipo = tipo;
+    Object.assign(templatesFilter, this.tipoMatch(tipo));
     const templates = await this.pendingModel.find(templatesFilter).exec();
 
     // 3. Instâncias já criadas para este mês (pagamentos)
@@ -277,7 +290,7 @@ export class PendingService {
       recorrenciaTemplateId: { $exists: true, $ne: null },
       dueDate: { $gte: monthStart, $lte: monthEnd },
     };
-    if (tipo) instancesFilter.tipo = tipo;
+    Object.assign(instancesFilter, this.tipoMatch(tipo));
     const instances = await this.pendingModel.find(instancesFilter).exec();
 
     const instanceByTemplate = new Map<string, PendingAccountDocument>();

@@ -1,15 +1,16 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeftRight, ChevronDown, Filter, Loader2, Plus, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeftRight, ChevronDown, Filter, Loader2, Plus, TrendingDown, TrendingUp, Wallet, X } from "lucide-react";
 
 import { TxRow } from "../components/TxRow";
 import { TransactionModal } from "../components/modals/TransactionModal";
 import { useCategories } from "../components/modals/TransactionFormFields";
+import { useToast } from "../components/ui/Toast";
 import { api } from "../lib/api";
 import { normalizeTransactionsResponse, readString } from "../lib/finance";
 import { cn } from "../lib/utils";
-import type { TransactionsResponse } from "../types/api";
+import type { TransactionsResponse, Wallet as WalletAccount } from "../types/api";
 import type { Transaction, TransactionType } from "../types/finance";
 
 const tabs: Array<{ label: string; value: "ALL" | TransactionType }> = [
@@ -66,6 +67,8 @@ export function TransactionsPage() {
   const [txTab, setTxTab] = useState<TransactionType>("EXPENSE");
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState<Transaction | null>(null);
+  const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
+  const { addToast } = useToast();
 
   const handleEdit = (tx: Transaction) => {
     setSelectedTx(tx);
@@ -149,6 +152,41 @@ export function TransactionsPage() {
       queryClient.invalidateQueries({ queryKey: ["goals"] });
       queryClient.invalidateQueries({ queryKey: ["wallets"] });
       setDeleting(null);
+    },
+  });
+
+  const walletsQuery = useQuery<WalletAccount[]>({
+    queryKey: ["wallets"],
+    queryFn: async () => {
+      const { data } = await api.get<WalletAccount[]>("/api/wallets");
+      return Array.isArray(data) ? data : [];
+    },
+  });
+  const realWallets = (walletsQuery.data ?? []).filter((w) => w.tipo !== "VIRTUAL");
+
+  const toggleTxSelection = (tx: Transaction) => {
+    setSelectedTxIds((prev) =>
+      prev.includes(tx.id) ? prev.filter((id) => id !== tx.id) : [...prev, tx.id],
+    );
+  };
+
+  const bulkWalletMutation = useMutation({
+    mutationFn: async (targetWalletId: string) => {
+      await api.patch("/api/transactions/bulk-wallet", {
+        transactionIds: selectedTxIds,
+        targetWalletId,
+      });
+    },
+    onSuccess: () => {
+      setSelectedTxIds([]);
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["wallets"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      addToast("Transações organizadas com sucesso!", "success");
+    },
+    onError: (error: unknown) => {
+      const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      addToast(msg || "Não foi possível associar as transações selecionadas.", "error");
     },
   });
 
@@ -276,7 +314,7 @@ export function TransactionsPage() {
         )}
       </div>
 
-      <div className="rounded-2xl bg-bg-card p-5">
+      <div className="rounded-2xl bg-bg-card p-5 pb-32 lg:pb-5">
         {transactionsQuery.isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, index) => (
@@ -301,6 +339,8 @@ export function TransactionsPage() {
                     tx={transaction}
                     onEdit={handleEdit}
                     onDelete={setDeleting}
+                    selected={selectedTxIds.includes(transaction.id)}
+                    onToggleSelect={toggleTxSelection}
                   />
                 ))}
               </div>
@@ -320,6 +360,52 @@ export function TransactionsPage() {
           </button>
         )}
       </div>
+
+      {selectedTxIds.length > 0 && (
+        // bottom-24 no mobile: limpa a navbar fixa inferior (pb-24 do <main>, ~96px) +
+        // o botão "+" flutuante que poka acima dela. A partir de lg: a navbar mobile
+        // some (lg:hidden em AppLayout), então a barra volta a ficar perto do rodapé.
+        // Conteúdo interno em coluna no mobile (texto em cima, controles embaixo) para
+        // não estourar a largura da tela; volta a ser uma linha só a partir de sm:.
+        <div className="fixed bottom-24 left-1/2 z-30 flex w-[min(92vw,32rem)] -translate-x-1/2 flex-col gap-3 rounded-2xl border border-bg-muted bg-bg-card/95 p-4 shadow-2xl shadow-black/40 backdrop-blur sm:flex-row sm:items-center sm:gap-3 lg:bottom-6">
+          <p className="shrink-0 text-sm font-semibold text-white">
+            {selectedTxIds.length} transaç{selectedTxIds.length === 1 ? "ão" : "ões"} selecionada{selectedTxIds.length === 1 ? "" : "s"}
+          </p>
+
+          <div className="flex items-center gap-2 sm:ml-auto sm:shrink-0">
+            <select
+              value=""
+              disabled={bulkWalletMutation.isPending || realWallets.length === 0}
+              onChange={(event) => {
+                const targetWalletId = event.target.value;
+                if (targetWalletId) bulkWalletMutation.mutate(targetWalletId);
+              }}
+              className="flex-1 rounded-xl border border-bg-muted bg-bg-muted px-3 py-2.5 text-sm text-white outline-none focus:border-accent-lime disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
+            >
+              <option value="" disabled>
+                {realWallets.length === 0 ? "Nenhuma carteira disponível" : "Mover para…"}
+              </option>
+              {realWallets.map((wallet) => (
+                <option key={wallet._id} value={wallet._id}>
+                  {wallet.nome}
+                </option>
+              ))}
+            </select>
+
+            {bulkWalletMutation.isPending && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-accent-lime" />}
+
+            <button
+              type="button"
+              onClick={() => setSelectedTxIds([])}
+              disabled={bulkWalletMutation.isPending}
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-text-secondary hover:bg-bg-overlay hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="Cancelar seleção"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {choiceOpen && (
         <div className="fixed inset-0 z-50 grid place-items-end bg-black/60 p-4 backdrop-blur-sm sm:place-items-center">

@@ -57,11 +57,18 @@ export class WalletsService {
       ]),
     ]);
 
+    // Não basta checar "r._id é truthy": dados gravados por código antigo (sem o
+    // conceito de carteiras) podem ter carteiraId como null, ausente, string vazia, ou
+    // até um ObjectId válido mas órfão (carteira que nunca existiu para este usuário).
+    // Qualquer grupo que não corresponda a uma carteira real do usuário cai no saldo
+    // legado — assim nenhum valor desaparece silenciosamente por não bater com nada.
+    const realWalletIds = new Set(wallets.map((w) => w._id.toString()));
     const saldoMap = new Map<string, number>();
     let legacySaldo = 0;
     saldoAgg.forEach((r) => {
-      if (r._id) {
-        saldoMap.set(r._id.toString(), r.saldo);
+      const key = r._id != null ? String(r._id) : '';
+      if (key && realWalletIds.has(key)) {
+        saldoMap.set(key, r.saldo);
       } else {
         legacySaldo += r.saldo;
       }

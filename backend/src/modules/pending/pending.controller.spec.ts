@@ -8,6 +8,7 @@ import { Model, Types } from 'mongoose';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Category } from '../categories/schemas/category.schema';
 import { Transaction } from '../transactions/schemas/transaction.schema';
+import { PendingAccount } from './schemas/pending-account.schema';
 
 const FAKE_USER_ID = new Types.ObjectId().toString();
 
@@ -295,5 +296,39 @@ describe('PendingController (e2e)', () => {
       );
       expect(found).toBe(true);
     }
+  });
+
+  it('GET ?tipo=PAGAR still returns a legacy paid account that has no tipo field in storage', async () => {
+    // Simula um documento criado por um deploy antigo (anterior ao campo `tipo`):
+    // inserção via driver nativo, sem passar pelo Mongoose, para garantir que o campo
+    // realmente não existe no BSON gravado (o default do schema só age na leitura).
+    const pendingModel = app.get<Model<PendingAccount>>(getModelToken(PendingAccount.name));
+    const legacyId = new Types.ObjectId();
+    await pendingModel.collection.insertOne({
+      _id: legacyId,
+      userId: new Types.ObjectId(FAKE_USER_ID),
+      title: 'Conta paga no deploy antigo',
+      value: 100,
+      dueDate: new Date('2026-05-10'),
+      paid: true,
+      paidAt: new Date('2026-05-10'),
+      isParcelada: false,
+      isRecorrente: false,
+      categoria: 'Outro',
+      formatoPagamento: 'Outro',
+      // sem `tipo` e sem `carteiraId` — exatamente como um documento pré-feature.
+    });
+
+    const res = await request(app.getHttpServer())
+      .get('/api/accounts')
+      .query({ tipo: 'PAGAR', month: 5, year: 2026 })
+      .expect(200);
+
+    const legacy = (res.body as Array<{ _id: string; paid: boolean; carteira?: { tipo: string } }>).find(
+      (item) => item._id === legacyId.toString(),
+    );
+    expect(legacy).toBeDefined();
+    expect(legacy!.paid).toBe(true);
+    expect(legacy!.carteira?.tipo).toBe('VIRTUAL');
   });
 });
