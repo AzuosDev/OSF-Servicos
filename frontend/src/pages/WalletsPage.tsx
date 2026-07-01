@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Loader2, Eye, EyeOff, Trash2 } from "lucide-react";
+import { Plus, Loader2, Eye, EyeOff, Trash2, FileUp } from "lucide-react";
 import { useShowValues } from "../hooks/useShowValues";
 
 import { api } from "../lib/api";
@@ -9,6 +9,7 @@ import { cn } from "../lib/utils";
 import { detectBankIcon } from "../lib/bankIcons";
 import { BankLogo } from "../components/ui/BankLogo";
 import { DeleteWalletModal } from "../components/modals/DeleteWalletModal";
+import { OFXImportModal } from "../components/modals/OFXImportModal";
 import { useToast } from "../components/ui/Toast";
 import type { Wallet } from "../types/api";
 
@@ -28,6 +29,7 @@ export function WalletsPage() {
   const { addToast } = useToast();
   const { show, toggle } = useShowValues();
   const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
   const fmt = (v: number) => (show ? brlFormatter.format(v) : "R$ ••••");
   const [searchParams, setSearchParams] = useSearchParams();
   const [showForm, setShowForm] = useState(false);
@@ -92,13 +94,22 @@ export function WalletsPage() {
           <p className="text-sm text-text-secondary">Suas contas</p>
           <h1 className="font-sans text-3xl font-bold">Carteiras</h1>
         </div>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
-        >
-          <Plus className="h-4 w-4" />
-          Nova Carteira
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-2 rounded-xl border border-bg-muted px-4 py-3 text-sm font-semibold text-white transition hover:bg-bg-muted"
+          >
+            <FileUp className="h-4 w-4" />
+            Importar OFX
+          </button>
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
+          >
+            <Plus className="h-4 w-4" />
+            Nova Carteira
+          </button>
+        </div>
       </div>
 
       {/* Saldo total */}
@@ -283,6 +294,7 @@ export function WalletsPage() {
         walletName={walletToDelete?.nome ?? ""}
         isLoading={deleteMutation.isPending}
       />
+      <OFXImportModal open={showImportModal} onClose={() => setShowImportModal(false)} />
     </section>
   );
 }

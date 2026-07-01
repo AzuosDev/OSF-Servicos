@@ -13,6 +13,7 @@ import { GoalsModule } from './modules/goals/goals.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { WalletsModule } from './modules/wallets/wallets.module';
+import { ImportModule } from './modules/import/import.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { WalletsModule } from './modules/wallets/wallets.module';
     DashboardModule,
     ExpensesModule,
     WalletsModule,
+    ImportModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

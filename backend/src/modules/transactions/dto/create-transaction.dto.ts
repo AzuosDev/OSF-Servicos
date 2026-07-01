@@ -29,4 +29,9 @@ export class CreateTransactionDto {
 
   @IsDateString()
   date!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  fitId?: string;
 }
