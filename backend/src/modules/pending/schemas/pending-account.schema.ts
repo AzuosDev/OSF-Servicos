@@ -88,12 +88,14 @@ export class PendingAccount {
         default: 'Mensal',
       },
       dataProxima: { type: Date, required: false },
+      dataTermino: { type: Date, required: false },
     },
     required: false,
   })
   recorrencia?: {
     periodoRecorrencia: string;
     dataProxima?: Date;
+    dataTermino?: Date;
   };
 
   // ID do molde recorrente — presente apenas em instâncias geradas ao pagar

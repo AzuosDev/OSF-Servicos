@@ -38,6 +38,10 @@ export class RecorrenciaDto {
   @IsOptional()
   @IsDateString()
   dataProxima?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dataTermino?: string;
 }
 
 export class CreatePendingDto {

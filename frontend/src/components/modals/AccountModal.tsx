@@ -59,7 +59,7 @@ function buildPendingPayload({
   tipo: AccountType;
   affectsBalance: boolean;
   parcelas: { totalParcelas?: string; dataInicio?: string; dataFim?: string };
-  recorrencia: { periodoRecorrencia?: string; dataProxima?: string };
+  recorrencia: { periodoRecorrencia?: string; dataProxima?: string; dataTermino?: string };
 }) {
   const normalizedValue = parseCurrencyInput(value);
   const baseDate = parcelas.dataInicio || dueDate ? new Date(parcelas.dataInicio || dueDate) : undefined;
@@ -86,10 +86,11 @@ function buildPendingPayload({
           dataFim: toIsoDate(parcelas.dataFim || dueDate) ?? addMonths(baseDate, totalParcelas - 1).toISOString(),
         }
       : undefined,
-    recorrencia: isRecorrente && recorrencia.periodoRecorrencia && recorrencia.dataProxima
+    recorrencia: isRecorrente && recorrencia.periodoRecorrencia
       ? {
           periodoRecorrencia: recorrencia.periodoRecorrencia,
-          dataProxima: toIsoDate(recorrencia.dataProxima),
+          dataProxima: recorrencia.dataProxima ? toIsoDate(recorrencia.dataProxima) : undefined,
+          dataTermino: recorrencia.dataTermino ? toIsoDate(recorrencia.dataTermino) : undefined,
         }
       : undefined,
   };
@@ -113,7 +114,7 @@ type AccountModalProps = {
     tipo?: AccountType;
     affectsBalance?: boolean;
     parcelas?: { totalParcelas?: number; dataInicio?: string; dataFim?: string };
-    recorrencia?: { periodoRecorrencia?: string; dataProxima?: string };
+    recorrencia?: { periodoRecorrencia?: string; dataProxima?: string; dataTermino?: string };
   };
   onSuccess?: () => void;
 };
@@ -140,7 +141,11 @@ export function AccountModal({
   const [formRecorrencia, setFormRecorrencia] = useState<{
     periodoRecorrencia?: string;
     dataProxima?: string;
+    dataTermino?: string;
   }>({});
+  const [formRecorrenciaDay, setFormRecorrenciaDay] = useState(""); // dia 1-31, só no cadastro
+  const [formRecorrenciaTermino, setFormRecorrenciaTermino] = useState<"infinita" | "N_meses">("infinita");
+  const [formRecorrenciaNMeses, setFormRecorrenciaNMeses] = useState("");
   const [formCategoria, setFormCategoria] = useState("");
   const [categoriaCustom, setCategoriaCustom] = useState("");
   const [formForma, setFormForma] = useState("");
@@ -192,9 +197,13 @@ export function AccountModal({
           dataFim: editAccount.parcelas?.dataFim?.slice(0, 10) ?? "",
         });
         setFormRecorrencia({
-          periodoRecorrencia: editAccount.recorrencia?.periodoRecorrencia ?? "",
-          dataProxima: editAccount.recorrencia?.dataProxima?.slice(0, 10) ?? "",
+          periodoRecorrencia: editAccount.recorrencia?.periodoRecorrencia ?? "Mensal",
+          dataProxima: editAccount.recorrencia?.dataProxima?.slice(0, 10) ?? editAccount.dueDate?.slice(0, 10) ?? "",
+          dataTermino: editAccount.recorrencia?.dataTermino?.slice(0, 10) ?? "",
         });
+        setFormRecorrenciaDay("");
+        setFormRecorrenciaTermino(editAccount.recorrencia?.dataTermino ? "N_meses" : "infinita");
+        setFormRecorrenciaNMeses("");
         setFormCategoria(editAccount.categoria ?? "");
         setCategoriaCustom(editAccount.categoria ?? "");
         setFormForma(editAccount.formatoPagamento ?? "");
@@ -211,6 +220,9 @@ export function AccountModal({
         setFormDescription("");
         setFormParcelas({});
         setFormRecorrencia({});
+        setFormRecorrenciaDay("");
+        setFormRecorrenciaTermino("infinita");
+        setFormRecorrenciaNMeses("");
         setFormCategoria("");
         setCategoriaCustom("");
         setFormForma("");
@@ -223,10 +235,27 @@ export function AccountModal({
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      // Recorrente no cadastro: calcula dueDate a partir do dia informado no mês atual.
+      let dueDateCreate = formDueDate;
+      let recorrenciaCreate = { ...formRecorrencia };
+      if (formIsRecorrente && formRecorrenciaDay) {
+        const day = Math.max(1, Math.min(31, Number(formRecorrenciaDay)));
+        const now = new Date();
+        const mm = String(now.getMonth() + 1).padStart(2, "0");
+        const dd = String(day).padStart(2, "0");
+        dueDateCreate = `${now.getFullYear()}-${mm}-${dd}`;
+        recorrenciaCreate = { ...recorrenciaCreate, dataProxima: dueDateCreate };
+        if (formRecorrenciaTermino === "N_meses" && formRecorrenciaNMeses) {
+          const n = Math.max(1, Number(formRecorrenciaNMeses));
+          const start = new Date(`${dueDateCreate}T12:00:00`);
+          start.setMonth(start.getMonth() + n - 1);
+          recorrenciaCreate.dataTermino = start.toISOString().slice(0, 10);
+        }
+      }
       const payload = buildPendingPayload({
         title: formTitle,
         value: formValue,
-        dueDate: formDueDate,
+        dueDate: dueDateCreate,
         description: formDescription,
         isParcelada: formIsParcelada,
         isRecorrente: formIsRecorrente,
@@ -236,7 +265,7 @@ export function AccountModal({
         tipo: formTipo,
         affectsBalance: effectiveAffectsBalance,
         parcelas: formParcelas,
-        recorrencia: formRecorrencia,
+        recorrencia: recorrenciaCreate,
       });
       await api.post("/api/accounts", payload);
     },
@@ -277,7 +306,7 @@ export function AccountModal({
   // A data relevante muda conforme o modo: parcelada usa dataInicio, demais usam dueDate.
   // affectsBalance só vale se a data efetiva for realmente retroativa — evita drift de estado
   // ao trocar de modo (ex: marcar checkbox em parcelada e voltar para não parcelada).
-  const effectiveDate = formIsParcelada ? (formParcelas.dataInicio ?? "") : formDueDate;
+  const effectiveDate = formIsParcelada ? (formParcelas.dataInicio ?? "") : formIsRecorrente ? "" : formDueDate;
   const effectiveAffectsBalance = isPastMonth(effectiveDate) ? formAffectsBalance : true;
 
   const isSaving = createMutation.isPending || editMutation.isPending;
@@ -454,7 +483,7 @@ export function AccountModal({
             <label className="block">
               <span className="mb-1 block text-sm text-text-secondary">Período de recorrência</span>
               <select
-                value={formRecorrencia.periodoRecorrencia ?? ""}
+                value={formRecorrencia.periodoRecorrencia ?? "Mensal"}
                 onChange={(e) =>
                   setFormRecorrencia((prev) => ({ ...prev, periodoRecorrencia: e.target.value }))
                 }
@@ -466,17 +495,87 @@ export function AccountModal({
                 <option value="Anual">Anual</option>
               </select>
             </label>
-            <label className="block">
-              <span className="mb-1 block text-sm text-text-secondary">Próxima data</span>
-              <input
-                type="date"
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
-                value={formRecorrencia.dataProxima ?? ""}
-                onChange={(e) =>
-                  setFormRecorrencia((prev) => ({ ...prev, dataProxima: e.target.value }))
-                }
-              />
-            </label>
+
+            {editAccount ? (
+              <label className="block">
+                <span className="mb-1 block text-sm text-text-secondary">Data da primeira ocorrência</span>
+                <input
+                  type="date"
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+                  value={formRecorrencia.dataProxima ?? ""}
+                  onChange={(e) =>
+                    setFormRecorrencia((prev) => ({ ...prev, dataProxima: e.target.value }))
+                  }
+                />
+              </label>
+            ) : (
+              <label className="block">
+                <span className="mb-1 block text-sm text-text-secondary">Dia de vencimento</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  step="1"
+                  placeholder="Ex.: 10"
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+                  value={formRecorrenciaDay}
+                  onChange={(e) => setFormRecorrenciaDay(e.target.value)}
+                />
+                <span className="mt-1 block text-xs text-text-secondary">
+                  A primeira ocorrência será criada no mês atual com este dia.
+                </span>
+              </label>
+            )}
+
+            <div>
+              <span className="mb-1 block text-sm text-text-secondary">Duração</span>
+              <div className="flex gap-1 rounded-xl bg-bg-muted p-1">
+                {(["infinita", "N_meses"] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setFormRecorrenciaTermino(opt)}
+                    className={cn(
+                      "flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition",
+                      formRecorrenciaTermino === opt
+                        ? "bg-accent-lime text-black"
+                        : "text-white hover:bg-bg-overlay",
+                    )}
+                  >
+                    {opt === "infinita" ? "Sem data de término" : "Encerrar após"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {formRecorrenciaTermino === "N_meses" && (
+              editAccount ? (
+                <label className="block">
+                  <span className="mb-1 block text-sm text-text-secondary">Data de término</span>
+                  <input
+                    type="date"
+                    className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+                    value={formRecorrencia.dataTermino ?? ""}
+                    onChange={(e) =>
+                      setFormRecorrencia((prev) => ({ ...prev, dataTermino: e.target.value }))
+                    }
+                  />
+                </label>
+              ) : (
+                <label className="block">
+                  <span className="mb-1 block text-sm text-text-secondary">Número de meses</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="Ex.: 12"
+                    className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+                    value={formRecorrenciaNMeses}
+                    onChange={(e) => setFormRecorrenciaNMeses(e.target.value)}
+                  />
+                </label>
+              )
+            )}
           </>
         )}
 

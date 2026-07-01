@@ -542,4 +542,69 @@ describe('PendingController (e2e)', () => {
       new Date(second.dueDate).toISOString().slice(0, 10),
     );
   });
+
+  it('conta recorrente sem dataTermino aparece em todos os meses futuros indefinidamente', async () => {
+    const create = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .send({
+        ...basePayload,
+        title: 'Aluguel recorrente',
+        dueDate: '2026-07-10',
+        isRecorrente: true,
+        recorrencia: { periodoRecorrencia: 'Mensal' },
+      })
+      .expect(201);
+    const id = (create.body as { _id: string })._id;
+
+    // Aparece no mês de início (julho/2026)
+    const jul = await request(app.getHttpServer()).get('/api/accounts?month=7&year=2026').expect(200);
+    expect((jul.body as Array<{ _id?: string; templateId?: string }>).some(
+      (i) => i._id === id || i.templateId === id,
+    )).toBe(true);
+
+    // Aparece 12 meses depois (julho/2027) — sem dataTermino, não para nunca
+    const jul27 = await request(app.getHttpServer()).get('/api/accounts?month=7&year=2027').expect(200);
+    expect((jul27.body as Array<{ _id?: string; templateId?: string }>).some(
+      (i) => i._id === id || i.templateId === id,
+    )).toBe(true);
+
+    // NÃO aparece antes do mês de início (junho/2026)
+    const jun = await request(app.getHttpServer()).get('/api/accounts?month=6&year=2026').expect(200);
+    expect((jun.body as Array<{ _id?: string; templateId?: string }>).some(
+      (i) => i._id === id || i.templateId === id,
+    )).toBe(false);
+  });
+
+  it('conta recorrente com dataTermino para de aparecer após a data definida', async () => {
+    const create = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .send({
+        ...basePayload,
+        title: 'Assinatura finita',
+        dueDate: '2026-07-10',
+        isRecorrente: true,
+        recorrencia: {
+          periodoRecorrencia: 'Mensal',
+          dataTermino: '2026-09-10', // termina em setembro/2026
+        },
+      })
+      .expect(201);
+    const id = (create.body as { _id: string })._id;
+
+    // Aparece em julho, agosto e setembro (dentro do prazo)
+    for (const [month, year] of [[7, 2026], [8, 2026], [9, 2026]]) {
+      const res = await request(app.getHttpServer())
+        .get(`/api/accounts?month=${month}&year=${year}`)
+        .expect(200);
+      expect((res.body as Array<{ _id?: string; templateId?: string }>).some(
+        (i) => i._id === id || i.templateId === id,
+      )).toBe(true);
+    }
+
+    // NÃO aparece em outubro/2026 (após dataTermino)
+    const out = await request(app.getHttpServer()).get('/api/accounts?month=10&year=2026').expect(200);
+    expect((out.body as Array<{ _id?: string; templateId?: string }>).some(
+      (i) => i._id === id || i.templateId === id,
+    )).toBe(false);
+  });
 });

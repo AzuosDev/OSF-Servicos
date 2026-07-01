@@ -251,6 +251,9 @@ export class PendingService {
             dataProxima: dto.recorrencia.dataProxima
               ? new Date(dto.recorrencia.dataProxima)
               : new Date(dto.dueDate),
+            dataTermino: dto.recorrencia.dataTermino
+              ? new Date(dto.recorrencia.dataTermino)
+              : undefined,
           }
         : undefined,
     });
@@ -330,6 +333,14 @@ export class PendingService {
       }
 
       if (!shouldProject) continue;
+
+      // Respeita data de término: não projeta ocorrências após dataTermino.
+      if (template.recorrencia?.dataTermino) {
+        const daysInMonth = this.daysInMonthUtc(year, month);
+        const day = Math.min(startDay, daysInMonth);
+        const candidateDate = new Date(Date.UTC(year, month - 1, day));
+        if (candidateDate > template.recorrencia.dataTermino) continue;
+      }
 
       const existingInstance = instanceByTemplate.get(templateId);
 
@@ -483,6 +494,7 @@ export class PendingService {
       pending.recorrencia = {
         periodoRecorrencia: dto.recorrencia.periodoRecorrencia,
         dataProxima: dto.recorrencia.dataProxima ? new Date(dto.recorrencia.dataProxima) : pending.recorrencia?.dataProxima,
+        dataTermino: dto.recorrencia.dataTermino ? new Date(dto.recorrencia.dataTermino) : pending.recorrencia?.dataTermino,
       };
     }
 
