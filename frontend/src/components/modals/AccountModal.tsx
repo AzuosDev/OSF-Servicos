@@ -86,9 +86,9 @@ function buildPendingPayload({
           dataFim: toIsoDate(parcelas.dataFim || dueDate) ?? addMonths(baseDate, totalParcelas - 1).toISOString(),
         }
       : undefined,
-    recorrencia: isRecorrente && recorrencia.periodoRecorrencia
+    recorrencia: isRecorrente
       ? {
-          periodoRecorrencia: recorrencia.periodoRecorrencia,
+          periodoRecorrencia: recorrencia.periodoRecorrencia ?? "Mensal",
           dataProxima: recorrencia.dataProxima ? toIsoDate(recorrencia.dataProxima) : undefined,
           dataTermino: recorrencia.dataTermino ? toIsoDate(recorrencia.dataTermino) : undefined,
         }
@@ -219,7 +219,7 @@ export function AccountModal({
         setFormDueDate("");
         setFormDescription("");
         setFormParcelas({});
-        setFormRecorrencia({});
+        setFormRecorrencia({ periodoRecorrencia: "Mensal" });
         setFormRecorrenciaDay("");
         setFormRecorrenciaTermino("infinita");
         setFormRecorrenciaNMeses("");
@@ -683,7 +683,7 @@ export function AccountModal({
           </select>
         </div>
 
-        {!formIsParcelada && (
+        {!formIsParcelada && !formIsRecorrente && (
           <div>
             <label className="block">
               <span className="mb-1 block text-sm text-text-secondary">Data de vencimento</span>
