@@ -80,6 +80,10 @@ export class CreatePendingDto {
   @IsString()
   carteiraId?: string;
 
+  @IsOptional()
+  @IsBoolean()
+  affectsBalance?: boolean;
+
   @IsNotEmpty()
   @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))
   @IsString()

@@ -30,8 +30,12 @@ import type { User } from "../../types/api";
 import { useToast } from "../ui/Toast";
 import { useQuery } from "@tanstack/react-query";
 import { UserProfileModal } from "../modals/UserProfileModal";
+import { hasSeenWhatsNew } from "../modals/WhatsNewModal";
 const TransactionModal = lazy(() =>
   import("../modals/TransactionModal").then((m) => ({ default: m.TransactionModal }))
+);
+const WhatsNewModal = lazy(() =>
+  import("../modals/WhatsNewModal").then((m) => ({ default: m.WhatsNewModal }))
 );
 
 type NavItem = {
@@ -329,6 +333,7 @@ export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const [whatsNewOpen, setWhatsNewOpen] = useState(() => !hasSeenWhatsNew());
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [txOpen, setTxOpen] = useState(false);
   const [txTab, setTxTab] = useState<"INCOME" | "EXPENSE" | "TRANSFER">("EXPENSE");
@@ -583,6 +588,10 @@ export function AppLayout() {
 
       <Suspense fallback={null}>
         <TransactionModal open={txOpen} onClose={() => setTxOpen(false)} defaultTab={txTab} />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <WhatsNewModal open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
       </Suspense>
 
       <UserProfileModal

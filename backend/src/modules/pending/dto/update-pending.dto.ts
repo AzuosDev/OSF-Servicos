@@ -69,6 +69,10 @@ export class UpdatePendingDto {
   paid?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  affectsBalance?: boolean;
+
+  @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))
   @IsString()
   @MaxLength(500)

@@ -373,6 +373,144 @@ describe('PendingController (e2e)', () => {
     expect(persisted?.parcelas?.dataInicio.slice(0, 10)).toBe('2026-02-15');
   });
 
+  it('PATCH paid=false on a paid single account reverts status and removes the settlement transaction', async () => {
+    const transactionModel = app.get<Model<Transaction>>(getModelToken(Transaction.name));
+
+    const create = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .send({ ...basePayload, title: 'Conta para desmarcar', dueDate: '2026-11-01' })
+      .expect(201);
+    const id = (create.body as { _id: string })._id;
+
+    await request(app.getHttpServer())
+      .patch(`/api/accounts/${id}`)
+      .send({ paid: true })
+      .expect(200);
+
+    const txBefore = await transactionModel.findOne({ pendingAccountId: new Types.ObjectId(id) }).exec();
+    expect(txBefore).not.toBeNull();
+
+    const unpayRes = await request(app.getHttpServer())
+      .patch(`/api/accounts/${id}`)
+      .send({ paid: false })
+      .expect(200);
+
+    expect(unpayRes.body.paid).toBe(false);
+    expect(unpayRes.body.paidAt).toBeUndefined();
+
+    const txAfter = await transactionModel.findOne({ pendingAccountId: new Types.ObjectId(id) }).exec();
+    expect(txAfter).toBeNull();
+  });
+
+  it('PATCH paid=false on a specific installment does not affect other installments', async () => {
+    const transactionModel = app.get<Model<Transaction>>(getModelToken(Transaction.name));
+
+    const create = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .send({
+        ...basePayload,
+        title: 'Parcelada para desmarcar',
+        isParcelada: true,
+        parcelas: { totalParcelas: 3, dataInicio: '2026-08-01', dataFim: '2026-10-01' },
+      })
+      .expect(201);
+
+    const installments = create.body as Array<{ _id: string; numeroParcela: number }>;
+    const p1 = installments.find((i) => i.numeroParcela === 1)!;
+    const p2 = installments.find((i) => i.numeroParcela === 2)!;
+    const p3 = installments.find((i) => i.numeroParcela === 3)!;
+
+    await request(app.getHttpServer()).patch(`/api/accounts/${p1._id}`).send({ paid: true }).expect(200);
+    await request(app.getHttpServer()).patch(`/api/accounts/${p2._id}`).send({ paid: true }).expect(200);
+
+    const unpayRes = await request(app.getHttpServer())
+      .patch(`/api/accounts/${p2._id}`)
+      .send({ paid: false })
+      .expect(200);
+
+    expect(unpayRes.body.paid).toBe(false);
+    expect(unpayRes.body.parcelas?.parcelasPagas).not.toContain(2);
+    expect(unpayRes.body.parcelas?.qtdParcelasPagas).toBe(1);
+
+    // A transação da parcela 2 deve ter sido removida, mas a da parcela 1 não.
+    const txP2 = await transactionModel.findOne({ pendingAccountId: new Types.ObjectId(p2._id) }).exec();
+    expect(txP2).toBeNull();
+    const txP1 = await transactionModel.findOne({ pendingAccountId: new Types.ObjectId(p1._id) }).exec();
+    expect(txP1).not.toBeNull();
+
+    // Parcela 1 permanece paga e parcela 3 permanece não paga.
+    const listRes = await request(app.getHttpServer()).get('/api/accounts').expect(200);
+    const all = listRes.body as Array<{ _id: string; paid: boolean }>;
+    expect(all.find((i) => i._id === p1._id)?.paid).toBe(true);
+    expect(all.find((i) => i._id === p3._id)?.paid).toBe(false);
+  });
+
+  it('PATCH paid=false on an already-unpaid account returns 400', async () => {
+    const create = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .send({ ...basePayload, title: 'Conta não paga para erro 400', dueDate: '2026-11-05' })
+      .expect(201);
+    const id = (create.body as { _id: string })._id;
+
+    await request(app.getHttpServer())
+      .patch(`/api/accounts/${id}`)
+      .send({ paid: false })
+      .expect(400);
+  });
+
+  it('PATCH paid=true on affectsBalance=false account does not create a transaction; unpay is safe', async () => {
+    const transactionModel = app.get<Model<Transaction>>(getModelToken(Transaction.name));
+
+    const create = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .send({ ...basePayload, title: 'Conta sem impacto no saldo', dueDate: '2026-11-10', affectsBalance: false })
+      .expect(201);
+    const id = (create.body as { _id: string })._id;
+
+    await request(app.getHttpServer())
+      .patch(`/api/accounts/${id}`)
+      .send({ paid: true })
+      .expect(200);
+
+    const tx = await transactionModel.findOne({ pendingAccountId: new Types.ObjectId(id) }).exec();
+    expect(tx).toBeNull();
+
+    const unpayRes = await request(app.getHttpServer())
+      .patch(`/api/accounts/${id}`)
+      .send({ paid: false })
+      .expect(200);
+    expect(unpayRes.body.paid).toBe(false);
+  });
+
+  it('POST parcelada com affectsBalance:false — parcelas retroativas herdam false, futuras/atual forçam true', async () => {
+    // Hoje: 2026-07-01. Parcelas: mai/jun (retroativas) + jul/ago/set (atual+futuro).
+    const res = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .send({
+        ...basePayload,
+        title: 'Parcelada retroativa parcial',
+        dueDate: '2026-05-01', // frontend sempre envia dueDate = dataInicio para parcelada
+        isParcelada: true,
+        affectsBalance: false,
+        parcelas: { totalParcelas: 5, dataInicio: '2026-05-01', dataFim: '2026-09-01' },
+      })
+      .expect(201);
+
+    const installments = res.body as Array<{ numeroParcela: number; dueDate: string; affectsBalance: boolean }>;
+    expect(installments).toHaveLength(5);
+
+    const byNum = (n: number) => installments.find((i) => i.numeroParcela === n)!;
+
+    // Parcelas retroativas: maio e junho
+    expect(byNum(1).affectsBalance).toBe(false);
+    expect(byNum(2).affectsBalance).toBe(false);
+
+    // Parcela do mês atual (julho) e futuras: sempre true independente do dto
+    expect(byNum(3).affectsBalance).toBe(true);
+    expect(byNum(4).affectsBalance).toBe(true);
+    expect(byNum(5).affectsBalance).toBe(true);
+  });
+
   it('PATCH on a later installment updates group metadata but not its own dueDate', async () => {
     const create = await request(app.getHttpServer())
       .post('/api/accounts')

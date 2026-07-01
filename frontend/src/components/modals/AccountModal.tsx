@@ -4,6 +4,7 @@ import { Loader2, Wallet } from "lucide-react";
 
 import { api } from "../../lib/api";
 import { getApiErrorMessages } from "../../lib/errors";
+import { parseCurrencyInput, isPastMonth } from "../../lib/finance";
 import { ModalShell } from "./ModalShell";
 import { useCategories, useIncomeCategories, useWallets } from "./TransactionFormFields";
 import { DynamicIcon } from "../DynamicIcon";
@@ -42,6 +43,7 @@ function buildPendingPayload({
   formatoPagamento,
   carteiraId,
   tipo,
+  affectsBalance,
   parcelas,
   recorrencia,
 }: {
@@ -55,17 +57,18 @@ function buildPendingPayload({
   formatoPagamento: string;
   carteiraId: string;
   tipo: AccountType;
+  affectsBalance: boolean;
   parcelas: { totalParcelas?: string; dataInicio?: string; dataFim?: string };
   recorrencia: { periodoRecorrencia?: string; dataProxima?: string };
 }) {
-  const normalizedValue = Number(String(value).replace(/[^\d,-]/g, "").replace(",", "."));
+  const normalizedValue = parseCurrencyInput(value);
   const baseDate = parcelas.dataInicio || dueDate ? new Date(parcelas.dataInicio || dueDate) : undefined;
   const totalParcelas = Number(parcelas.totalParcelas);
 
   return {
     title: title.trim(),
     value: Number.isFinite(normalizedValue) ? normalizedValue : undefined,
-    dueDate: toIsoDate(dueDate),
+    dueDate: toIsoDate(isParcelada ? (parcelas.dataInicio || dueDate) : dueDate),
     description: description.trim() || undefined,
     isParcelada,
     isRecorrente,
@@ -73,6 +76,7 @@ function buildPendingPayload({
     formatoPagamento: isPaymentFormat(formatoPagamento) ? formatoPagamento : undefined,
     carteiraId: carteiraId || undefined,
     tipo,
+    affectsBalance,
     parcelas: isParcelada && baseDate && Number.isFinite(totalParcelas) && totalParcelas > 0
       ? {
           totalParcelas,
@@ -107,6 +111,7 @@ type AccountModalProps = {
     formatoPagamento?: string;
     carteiraId?: string;
     tipo?: AccountType;
+    affectsBalance?: boolean;
     parcelas?: { totalParcelas?: number; dataInicio?: string; dataFim?: string };
     recorrencia?: { periodoRecorrencia?: string; dataProxima?: string };
   };
@@ -141,6 +146,7 @@ export function AccountModal({
   const [formForma, setFormForma] = useState("");
   const [formaCustom, setFormaCustom] = useState("");
   const [formCarteiraId, setFormCarteiraId] = useState("");
+  const [formAffectsBalance, setFormAffectsBalance] = useState(true);
 
   const queryClient = useQueryClient();
   const skipTipoResetRef = useRef(true);
@@ -194,6 +200,7 @@ export function AccountModal({
         setFormForma(editAccount.formatoPagamento ?? "");
         setFormaCustom(editAccount.formatoPagamento ?? "");
         setFormCarteiraId(editAccount.carteiraId ?? "");
+        setFormAffectsBalance(editAccount.affectsBalance ?? true);
       } else {
         setFormTipo(defaultType ?? "PAGAR");
         setFormIsParcelada(false);
@@ -209,6 +216,7 @@ export function AccountModal({
         setFormForma("");
         setFormaCustom("");
         setFormCarteiraId("");
+        setFormAffectsBalance(true);
       }
     }
   }, [open, editAccount, defaultType]);
@@ -226,6 +234,7 @@ export function AccountModal({
         formatoPagamento: formForma && formForma !== "Outro" ? formForma : formaCustom,
         carteiraId: formCarteiraId,
         tipo: formTipo,
+        affectsBalance: effectiveAffectsBalance,
         parcelas: formParcelas,
         recorrencia: formRecorrencia,
       });
@@ -252,6 +261,7 @@ export function AccountModal({
         formatoPagamento: formForma && formForma !== "Outro" ? formForma : formaCustom,
         carteiraId: formCarteiraId,
         tipo: formTipo,
+        affectsBalance: effectiveAffectsBalance,
         parcelas: formParcelas,
         recorrencia: formRecorrencia,
       }));
@@ -263,6 +273,12 @@ export function AccountModal({
       onSuccess?.();
     },
   });
+
+  // A data relevante muda conforme o modo: parcelada usa dataInicio, demais usam dueDate.
+  // affectsBalance só vale se a data efetiva for realmente retroativa — evita drift de estado
+  // ao trocar de modo (ex: marcar checkbox em parcelada e voltar para não parcelada).
+  const effectiveDate = formIsParcelada ? (formParcelas.dataInicio ?? "") : formDueDate;
+  const effectiveAffectsBalance = isPastMonth(effectiveDate) ? formAffectsBalance : true;
 
   const isSaving = createMutation.isPending || editMutation.isPending;
   const tipoLabel = formTipo === "RECEBER" ? "a receber" : "a pagar";
@@ -389,15 +405,38 @@ export function AccountModal({
                 </p>
               )}
             </label>
-            <label className="block">
-              <span className="mb-1 block text-sm text-text-secondary">Data de início</span>
-              <input
-                type="date"
-                value={formParcelas.dataInicio ?? ""}
-                onChange={(e) => setFormParcelas((prev) => ({ ...prev, dataInicio: e.target.value }))}
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
-              />
-            </label>
+            <div>
+              <label className="block">
+                <span className="mb-1 block text-sm text-text-secondary">Data de início</span>
+                <input
+                  type="date"
+                  value={formParcelas.dataInicio ?? ""}
+                  onChange={(e) => {
+                    setFormParcelas((prev) => ({ ...prev, dataInicio: e.target.value }));
+                    if (!isPastMonth(e.target.value)) setFormAffectsBalance(true);
+                  }}
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+                />
+              </label>
+              {isPastMonth(formParcelas.dataInicio ?? "") && (
+                <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-3 transition hover:border-yellow-500/60">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-accent-lime"
+                    checked={!formAffectsBalance}
+                    onChange={(e) => setFormAffectsBalance(!e.target.checked)}
+                  />
+                  <div>
+                    <span className="block text-sm font-medium text-yellow-300">
+                      Esta data é retroativa. Deseja que esta conta não afete seu saldo atual?
+                    </span>
+                    <span className="mt-0.5 block text-xs text-yellow-300/70">
+                      Marque para registrar sem lançar movimentação na carteira ao quitar.
+                    </span>
+                  </div>
+                </label>
+              )}
+            </div>
             <label className="block">
               <span className="mb-1 block text-sm text-text-secondary">Data de fim</span>
               <input
@@ -546,15 +585,38 @@ export function AccountModal({
         </div>
 
         {!formIsParcelada && (
-          <label className="block">
-            <span className="mb-1 block text-sm text-text-secondary">Data de vencimento</span>
-            <input
-              type="date"
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
-              value={formDueDate}
-              onChange={(e) => setFormDueDate(e.target.value)}
-            />
-          </label>
+          <div>
+            <label className="block">
+              <span className="mb-1 block text-sm text-text-secondary">Data de vencimento</span>
+              <input
+                type="date"
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+                value={formDueDate}
+                onChange={(e) => {
+                  setFormDueDate(e.target.value);
+                  if (!isPastMonth(e.target.value)) setFormAffectsBalance(true);
+                }}
+              />
+            </label>
+            {isPastMonth(formDueDate) && (
+              <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-3 transition hover:border-yellow-500/60">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-accent-lime"
+                  checked={!formAffectsBalance}
+                  onChange={(e) => setFormAffectsBalance(!e.target.checked)}
+                />
+                <div>
+                  <span className="block text-sm font-medium text-yellow-300">
+                    Esta data é retroativa. Deseja que esta conta não afete seu saldo atual?
+                  </span>
+                  <span className="mt-0.5 block text-xs text-yellow-300/70">
+                    Marque para registrar sem lançar movimentação na carteira ao quitar.
+                  </span>
+                </div>
+              </label>
+            )}
+          </div>
         )}
 
         <label className="block">

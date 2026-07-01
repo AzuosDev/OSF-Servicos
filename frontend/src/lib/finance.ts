@@ -174,6 +174,17 @@ export function normalizeExpenseCategory(
   };
 }
 
+export function isPastMonth(dateStr: string): boolean {
+  if (!dateStr) return false;
+  const d = new Date(`${dateStr}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  return (
+    d.getFullYear() < now.getFullYear() ||
+    (d.getFullYear() === now.getFullYear() && d.getMonth() < now.getMonth())
+  );
+}
+
 export function dateInputValue(value: string) {
   const date = new Date(value);
 
@@ -182,6 +193,16 @@ export function dateInputValue(value: string) {
   }
 
   return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Converte o valor retornado por um <input type="number"> em número.
+ * O browser sempre usa "." como separador decimal em e.target.value,
+ * mas aceitamos "," também (locales pt-BR) por segurança.
+ */
+export function parseCurrencyInput(raw: string | number): number {
+  const n = Number(String(raw).replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
 }
 
 export function buildTransactionPayload(values: {

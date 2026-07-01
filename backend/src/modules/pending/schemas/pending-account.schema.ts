@@ -44,6 +44,14 @@ export class PendingAccount {
   @Prop({ type: String, enum: ['PAGAR', 'RECEBER'], default: 'PAGAR' })
   tipo!: string;
 
+  /**
+   * Quando false, quitar a conta não gera transação financeira nem afeta saldos.
+   * Útil para registrar despesas/receitas retroativas que já foram contabilizadas externamente.
+   * @default true
+   */
+  @Prop({ type: Boolean, default: true })
+  affectsBalance!: boolean;
+
   @Prop({ type: Number })
   numeroParcela?: number;
 

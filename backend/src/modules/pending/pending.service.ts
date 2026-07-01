@@ -70,6 +70,15 @@ export class PendingService {
     return nextDate;
   }
 
+  private isRetroactive(date: Date): boolean {
+    const now = new Date();
+    // Usa UTC para ser consistente com datas ISO (UTC midnight) vindas do DTO.
+    return (
+      date.getUTCFullYear() < now.getUTCFullYear() ||
+      (date.getUTCFullYear() === now.getUTCFullYear() && date.getUTCMonth() < now.getUTCMonth())
+    );
+  }
+
   // Datas-only (ex.: '2026-06-05') são parseadas pelo JS como meia-noite UTC, não local.
   // Toda a matemática de mês/dia de contas recorrentes precisa operar em UTC para não
   // sofrer deslocamento de ±1 dia conforme o fuso horário do servidor (mesma convenção já
@@ -200,6 +209,7 @@ export class PendingService {
           categoria: dto.categoria,
           formatoPagamento: dto.formatoPagamento,
           tipo: dto.tipo ?? 'PAGAR',
+          affectsBalance: this.isRetroactive(dueDate) ? (dto.affectsBalance ?? true) : true,
           carteiraId: dto.carteiraId ? new Types.ObjectId(dto.carteiraId) : undefined,
           numeroParcela,
           grupoParceladoId,
@@ -233,6 +243,7 @@ export class PendingService {
       categoria: dto.categoria,
       formatoPagamento: dto.formatoPagamento,
       tipo: dto.tipo ?? 'PAGAR',
+      affectsBalance: dto.affectsBalance ?? true,
       carteiraId: dto.carteiraId ? new Types.ObjectId(dto.carteiraId) : undefined,
       recorrencia: dto.recorrencia
         ? {
@@ -476,22 +487,41 @@ export class PendingService {
     }
 
     const wasPaid = pending.paid;
-    const willSettle = dto.paid === true && !wasPaid;
+    const willSettle   = dto.paid === true  && !wasPaid;
+    const willUnsettle = dto.paid === false && wasPaid;
+
+    // Rejeitar tentativa de desmarcar uma conta/parcela que já está desmarcada.
+    if (dto.paid === false && !wasPaid) {
+      throw new BadRequestException('Esta conta/parcela não está marcada como paga');
+    }
 
     // Cria a transação de liquidação ANTES de persistir paid=true: se isso falhar, a
     // conta nunca fica marcada como paga/recebida sem o lançamento correspondente.
-    if (willSettle) {
+    // Respeitamos affectsBalance: se false, nenhuma transação é gerada.
+    if (willSettle && pending.affectsBalance !== false) {
       await this.createSettlementTransaction(pending);
+    }
+
+    // Remove a transação de liquidação ao desmarcar (deleteMany é no-op se nenhuma existir,
+    // o que acontece quando affectsBalance=false foi usado no pagamento original).
+    if (willUnsettle) {
+      await this.transactionModel.deleteMany({
+        userId: pending.userId,
+        pendingAccountId: pending._id,
+      }).exec();
     }
 
     if (typeof dto.paid !== 'undefined') {
       pending.paid = dto.paid;
-      if (dto.paid) pending.paidAt = pending.paidAt ?? new Date();
+      if (dto.paid)  pending.paidAt = pending.paidAt ?? new Date();
+      if (!dto.paid) pending.paidAt = undefined;
     }
+
+    if (typeof dto.affectsBalance !== 'undefined') pending.affectsBalance = dto.affectsBalance;
 
     await pending.save();
 
-    // Sincroniza metadados do grupo parcelado (parcelasPagas / qtdParcelasPagas)
+    // Sincroniza metadados do grupo parcelado (parcelasPagas / qtdParcelasPagas).
     if (willSettle && pending.grupoParceladoId && pending.numeroParcela) {
       await this.pendingModel.updateMany(
         { userId: pending.userId, grupoParceladoId: pending.grupoParceladoId },
@@ -500,6 +530,24 @@ export class PendingService {
           $inc: { 'parcelas.qtdParcelasPagas': 1 },
         },
       ).exec();
+    }
+
+    // Reverte metadados do grupo parcelado ao desmarcar.
+    if (willUnsettle && pending.grupoParceladoId && pending.numeroParcela) {
+      await this.pendingModel.updateMany(
+        { userId: pending.userId, grupoParceladoId: pending.grupoParceladoId },
+        {
+          $pull: { 'parcelas.parcelasPagas': pending.numeroParcela },
+          $inc: { 'parcelas.qtdParcelasPagas': -1 },
+        },
+      ).exec();
+    }
+
+    // O updateMany opera diretamente no banco e não atualiza o objeto em memória;
+    // re-lemos o documento para retornar parcelasPagas/qtdParcelasPagas consistentes.
+    if ((willSettle || willUnsettle) && pending.grupoParceladoId) {
+      const fresh = await this.pendingModel.findById(pending._id).exec();
+      if (fresh) return fresh;
     }
 
     return pending;
