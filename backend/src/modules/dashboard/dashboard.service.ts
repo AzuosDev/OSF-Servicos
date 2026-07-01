@@ -54,7 +54,7 @@ export class DashboardService {
     const [facetResult, pendingAccounts, goals] = await Promise.all([
       this.transactionModel
         .aggregate([
-          { $match: { userId: userObjectId, date: { $gte: matchStart, $lte: yearEnd } } },
+          { $match: { userId: userObjectId, agendado: { $ne: true }, date: { $gte: matchStart, $lte: yearEnd } } },
           {
             $facet: {
               totalIncome: [
