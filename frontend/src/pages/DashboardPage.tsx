@@ -433,8 +433,6 @@ export function DashboardPage() {
           <h1 className="font-sans text-3xl font-bold">Dashboard</h1>
         </div>
         <div className="flex items-center gap-3">
-          <div className="grid grid-cols-2 gap-3">
-          </div>
           <button
             onClick={() => setAddModalOpen(true)}
             className="hidden md:flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition-opacity hover:brightness-110"
@@ -592,7 +590,7 @@ export function DashboardPage() {
               onClick={() => navigate("/expenses")}
             />
             <Link
-              to="/pending"
+              to="/contas"
               className="rounded-2xl bg-bg-card p-4 transition hover:bg-bg-muted"
             >
               <Clock className="mb-4 h-6 w-6 text-accent-yellow" />
@@ -600,7 +598,7 @@ export function DashboardPage() {
                 {fmt(dashboard.pendingTotal)}
               </strong>
               <span className="text-sm text-text-secondary">
-                Contas Pendentes
+                Contas
               </span>
             </Link>
             <SummaryCard
