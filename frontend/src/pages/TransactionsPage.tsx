@@ -1,18 +1,17 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Filter, Loader2, Plus, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeftRight, ChevronDown, Filter, Loader2, Plus, TrendingDown, TrendingUp, Wallet, X } from "lucide-react";
 
-import { TransactionRow } from "../components/TransactionRow";
-import { AddExpenseModal } from "../components/modals/AddExpenseModal";
-import { AddIncomeModal } from "../components/modals/AddIncomeModal";
-import { EditTransactionModal } from "../components/modals/EditTransactionModal";
+import { TxRow } from "../components/TxRow";
+import { TransactionModal } from "../components/modals/TransactionModal";
 import { useCategories } from "../components/modals/TransactionFormFields";
+import { useToast } from "../components/ui/Toast";
 import { api } from "../lib/api";
 import { normalizeTransactionsResponse, readString } from "../lib/finance";
 import { cn } from "../lib/utils";
-import type { TransactionsResponse } from "../types/api";
-import type { Category, Transaction, TransactionType } from "../types/finance";
+import type { TransactionsResponse, Wallet as WalletAccount } from "../types/api";
+import type { Transaction, TransactionType } from "../types/finance";
 
 const tabs: Array<{ label: string; value: "ALL" | TransactionType }> = [
   { label: "Todos", value: "ALL" },
@@ -64,8 +63,19 @@ export function TransactionsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [choiceOpen, setChoiceOpen] = useState(false);
-  const [editing, setEditing] = useState<Transaction | null>(null);
+  const [txOpen, setTxOpen] = useState(false);
+  const [txTab, setTxTab] = useState<TransactionType>("EXPENSE");
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState<Transaction | null>(null);
+  const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
+  const { addToast } = useToast();
+
+  const handleEdit = (tx: Transaction) => {
+    setSelectedTx(tx);
+    setTxTab(tx.type);
+    setTxOpen(true);
+  };
+
   const queryClient = useQueryClient();
 
   const type = readString(searchParams.get("type")).toUpperCase();
@@ -74,9 +84,6 @@ export function TransactionsPage() {
   const categoryId = searchParams.get("categoryId") ?? "";
   const month = Number(searchParams.get("month") ?? today.getMonth() + 1);
   const year = Number(searchParams.get("year") ?? currentYear);
-  const action = searchParams.get("action");
-  const addExpenseOpen = action === "create" && selectedType !== "INCOME";
-  const addIncomeOpen = action === "create" && selectedType === "INCOME";
   const years = useMemo(
     () => Array.from({ length: 4 }, (_, index) => currentYear - index),
     [currentYear],
@@ -111,19 +118,14 @@ export function TransactionsPage() {
       .filter((transaction) => {
         const date = new Date(transaction.date);
         const matchesCategory = !categoryId || transaction.categoryId === categoryId;
+        // Usar UTC para evitar deslocamento de ±1 dia em fusos UTC-N (datas ISO são UTC midnight).
         const matchesPeriod =
           !Number.isNaN(date.getTime()) &&
-          date.getMonth() + 1 === month &&
-          date.getFullYear() === year;
+          date.getUTCMonth() + 1 === month &&
+          date.getUTCFullYear() === year;
 
         return matchesCategory && matchesPeriod;
       }) ?? [];
-
-  const categoriesMap = useMemo(() => {
-    const map = new Map<string, Category>();
-    (categoriesQuery.data ?? []).forEach((c) => map.set(c.id, c));
-    return map;
-  }, [categoriesQuery.data]);
 
   const groupedTransactions = useMemo(() => {
     const groups = new Map<string, Transaction[]>();
@@ -149,7 +151,43 @@ export function TransactionsPage() {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["goals"] });
+      queryClient.invalidateQueries({ queryKey: ["wallets"] });
       setDeleting(null);
+    },
+  });
+
+  const walletsQuery = useQuery<WalletAccount[]>({
+    queryKey: ["wallets"],
+    queryFn: async () => {
+      const { data } = await api.get<WalletAccount[]>("/api/wallets");
+      return Array.isArray(data) ? data : [];
+    },
+  });
+  const realWallets = (walletsQuery.data ?? []).filter((w) => w.tipo !== "VIRTUAL");
+
+  const toggleTxSelection = (tx: Transaction) => {
+    setSelectedTxIds((prev) =>
+      prev.includes(tx.id) ? prev.filter((id) => id !== tx.id) : [...prev, tx.id],
+    );
+  };
+
+  const bulkWalletMutation = useMutation({
+    mutationFn: async (targetWalletId: string) => {
+      await api.patch("/api/transactions/bulk-wallet", {
+        transactionIds: selectedTxIds,
+        targetWalletId,
+      });
+    },
+    onSuccess: () => {
+      setSelectedTxIds([]);
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["wallets"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      addToast("Transações organizadas com sucesso!", "success");
+    },
+    onError: (error: unknown) => {
+      const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      addToast(msg || "Não foi possível associar as transações selecionadas.", "error");
     },
   });
 
@@ -168,10 +206,6 @@ export function TransactionsPage() {
     setSearchParams(next);
   };
 
-  const closeCreateModal = () => {
-    patchParams({ action: undefined });
-  };
-
   return (
     <section className="space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -182,10 +216,12 @@ export function TransactionsPage() {
         <button
           type="button"
           onClick={() => {
+            setSelectedTx(null);
             if (selectedType === "ALL") {
               setChoiceOpen(true);
             } else {
-              patchParams({ action: "create" });
+              setTxTab(selectedType);
+              setTxOpen(true);
             }
           }}
           className="flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
@@ -279,7 +315,7 @@ export function TransactionsPage() {
         )}
       </div>
 
-      <div className="rounded-2xl bg-bg-card p-5">
+      <div className="rounded-2xl bg-bg-card p-5 pb-32 lg:pb-5">
         {transactionsQuery.isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, index) => (
@@ -299,12 +335,13 @@ export function TransactionsPage() {
                   {group.label}
                 </p>
                 {group.items.map((transaction) => (
-                  <TransactionRow
+                  <TxRow
                     key={transaction.id}
-                    transaction={transaction}
-                    onEdit={setEditing}
+                    tx={transaction}
+                    onEdit={handleEdit}
                     onDelete={setDeleting}
-                    categoriesMap={categoriesMap}
+                    selected={selectedTxIds.includes(transaction.id)}
+                    onToggleSelect={toggleTxSelection}
                   />
                 ))}
               </div>
@@ -325,6 +362,52 @@ export function TransactionsPage() {
         )}
       </div>
 
+      {selectedTxIds.length > 0 && (
+        // bottom-24 no mobile: limpa a navbar fixa inferior (pb-24 do <main>, ~96px) +
+        // o botão "+" flutuante que poka acima dela. A partir de lg: a navbar mobile
+        // some (lg:hidden em AppLayout), então a barra volta a ficar perto do rodapé.
+        // Conteúdo interno em coluna no mobile (texto em cima, controles embaixo) para
+        // não estourar a largura da tela; volta a ser uma linha só a partir de sm:.
+        <div className="fixed bottom-24 left-1/2 z-30 flex w-[min(92vw,32rem)] -translate-x-1/2 flex-col gap-3 rounded-2xl border border-bg-muted bg-bg-card/95 p-4 shadow-2xl shadow-black/40 backdrop-blur sm:flex-row sm:items-center sm:gap-3 lg:bottom-6">
+          <p className="shrink-0 text-sm font-semibold text-white">
+            {selectedTxIds.length} transaç{selectedTxIds.length === 1 ? "ão" : "ões"} selecionada{selectedTxIds.length === 1 ? "" : "s"}
+          </p>
+
+          <div className="flex items-center gap-2 sm:ml-auto sm:shrink-0">
+            <select
+              value=""
+              disabled={bulkWalletMutation.isPending || realWallets.length === 0}
+              onChange={(event) => {
+                const targetWalletId = event.target.value;
+                if (targetWalletId) bulkWalletMutation.mutate(targetWalletId);
+              }}
+              className="flex-1 rounded-xl border border-bg-muted bg-bg-muted px-3 py-2.5 text-sm text-white outline-none focus:border-accent-lime disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
+            >
+              <option value="" disabled>
+                {realWallets.length === 0 ? "Nenhuma carteira disponível" : "Mover para…"}
+              </option>
+              {realWallets.map((wallet) => (
+                <option key={wallet._id} value={wallet._id}>
+                  {wallet.nome}
+                </option>
+              ))}
+            </select>
+
+            {bulkWalletMutation.isPending && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-accent-lime" />}
+
+            <button
+              type="button"
+              onClick={() => setSelectedTxIds([])}
+              disabled={bulkWalletMutation.isPending}
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-text-secondary hover:bg-bg-overlay hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="Cancelar seleção"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {choiceOpen && (
         <div className="fixed inset-0 z-50 grid place-items-end bg-black/60 p-4 backdrop-blur-sm sm:place-items-center">
           <div className="w-full max-w-sm rounded-2xl border border-bg-muted bg-bg-card p-5">
@@ -341,10 +424,7 @@ export function TransactionsPage() {
             <div className="grid gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  setChoiceOpen(false);
-                  patchParams({ type: "EXPENSE", action: "create" });
-                }}
+                onClick={() => { setChoiceOpen(false); setSelectedTx(null); setTxTab("EXPENSE"); setTxOpen(true); }}
                 className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
               >
                 <TrendingDown className="h-5 w-5 text-accent-red" />
@@ -352,23 +432,31 @@ export function TransactionsPage() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setChoiceOpen(false);
-                  patchParams({ type: "INCOME", action: "create", categoryId: undefined });
-                }}
+                onClick={() => { setChoiceOpen(false); setSelectedTx(null); setTxTab("INCOME"); setTxOpen(true); }}
                 className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
               >
                 <TrendingUp className="h-5 w-5 text-accent-lime" />
                 <span className="font-semibold">Adicionar Ganho</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setChoiceOpen(false); setSelectedTx(null); setTxTab("TRANSFER"); setTxOpen(true); }}
+                className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
+              >
+                <ArrowLeftRight className="h-5 w-5 text-blue-400" />
+                <span className="font-semibold">Nova Transferência</span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      <AddExpenseModal open={addExpenseOpen} onClose={closeCreateModal} />
-      <AddIncomeModal open={addIncomeOpen} onClose={closeCreateModal} />
-      <EditTransactionModal transaction={editing} onClose={() => setEditing(null)} />
+      <TransactionModal
+        open={txOpen}
+        onClose={() => { setTxOpen(false); setSelectedTx(null); }}
+        defaultTab={txTab}
+        transaction={selectedTx}
+      />
 
       {deleting && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm">

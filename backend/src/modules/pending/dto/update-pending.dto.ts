@@ -23,6 +23,11 @@ export class UpdatePendingDto {
   formatoPagamento?: string;
 
   @IsOptional()
+  @IsString()
+  @IsIn(['PAGAR', 'RECEBER'])
+  tipo?: string;
+
+  @IsOptional()
   @ValidateIf(o => o.isParcelada)
   @ValidateNested()
   @Type(() => ParcelasDto)
@@ -56,8 +61,16 @@ export class UpdatePendingDto {
   dueDate?: string;
 
   @IsOptional()
+  @IsString()
+  carteiraId?: string;
+
+  @IsOptional()
   @IsBoolean()
   paid?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  affectsBalance?: boolean;
 
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))

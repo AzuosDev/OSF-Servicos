@@ -39,6 +39,12 @@ export class UsersController {
     return this.usersService.updateAvatar(user._id.toString(), avatarUrl ?? null);
   }
 
+  @Delete('me/data')
+  @HttpCode(200)
+  async resetData(@CurrentUser() user: ICurrentUser) {
+    return this.usersService.resetData(user._id.toString());
+  }
+
   @Delete('me')
   @HttpCode(200)
   async deleteAccount(@CurrentUser() user: ICurrentUser) {

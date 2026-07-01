@@ -22,6 +22,9 @@ export class Category {
 
   @Prop({ default: false })
   isDefault!: boolean;
+
+  @Prop({ default: false })
+  isIncome!: boolean;
 }
 
 export const CategorySchema = SchemaFactory.createForClass(Category);

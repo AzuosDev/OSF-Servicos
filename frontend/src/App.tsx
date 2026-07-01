@@ -12,13 +12,15 @@ const BudgetPage = lazy(() => import("./pages/BudgetPage").then((m) => ({ defaul
 const DashboardPage = lazy(() => import("./pages/DashboardPage").then((m) => ({ default: m.DashboardPage })));
 const ExpensesPage = lazy(() => import("./pages/ExpensesPage").then((m) => ({ default: m.ExpensesPage })));
 const GoalsPage = lazy(() => import("./pages/GoalsPage").then((m) => ({ default: m.GoalsPage })));
-const PendingPage = lazy(() => import("./pages/PendingPage").then((m) => ({ default: m.PendingPage })));
+const ContasPage = lazy(() => import("./pages/ContasPage").then((m) => ({ default: m.ContasPage })));
 const TransactionsPage = lazy(() => import("./pages/TransactionsPage").then((m) => ({ default: m.TransactionsPage })));
 const LoginPage = lazy(() => import("./pages/LoginPage").then((m) => ({ default: m.LoginPage })));
 const RegisterPage = lazy(() => import("./pages/RegisterPage").then((m) => ({ default: m.RegisterPage })));
 const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage").then((m) => ({ default: m.ForgotPasswordPage })));
 const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage })));
 const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage").then((m) => ({ default: m.VerifyEmailPage })));
+const WalletPage = lazy(() => import("./pages/WalletPage").then((m) => ({ default: m.WalletPage })));
+const WalletsPage = lazy(() => import("./pages/WalletsPage").then((m) => ({ default: m.WalletsPage })));
 
 function PageLoader() {
   return (
@@ -85,7 +87,10 @@ export default function App() {
                   <Route path="/transactions" element={<TransactionsPage />} />
                   <Route path="/budget" element={<BudgetPage />} />
                   <Route path="/goals" element={<GoalsPage />} />
-                  <Route path="/pending" element={<PendingPage />} />
+                  <Route path="/contas" element={<ContasPage />} />
+                  <Route path="/pending" element={<Navigate to="/contas" replace />} />
+                  <Route path="/carteiras" element={<WalletsPage />} />
+                  <Route path="/carteiras/:id" element={<WalletPage />} />
                 </Route>
               </Route>
 

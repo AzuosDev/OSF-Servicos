@@ -29,4 +29,7 @@ export class GetTransactionsDto {
 
   @IsOptional()
   categoryId?: string;
+
+  @IsOptional()
+  carteiraId?: string;
 }

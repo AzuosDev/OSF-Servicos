@@ -7,9 +7,9 @@ import { ICurrentUser } from '../../common/types/current-user.type';
 import { CreatePendingDto } from './dto/create-pending.dto';
 import { UpdatePendingDto } from './dto/update-pending.dto';
 
-@ApiTags('Pending')
+@ApiTags('Accounts')
 @ApiBearerAuth()
-@Controller('api/pending')
+@Controller('api/accounts')
 @UseGuards(JwtAuthGuard)
 export class PendingController {
   constructor(private pendingService: PendingService) {}
@@ -25,11 +25,13 @@ export class PendingController {
     @Query('paid') paid?: string,
     @Query('month') month?: string,
     @Query('year') year?: string,
+    @Query('tipo') tipo?: string,
   ) {
     const paidFilter = paid === 'true' ? true : paid === 'false' ? false : undefined;
     const monthNum = month ? parseInt(month, 10) : undefined;
     const yearNum = year ? parseInt(year, 10) : undefined;
-    return this.pendingService.findAll(user._id.toString(), monthNum, yearNum, paidFilter);
+    const tipoFilter = tipo === 'PAGAR' || tipo === 'RECEBER' ? tipo : undefined;
+    return this.pendingService.findAll(user._id.toString(), monthNum, yearNum, paidFilter, tipoFilter);
   }
 
   @Post(':templateId/pay-month')
@@ -39,8 +41,9 @@ export class PendingController {
     @Param('templateId') templateId: string,
     @Body('month') month: number,
     @Body('year') year: number,
+    @Body('carteiraId') carteiraId?: string,
   ) {
-    return this.pendingService.payRecurringInstance(user._id.toString(), templateId, month, year);
+    return this.pendingService.payRecurringInstance(user._id.toString(), templateId, month, year, carteiraId);
   }
 
   @Patch(':id')

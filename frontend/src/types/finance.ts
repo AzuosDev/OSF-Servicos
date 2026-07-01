@@ -1,4 +1,14 @@
-export type TransactionType = "INCOME" | "EXPENSE";
+export type TransactionType = "INCOME" | "EXPENSE" | "TRANSFER";
+
+/**
+ * Carteira virtual injetada pelo backend quando a transação não tem carteiraId
+ * (dado anterior à feature de múltiplas carteiras). Não existe na coleção real.
+ */
+export type VirtualWallet = {
+  _id: "legacy-wallet";
+  nome: string;
+  tipo: "VIRTUAL";
+};
 
 export type Category = {
   id: string;
@@ -16,6 +26,10 @@ export type Transaction = {
   description?: string;
   categoryId?: string;
   category?: Category;
+  carteiraId?: string;
+  carteiraDestinoId?: string;
+  agendado?: boolean;
+  carteira?: VirtualWallet;
 };
 
 export type CategoryExpense = Category & {

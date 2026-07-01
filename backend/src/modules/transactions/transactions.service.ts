@@ -4,6 +4,7 @@ import { FilterQuery, Model, Types } from 'mongoose';
 import { Transaction, TransactionDocument, TransactionType } from './schemas/transaction.schema';
 import { Category, CategoryDocument } from '../categories/schemas/category.schema';
 import { Goal, GoalDocument } from '../goals/schemas/goal.schema';
+import { Wallet, WalletDocument } from '../wallets/schemas/wallet.schema';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 
@@ -13,7 +14,22 @@ export class TransactionsService {
     @InjectModel(Transaction.name) private transactionModel: Model<TransactionDocument>,
     @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
     @InjectModel(Goal.name) private goalModel: Model<GoalDocument>,
+    @InjectModel(Wallet.name) private walletModel: Model<WalletDocument>,
   ) {}
+
+  // Dados anteriores à feature de múltiplas carteiras não têm carteiraId. Em vez de
+  // devolver null pro frontend, injeta uma carteira virtual para exibição — o nome do
+  // campo (`nome`) segue a mesma convenção de Wallet.nome para não exigir um caminho de
+  // leitura diferente entre carteira real e virtual.
+  private static readonly LEGACY_WALLET = {
+    _id: 'legacy-wallet',
+    nome: 'Saldo Histórico (Sem Carteira)',
+    tipo: 'VIRTUAL' as const,
+  };
+
+  private attachVirtualWallet<T extends { carteiraId?: Types.ObjectId }>(doc: T) {
+    return { ...doc, carteira: doc.carteiraId ? undefined : TransactionsService.LEGACY_WALLET };
+  }
 
   private toObjectId(value: string, fieldName: string) {
     if (!Types.ObjectId.isValid(value)) {
@@ -41,6 +57,13 @@ export class TransactionsService {
       }
     }
 
+    const carteiraObjectId =
+      dto.carteiraId && Types.ObjectId.isValid(dto.carteiraId)
+        ? new Types.ObjectId(dto.carteiraId)
+        : undefined;
+
+    const isScheduled = dto.date > new Date().toISOString().slice(0, 10);
+
     const transaction = await this.transactionModel.create({
       userId: userObjectId,
       type: dto.type,
@@ -48,10 +71,22 @@ export class TransactionsService {
       categoryId: categoryObjectId,
       description: dto.description,
       date: new Date(dto.date),
+      carteiraId: carteiraObjectId,
+      agendado: isScheduled,
     });
 
-    if (dto.type === TransactionType.EXPENSE && categoryObjectId) {
-      await this.incrementLinkedGoal(userObjectId, categoryObjectId, dto.value);
+    if (!isScheduled) {
+      if (dto.type === TransactionType.EXPENSE && categoryObjectId) {
+        await this.incrementLinkedGoal(userObjectId, categoryObjectId, dto.value);
+      }
+
+      if (carteiraObjectId) {
+        const inc = dto.type === TransactionType.INCOME ? dto.value : -dto.value;
+        await this.walletModel.findOneAndUpdate(
+          { _id: carteiraObjectId, userId: userObjectId },
+          { $inc: { saldo: inc } },
+        ).exec();
+      }
     }
 
     return transaction;
@@ -81,6 +116,7 @@ export class TransactionsService {
     categoryId?: string,
     month?: number,
     year?: number,
+    carteiraId?: string,
   ) {
     const filter: FilterQuery<TransactionDocument> = { userId: new Types.ObjectId(userId) };
     if (type) {
@@ -97,10 +133,17 @@ export class TransactionsService {
       filter.date = { $gte: startDate, $lte: endDate };
     }
 
-    const [data, total] = await Promise.all([
+    if (carteiraId && Types.ObjectId.isValid(carteiraId)) {
+      const walletOid = new Types.ObjectId(carteiraId);
+      filter.$or = [{ carteiraId: walletOid }, { carteiraDestinoId: walletOid }];
+    }
+
+    const [docs, total] = await Promise.all([
       this.transactionModel.find(filter).sort({ date: -1 }).skip((page - 1) * limit).limit(limit).exec(),
       this.transactionModel.countDocuments(filter).exec(),
     ]);
+
+    const data = docs.map((d) => this.attachVirtualWallet(d.toObject()));
 
     return { data, total, page, limit };
   }
@@ -117,19 +160,69 @@ export class TransactionsService {
   }
 
   async update(userId: string, id: string, dto: UpdateTransactionDto) {
+    const userObjectId = this.toObjectId(userId, 'userId');
     const transaction = await this.transactionModel.findOne({
       _id: this.toObjectId(id, 'id'),
-      userId: this.toObjectId(userId, 'userId'),
+      userId: userObjectId,
     }).exec();
     if (!transaction) {
       throw new NotFoundException('Transaction not found');
     }
 
+    const oldCarteiraId = transaction.carteiraId as Types.ObjectId | undefined;
+    const oldValue = transaction.value;
+    const oldType = transaction.type;
+    const oldAgendado = transaction.agendado ?? false;
+
     if (dto.type) transaction.type = dto.type;
     if (typeof dto.value !== 'undefined') transaction.value = dto.value;
     if (dto.categoryId) transaction.categoryId = this.toObjectId(dto.categoryId, 'categoryId');
     if (typeof dto.description !== 'undefined') transaction.description = dto.description;
-    if (dto.date) transaction.date = new Date(dto.date);
+    if (dto.date) {
+      transaction.date = new Date(dto.date);
+      transaction.agendado = dto.date > new Date().toISOString().slice(0, 10);
+    }
+
+    const newAgendado = transaction.agendado ?? false;
+
+    if (typeof dto.carteiraId !== 'undefined') {
+      const newCarteiraId =
+        dto.carteiraId && Types.ObjectId.isValid(dto.carteiraId)
+          ? new Types.ObjectId(dto.carteiraId)
+          : undefined;
+
+      // Reverse old wallet effect (only if old tx wasn't scheduled — agendado txs never hit the wallet)
+      if (oldCarteiraId && !oldAgendado) {
+        const reversal = oldType === TransactionType.INCOME ? -oldValue : oldValue;
+        await this.walletModel.findOneAndUpdate(
+          { _id: oldCarteiraId, userId: userObjectId },
+          { $inc: { saldo: reversal } },
+        ).exec();
+      }
+
+      // Apply new wallet effect (only if not scheduled)
+      if (newCarteiraId && !newAgendado) {
+        const inc = transaction.type === TransactionType.INCOME ? transaction.value : -transaction.value;
+        await this.walletModel.findOneAndUpdate(
+          { _id: newCarteiraId, userId: userObjectId },
+          { $inc: { saldo: inc } },
+        ).exec();
+      }
+
+      transaction.carteiraId = newCarteiraId;
+    } else if (oldCarteiraId) {
+      // Same wallet — compute net change in balance effect, including agendado flips.
+      // Effect is 0 when scheduled (never hits wallet), otherwise ±value.
+      const oldEffect = oldAgendado ? 0 : (oldType === TransactionType.INCOME ? oldValue : -oldValue);
+      const newEffect = newAgendado ? 0 : (transaction.type === TransactionType.INCOME ? transaction.value : -transaction.value);
+      const diff = newEffect - oldEffect;
+      if (diff !== 0) {
+        await this.walletModel.findOneAndUpdate(
+          { _id: oldCarteiraId, userId: userObjectId },
+          { $inc: { saldo: diff } },
+        ).exec();
+      }
+    }
 
     await transaction.save();
     return transaction;
@@ -151,6 +244,74 @@ export class TransactionsService {
       await this.decrementLinkedGoal(userObjectId, transaction.categoryId as Types.ObjectId, transaction.value);
     }
 
+    if (!transaction.agendado && transaction.carteiraId && transaction.type !== TransactionType.TRANSFER) {
+      const reversal = transaction.type === TransactionType.INCOME ? -transaction.value : transaction.value;
+      await this.walletModel.findOneAndUpdate(
+        { _id: transaction.carteiraId, userId: userObjectId },
+        { $inc: { saldo: reversal } },
+      ).exec();
+    }
+
     return { deleted: true };
+  }
+
+  // Lazy migration: associa em lote transações legadas (sem carteiraId) a uma carteira
+  // real escolhida pelo usuário. Só aceita transações ainda sem carteira para não
+  // sobrescrever um vínculo já existente sem reverter o efeito de saldo dele — esse
+  // mesmo cuidado é o que `update()` já faz transação por transação.
+  async associateTransactionsToWallet(userId: string, transactionIds: string[], targetWalletId: string) {
+    const userObjectId = this.toObjectId(userId, 'userId');
+    const walletObjectId = this.toObjectId(targetWalletId, 'targetWalletId');
+
+    const wallet = await this.walletModel.findOne({ _id: walletObjectId, userId: userObjectId }).exec();
+    if (!wallet) throw new NotFoundException('Carteira de destino não encontrada');
+
+    const uniqueIds = Array.from(new Set(transactionIds));
+    const objectIds = uniqueIds.map((id) => this.toObjectId(id, 'transactionIds'));
+
+    const transactions = await this.transactionModel
+      .find({ _id: { $in: objectIds }, userId: userObjectId })
+      .exec();
+
+    if (transactions.length !== objectIds.length) {
+      const foundIds = new Set(transactions.map((t) => t._id.toString()));
+      const missing = uniqueIds.filter((id) => !foundIds.has(id));
+      throw new BadRequestException(`Transações não encontradas: ${missing.join(', ')}`);
+    }
+
+    const alreadyLinked = transactions.filter((t) => t.carteiraId);
+    if (alreadyLinked.length) {
+      throw new BadRequestException(
+        `As transações a seguir já possuem carteira associada: ${alreadyLinked
+          .map((t) => t._id.toString())
+          .join(', ')}`,
+      );
+    }
+
+    // Saldo da carteira (wallets.service.findAll/findOne) é recalculado por agregação
+    // sobre Transaction.carteiraId, então o updateMany abaixo já é suficiente para o
+    // saldo exibido ficar correto. Ainda assim mantemos o campo estático Wallet.saldo em
+    // dia, no mesmo padrão usado em create()/update()/remove() desta classe.
+    const eligibleForSaldo = transactions.filter((t) => !t.agendado && t.type !== TransactionType.TRANSFER);
+    const impact = eligibleForSaldo.reduce(
+      (sum, t) => sum + (t.type === TransactionType.INCOME ? t.value : -t.value),
+      0,
+    );
+
+    await this.transactionModel
+      .updateMany({ _id: { $in: objectIds }, userId: userObjectId }, { $set: { carteiraId: walletObjectId } })
+      .exec();
+
+    if (impact !== 0) {
+      await this.walletModel
+        .findOneAndUpdate({ _id: walletObjectId, userId: userObjectId }, { $inc: { saldo: impact } })
+        .exec();
+    }
+
+    return {
+      updatedCount: transactions.length,
+      walletId: walletObjectId.toString(),
+      impact,
+    };
   }
 }

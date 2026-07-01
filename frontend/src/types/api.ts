@@ -21,15 +21,40 @@ export type AuthTokens = {
   refreshToken: string;
 };
 
-export type TransactionType = "EXPENSE" | "INCOME";
+export type TransactionType = "EXPENSE" | "INCOME" | "TRANSFER";
+export type TipoTransacao = "entrada" | "saida" | "transferencia";
 
 export type Transaction = MongoDocument & {
   userId: ApiId;
   type: TransactionType;
+  tipoTransacao?: TipoTransacao;
   value: number;
   categoryId?: ApiId;
   description?: string;
   date: ApiDate;
+  carteiraId?: ApiId;
+  carteiraDestinoId?: ApiId;
+  agendado?: boolean;
+  carteira?: VirtualWallet;
+};
+
+export type Wallet = MongoDocument & {
+  userId: ApiId;
+  nome: string;
+  saldo: number;
+  icone?: string;
+  tipo?: "VIRTUAL";
+};
+
+/**
+ * Carteira virtual injetada pelo backend quando uma transação/conta antiga não possui
+ * carteiraId (dado anterior à feature de múltiplas carteiras). Não existe na coleção de
+ * carteiras real — use sempre com optional chaining (`item.carteira?.nome`).
+ */
+export type VirtualWallet = {
+  _id: "legacy-wallet";
+  nome: string;
+  tipo: "VIRTUAL";
 };
 
 export type TransactionsResponse = {
@@ -78,6 +103,12 @@ export type PendingAccount = MongoDocument & {
   formatoPagamento?: 'Cartão de Crédito' | 'Pix' | 'Dinheiro' | 'Outro';
 
   /**
+   * Indica se a conta é a pagar (despesa) ou a receber (receita).
+   * @default 'PAGAR'
+   */
+  tipo?: 'PAGAR' | 'RECEBER';
+
+  /**
    * Sub‑documento de parcelas – presente somente se isParcelada = true.
    */
   parcelas?: {
@@ -106,6 +137,8 @@ export type PendingAccount = MongoDocument & {
   paid: boolean;
   paidAt?: ApiDate;
   description?: string;
+  carteiraId?: ApiId;
+  carteira?: VirtualWallet;
 };
 
 export type Goal = MongoDocument & {

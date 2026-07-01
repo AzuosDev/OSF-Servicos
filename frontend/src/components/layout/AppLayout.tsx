@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
+  ArrowLeftRight,
   BarChart2,
   ChevronLeft,
   Clock,
   Coins,
   Home,
+  Landmark,
   LayoutDashboard,
   List,
   LogOut,
@@ -28,6 +30,13 @@ import type { User } from "../../types/api";
 import { useToast } from "../ui/Toast";
 import { useQuery } from "@tanstack/react-query";
 import { UserProfileModal } from "../modals/UserProfileModal";
+import { hasSeenWhatsNew } from "../modals/WhatsNewModal";
+const TransactionModal = lazy(() =>
+  import("../modals/TransactionModal").then((m) => ({ default: m.TransactionModal }))
+);
+const WhatsNewModal = lazy(() =>
+  import("../modals/WhatsNewModal").then((m) => ({ default: m.WhatsNewModal }))
+);
 
 type NavItem = {
   to: string;
@@ -46,14 +55,15 @@ const navigation: NavItem[] = [
     icon: TrendingUp,
   },
   { to: "/transactions", label: "Transações", icon: List },
-  { to: "/pending", label: "Contas Pendentes", icon: Clock },
+  { to: "/carteiras", label: "Carteiras", icon: Landmark },
+  { to: "/contas", label: "Contas", icon: Clock },
   { to: "/goals", label: "Metas Financeiras", icon: Target },
 ] as const;
 
 const mobileNavigation = [
   { to: "/dashboard", label: "Início", icon: Home },
   { to: "/expenses", label: "Resumo", icon: BarChart2 },
-  { to: "/pending", label: "Pendentes", icon: Clock },
+  { to: "/contas", label: "Contas", icon: Clock },
   { to: "/goals", label: "Metas", icon: Target },
 ] as const;
 
@@ -61,7 +71,8 @@ const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/expenses": "Gastos",
   "/transactions": "Transações",
-  "/pending": "Contas Pendentes",
+  "/carteiras": "Carteiras",
+  "/contas": "Contas",
   "/goals": "Metas Financeiras",
   "/budget": "Orçamento",
 };
@@ -228,7 +239,9 @@ function SidebarContent({
         )}
       >
         {navigation.map(({ to, match, label, icon: Icon }) => {
-          const active = match ? currentUrl === match : currentPath === to;
+          const active = match
+            ? currentUrl === match
+            : currentPath === to || (to === "/carteiras" && currentPath.startsWith("/carteiras"));
 
           return (
             <Link
@@ -320,7 +333,10 @@ export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const [whatsNewOpen, setWhatsNewOpen] = useState(() => !hasSeenWhatsNew());
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [txOpen, setTxOpen] = useState(false);
+  const [txTab, setTxTab] = useState<"INCOME" | "EXPENSE" | "TRANSFER">("EXPENSE");
   const [userProfileOpen, setUserProfileOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
@@ -386,9 +402,10 @@ export function AppLayout() {
     }
   };
 
-  const goToCreate = (type: "EXPENSE" | "INCOME") => {
+  const openTx = (tab: "INCOME" | "EXPENSE" | "TRANSFER") => {
     setAddModalOpen(false);
-    navigate(`/transactions?type=${type}&action=create`);
+    setTxTab(tab);
+    setTxOpen(true);
   };
 
   return (
@@ -537,25 +554,18 @@ export function AppLayout() {
             </div>
             <div className="grid gap-3">
               <button
-                onClick={() => goToCreate("EXPENSE")}
+                onClick={() => openTx("EXPENSE")}
                 className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
               >
-                <TrendingDown className="h-5 w-5 text-accent-red" />
-                <span className="font-semibold">Adicionar Gasto</span>
+                <ArrowLeftRight className="h-5 w-5 text-accent-lime" />
+                <span className="font-semibold">Nova Movimentação</span>
               </button>
               <button
-                onClick={() => goToCreate("INCOME")}
-                className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
-              >
-                <TrendingUp className="h-5 w-5 text-accent-lime" />
-                <span className="font-semibold">Adicionar Ganho</span>
-              </button>
-              <button
-                onClick={() => { setAddModalOpen(false); navigate("/pending?action=create"); }}
+                onClick={() => { setAddModalOpen(false); navigate("/contas?action=create"); }}
                 className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
               >
                 <Clock className="h-5 w-5 text-accent-yellow" />
-                <span className="font-semibold">Nova Conta Pendente</span>
+                <span className="font-semibold">Nova Conta</span>
               </button>
               <button
                 onClick={() => { setAddModalOpen(false); navigate("/goals?action=create"); }}
@@ -564,10 +574,25 @@ export function AppLayout() {
                 <Target className="h-5 w-5 text-accent-lime" />
                 <span className="font-semibold">Nova Meta</span>
               </button>
+              <button
+                onClick={() => { setAddModalOpen(false); navigate("/carteiras?action=create"); }}
+                className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
+              >
+                <Landmark className="h-5 w-5 text-text-secondary" />
+                <span className="font-semibold">Nova Carteira</span>
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      <Suspense fallback={null}>
+        <TransactionModal open={txOpen} onClose={() => setTxOpen(false)} defaultTab={txTab} />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <WhatsNewModal open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
+      </Suspense>
 
       <UserProfileModal
         open={userProfileOpen}

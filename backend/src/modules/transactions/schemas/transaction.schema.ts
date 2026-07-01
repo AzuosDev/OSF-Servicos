@@ -6,6 +6,13 @@ export type TransactionDocument = Transaction & Document;
 export enum TransactionType {
   EXPENSE = 'EXPENSE',
   INCOME = 'INCOME',
+  TRANSFER = 'TRANSFER',
+}
+
+export enum TipoTransacao {
+  ENTRADA = 'entrada',
+  SAIDA = 'saida',
+  TRANSFERENCIA = 'transferencia',
 }
 
 @Schema({ timestamps: true })
@@ -15,6 +22,9 @@ export class Transaction {
 
   @Prop({ required: true, enum: TransactionType })
   type!: TransactionType;
+
+  @Prop({ enum: TipoTransacao })
+  tipoTransacao?: TipoTransacao;
 
   @Prop({ required: true, min: 0.01 })
   value!: number;
@@ -30,6 +40,15 @@ export class Transaction {
 
   @Prop({ type: Types.ObjectId, ref: 'PendingAccount' })
   pendingAccountId?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'Wallet' })
+  carteiraId?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'Wallet' })
+  carteiraDestinoId?: Types.ObjectId;
+
+  @Prop({ default: false })
+  agendado?: boolean;
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);

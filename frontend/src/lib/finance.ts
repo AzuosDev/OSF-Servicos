@@ -3,6 +3,7 @@ import type {
   CategoryExpense,
   Transaction,
   TransactionType,
+  VirtualWallet,
 } from "../types/finance";
 
 export const brlFormatter = new Intl.NumberFormat("pt-BR", {
@@ -76,10 +77,19 @@ export function normalizeTransaction(
     Object.keys(nestedCategory).length > 0
       ? normalizeCategory(nestedCategory, fallbackIndex)
       : undefined;
+  const nestedCarteira = asRecord(item.carteira);
+  const carteira: VirtualWallet | undefined =
+    nestedCarteira._id === "legacy-wallet"
+      ? {
+          _id: "legacy-wallet",
+          nome: readString(nestedCarteira.nome) || "Saldo Histórico (Sem Carteira)",
+          tipo: "VIRTUAL",
+        }
+      : undefined;
 
   return {
     id: readString(item.id, item._id) || `transaction-${fallbackIndex}`,
-    type: type === "INCOME" ? "INCOME" : "EXPENSE",
+    type: type === "INCOME" ? "INCOME" : type === "TRANSFER" ? "TRANSFER" : "EXPENSE",
     amount: readNumber(item.amount, item.value, item.total),
     date:
       readString(item.date, item.createdAt, item.paidAt, item.dueDate) ||
@@ -90,6 +100,10 @@ export function normalizeTransaction(
       nestedCategory.id,
       nestedCategory._id,
     ),
+    carteiraId: readString(item.carteiraId) || undefined,
+    carteiraDestinoId: readString(item.carteiraDestinoId) || undefined,
+    agendado: Boolean(item.agendado),
+    carteira,
     category:
       category ??
       (type === "INCOME"
@@ -160,6 +174,17 @@ export function normalizeExpenseCategory(
   };
 }
 
+export function isPastMonth(dateStr: string): boolean {
+  if (!dateStr) return false;
+  const d = new Date(`${dateStr}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  return (
+    d.getFullYear() < now.getFullYear() ||
+    (d.getFullYear() === now.getFullYear() && d.getMonth() < now.getMonth())
+  );
+}
+
 export function dateInputValue(value: string) {
   const date = new Date(value);
 
@@ -168,6 +193,16 @@ export function dateInputValue(value: string) {
   }
 
   return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Converte o valor retornado por um <input type="number"> em número.
+ * O browser sempre usa "." como separador decimal em e.target.value,
+ * mas aceitamos "," também (locales pt-BR) por segurança.
+ */
+export function parseCurrencyInput(raw: string | number): number {
+  const n = Number(String(raw).replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
 }
 
 export function buildTransactionPayload(values: {

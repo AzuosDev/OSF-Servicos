@@ -28,4 +28,8 @@ export class UpdateTransactionDto {
   @IsOptional()
   @IsDateString()
   date?: string;
+
+  @IsOptional()
+  @IsString()
+  carteiraId?: string;
 }

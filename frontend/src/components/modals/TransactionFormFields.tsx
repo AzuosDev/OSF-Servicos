@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import type { FieldErrors, UseFormRegister, UseFormWatch } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
@@ -22,6 +23,21 @@ export function useCategories() {
     queryKey: ["categories"],
     queryFn: async () => {
       const { data } = await api.get<ApiCategory[]>("/api/categories");
+      const source =
+        typeof data === "object" && data !== null && "categories" in data
+          ? (data as { categories?: unknown }).categories
+          : data;
+
+      return asArray(source).map((item, index) => normalizeCategory(item, index));
+    },
+  });
+}
+
+export function useIncomeCategories() {
+  return useQuery<Category[]>({
+    queryKey: ["categories", "income"],
+    queryFn: async () => {
+      const { data } = await api.get<ApiCategory[]>("/api/categories", { params: { income: "true" } });
       const source =
         typeof data === "object" && data !== null && "categories" in data
           ? (data as { categories?: unknown }).categories
@@ -145,14 +161,70 @@ export function CategoryField({
   );
 }
 
+export function useWallets() {
+  return useQuery<Array<{ _id: string; nome: string }>>({
+    queryKey: ["wallets"],
+    queryFn: async () => {
+      const { data } = await api.get("/api/wallets");
+      return Array.isArray(data) ? data : [];
+    },
+  });
+}
+
+export function WalletField({
+  wallets,
+  value,
+  onChange,
+  error,
+  loading,
+}: {
+  wallets: Array<{ _id: string; nome: string }>;
+  value?: string;
+  onChange: (id: string) => void;
+  error?: string;
+  loading: boolean;
+}) {
+  if (loading) return <div className="h-12 animate-pulse rounded-xl bg-bg-muted" />;
+
+  if (wallets.length === 0) {
+    return (
+      <div className="rounded-xl bg-yellow-500/10 p-3 text-sm text-yellow-400">
+        ⚠️ Nenhuma carteira encontrada.{" "}
+        <Link to="/carteiras" className="font-bold underline underline-offset-2 hover:text-yellow-300">
+          Criar carteira agora →
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <span className="mb-2 block text-sm text-text-secondary">Carteira</span>
+      <select
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-lime"
+      >
+        <option value="">Selecione uma carteira…</option>
+        {wallets.map((w) => (
+          <option key={w._id} value={w._id}>{w.nome}</option>
+        ))}
+      </select>
+      {error && <p className="mt-2 text-xs text-accent-red">{error}</p>}
+    </div>
+  );
+}
+
 export function DateAndDescriptionFields({
   register,
   watch,
   errors,
+  descriptionPlaceholder = "Observação opcional",
 }: {
   register: UseFormRegister<any>;
   watch: UseFormWatch<any>;
   errors: any;
+  descriptionPlaceholder?: string;
 }) {
   const description = watch("description") ?? "";
   const count = useMemo(() => description.length, [description]);
@@ -180,7 +252,7 @@ export function DateAndDescriptionFields({
           rows={4}
           maxLength={500}
           className="w-full resize-none rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition placeholder:text-text-muted focus:border-accent-lime"
-          placeholder="Observação opcional"
+          placeholder={descriptionPlaceholder}
           {...register("description")}
         />
         {errors.description && (

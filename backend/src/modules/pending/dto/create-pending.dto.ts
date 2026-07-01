@@ -38,6 +38,10 @@ export class RecorrenciaDto {
   @IsOptional()
   @IsDateString()
   dataProxima?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dataTermino?: string;
 }
 
 export class CreatePendingDto {
@@ -60,6 +64,11 @@ export class CreatePendingDto {
   formatoPagamento?: string;
 
   @IsOptional()
+  @IsString()
+  @IsIn(['PAGAR', 'RECEBER'])
+  tipo?: string;
+
+  @IsOptional()
   @ValidateIf(o => o.isParcelada)
   @ValidateNested()
   @Type(() => ParcelasDto)
@@ -70,6 +79,14 @@ export class CreatePendingDto {
   @ValidateNested()
   @Type(() => RecorrenciaDto)
   recorrencia?: RecorrenciaDto;
+
+  @IsOptional()
+  @IsString()
+  carteiraId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  affectsBalance?: boolean;
 
   @IsNotEmpty()
   @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))

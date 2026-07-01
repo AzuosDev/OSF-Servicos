@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { Loader2, TrendingUp } from "lucide-react";
 import { z } from "zod";
 
@@ -10,15 +10,19 @@ import { getApiErrorMessages, setFieldErrorsFromApi } from "../../lib/errors";
 import { buildTransactionPayload } from "../../lib/finance";
 import {
   AmountField,
+  CategoryField,
   DateAndDescriptionFields,
-  type TransactionFormValues,
+  WalletField,
+  useIncomeCategories,
+  useWallets,
 } from "./TransactionFormFields";
 import { ModalShell } from "./ModalShell";
 import type { Transaction as ApiTransaction } from "../../types/api";
 
 const schema = z.object({
   amount: z.number().positive("Informe um valor maior que zero."),
-  categoryId: z.string().default(""),
+  categoryId: z.string().optional().default(""),
+  carteiraId: z.string().min(1, "Selecione uma carteira."),
   date: z.string().min(1, "Informe a data."),
   description: z.string().max(500, "Use até 500 caracteres.").optional(),
 });
@@ -35,11 +39,15 @@ export function AddIncomeModal({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  const categoriesQuery = useIncomeCategories();
+  const walletsQuery = useWallets();
+  const hasWallets = (walletsQuery.data?.length ?? 0) > 0;
   const form = useForm<any>({
     resolver: zodResolver(schema),
     defaultValues: {
       amount: 0,
       categoryId: "",
+      carteiraId: "",
       date: todayInputValue(),
       description: "",
     },
@@ -50,6 +58,7 @@ export function AddIncomeModal({
       form.reset({
         amount: 0,
         categoryId: "",
+        carteiraId: "",
         date: todayInputValue(),
         description: "",
       });
@@ -58,19 +67,20 @@ export function AddIncomeModal({
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
-      await api.post<ApiTransaction>(
-        "/api/transactions",
-        buildTransactionPayload({ ...values, type: "INCOME" }),
-      );
+      await api.post<ApiTransaction>("/api/transactions", {
+        ...buildTransactionPayload({ ...values, type: "INCOME" }),
+        carteiraId: values.carteiraId,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["wallets"] });
       onClose();
     },
     onError: (error) => {
-      setFieldErrorsFromApi(error, form.setError, ["amount", "date", "description"]);
+      setFieldErrorsFromApi(error, form.setError, ["amount", "carteiraId", "date", "description"]);
     },
   });
 
@@ -93,7 +103,7 @@ export function AddIncomeModal({
           <button
             type="submit"
             form="add-income-form"
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || !hasWallets}
             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -108,6 +118,35 @@ export function AddIncomeModal({
         onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
       >
         <AmountField register={form.register} errors={form.formState.errors} />
+
+        <Controller
+          control={form.control}
+          name="carteiraId"
+          render={({ field, fieldState }) => (
+            <WalletField
+              wallets={walletsQuery.data ?? []}
+              value={field.value}
+              onChange={field.onChange}
+              error={fieldState.error?.message}
+              loading={walletsQuery.isLoading}
+            />
+          )}
+        />
+
+        <Controller
+          control={form.control}
+          name="categoryId"
+          render={({ field, fieldState }) => (
+            <CategoryField
+              categories={categoriesQuery.data ?? []}
+              value={field.value}
+              onChange={field.onChange}
+              error={fieldState.error?.message}
+              loading={categoriesQuery.isLoading}
+            />
+          )}
+        />
+
         <DateAndDescriptionFields
           register={form.register}
           watch={form.watch}
@@ -116,7 +155,7 @@ export function AddIncomeModal({
 
         {mutation.isError && (
           <div className="rounded-xl bg-accent-red/10 p-3 text-sm text-accent-red">
-            {getApiErrorMessages(mutation.error, "Nao foi possivel salvar o ganho.").map((message) => (
+            {getApiErrorMessages(mutation.error, "Não foi possível salvar o ganho.").map((message) => (
               <p key={message}>{message}</p>
             ))}
           </div>
@@ -125,4 +164,3 @@ export function AddIncomeModal({
     </ModalShell>
   );
 }
-

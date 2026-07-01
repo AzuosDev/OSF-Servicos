@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, Plus, TrendingDown, TrendingUp } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
-import { AddExpenseModal } from "../components/modals/AddExpenseModal";
+import { TransactionModal } from "../components/modals/TransactionModal";
 import { DynamicIcon } from "../components/DynamicIcon";
 import { api } from "../lib/api";
 import { formatCurrency, normalizeExpenseCategory } from "../lib/finance";
@@ -219,7 +219,7 @@ export function ExpensesPage() {
           </aside>
         </div>
       )}
-      <AddExpenseModal open={addExpenseOpen} onClose={() => setAddExpenseOpen(false)} />
+      <TransactionModal open={addExpenseOpen} onClose={() => setAddExpenseOpen(false)} defaultTab="EXPENSE" />
     </section>
   );
 }

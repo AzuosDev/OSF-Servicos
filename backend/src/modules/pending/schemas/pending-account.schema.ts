@@ -37,6 +37,21 @@ export class PendingAccount {
   })
   formatoPagamento!: string;
 
+  /**
+   * Indica se a conta é a pagar (despesa) ou a receber (receita).
+   * @default 'PAGAR'
+   */
+  @Prop({ type: String, enum: ['PAGAR', 'RECEBER'], default: 'PAGAR' })
+  tipo!: string;
+
+  /**
+   * Quando false, quitar a conta não gera transação financeira nem afeta saldos.
+   * Útil para registrar despesas/receitas retroativas que já foram contabilizadas externamente.
+   * @default true
+   */
+  @Prop({ type: Boolean, default: true })
+  affectsBalance!: boolean;
+
   @Prop({ type: Number })
   numeroParcela?: number;
 
@@ -73,12 +88,14 @@ export class PendingAccount {
         default: 'Mensal',
       },
       dataProxima: { type: Date, required: false },
+      dataTermino: { type: Date, required: false },
     },
     required: false,
   })
   recorrencia?: {
     periodoRecorrencia: string;
     dataProxima?: Date;
+    dataTermino?: Date;
   };
 
   // ID do molde recorrente — presente apenas em instâncias geradas ao pagar
@@ -91,6 +108,9 @@ export class PendingAccount {
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   userId!: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'Wallet' })
+  carteiraId?: Types.ObjectId;
 
   @Prop({ required: true, maxlength: 200 })
   title!: string;
@@ -115,6 +135,7 @@ export const PendingAccountSchema = SchemaFactory.createForClass(PendingAccount)
 PendingAccountSchema.index({ userId: 1, dueDate: 1 });
 PendingAccountSchema.index({ userId: 1, paid: 1, dueDate: 1 });
 PendingAccountSchema.index({ userId: 1, recorrenciaTemplateId: 1, dueDate: 1 });
+PendingAccountSchema.index({ userId: 1, tipo: 1, dueDate: 1 });
 
 
 

@@ -1,5 +1,3 @@
-import { PartialType } from '@nestjs/mapped-types';
-
 export const DEFAULT_CATEGORIES = [
   { name: 'Educação', slug: 'educacao', icon: 'GraduationCap', color: '#8B5CF6', isDefault: true },
   { name: 'Eletrônicos', slug: 'eletronicos', icon: 'Laptop', color: '#3B82F6', isDefault: true },
@@ -23,4 +21,11 @@ export const DEFAULT_CATEGORIES = [
   { name: 'Taxas', slug: 'taxas', icon: 'Percent', color: '#A3A3A3', isDefault: true },
   { name: 'Transporte', slug: 'transporte', icon: 'Car', color: '#2563EB', isDefault: true },
   { name: 'Viagens', slug: 'viagens', icon: 'Plane', color: '#0891B2', isDefault: true },
+  // Categorias de ganhos (entradas)
+  { name: 'Salário / Pró-labore', slug: 'salario', icon: 'Briefcase', color: '#A3E635', isDefault: true, isIncome: true },
+  { name: 'Serviços Prestados', slug: 'servicos-prestados', icon: 'Wrench', color: '#22C55E', isDefault: true, isIncome: true },
+  { name: 'Venda de Produtos', slug: 'venda-produtos', icon: 'Package', color: '#3B82F6', isDefault: true, isIncome: true },
+  { name: 'Rendimentos', slug: 'rendimentos', icon: 'TrendingUp', color: '#8B5CF6', isDefault: true, isIncome: true },
+  { name: 'Cashback / Reembolso', slug: 'cashback', icon: 'RefreshCcw', color: '#F59E0B', isDefault: true, isIncome: true },
+  { name: 'Outras Entradas', slug: 'outras-entradas', icon: 'Gift', color: '#6B7280', isDefault: true, isIncome: true },
 ];
