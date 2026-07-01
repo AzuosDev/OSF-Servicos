@@ -118,10 +118,11 @@ export function TransactionsPage() {
       .filter((transaction) => {
         const date = new Date(transaction.date);
         const matchesCategory = !categoryId || transaction.categoryId === categoryId;
+        // Usar UTC para evitar deslocamento de ±1 dia em fusos UTC-N (datas ISO são UTC midnight).
         const matchesPeriod =
           !Number.isNaN(date.getTime()) &&
-          date.getMonth() + 1 === month &&
-          date.getFullYear() === year;
+          date.getUTCMonth() + 1 === month &&
+          date.getUTCFullYear() === year;
 
         return matchesCategory && matchesPeriod;
       }) ?? [];

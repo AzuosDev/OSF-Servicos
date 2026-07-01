@@ -172,12 +172,18 @@ export class TransactionsService {
     const oldCarteiraId = transaction.carteiraId as Types.ObjectId | undefined;
     const oldValue = transaction.value;
     const oldType = transaction.type;
+    const oldAgendado = transaction.agendado ?? false;
 
     if (dto.type) transaction.type = dto.type;
     if (typeof dto.value !== 'undefined') transaction.value = dto.value;
     if (dto.categoryId) transaction.categoryId = this.toObjectId(dto.categoryId, 'categoryId');
     if (typeof dto.description !== 'undefined') transaction.description = dto.description;
-    if (dto.date) transaction.date = new Date(dto.date);
+    if (dto.date) {
+      transaction.date = new Date(dto.date);
+      transaction.agendado = dto.date > new Date().toISOString().slice(0, 10);
+    }
+
+    const newAgendado = transaction.agendado ?? false;
 
     if (typeof dto.carteiraId !== 'undefined') {
       const newCarteiraId =
@@ -185,8 +191,8 @@ export class TransactionsService {
           ? new Types.ObjectId(dto.carteiraId)
           : undefined;
 
-      // Reverse old wallet effect
-      if (oldCarteiraId) {
+      // Reverse old wallet effect (only if old tx wasn't scheduled — agendado txs never hit the wallet)
+      if (oldCarteiraId && !oldAgendado) {
         const reversal = oldType === TransactionType.INCOME ? -oldValue : oldValue;
         await this.walletModel.findOneAndUpdate(
           { _id: oldCarteiraId, userId: userObjectId },
@@ -194,8 +200,8 @@ export class TransactionsService {
         ).exec();
       }
 
-      // Apply new wallet effect
-      if (newCarteiraId) {
+      // Apply new wallet effect (only if not scheduled)
+      if (newCarteiraId && !newAgendado) {
         const inc = transaction.type === TransactionType.INCOME ? transaction.value : -transaction.value;
         await this.walletModel.findOneAndUpdate(
           { _id: newCarteiraId, userId: userObjectId },
@@ -204,10 +210,11 @@ export class TransactionsService {
       }
 
       transaction.carteiraId = newCarteiraId;
-    } else if (oldCarteiraId && (oldValue !== transaction.value || oldType !== transaction.type)) {
-      // Same wallet, value or type changed — apply only the diff to avoid double-counting
-      const oldEffect = oldType === TransactionType.INCOME ? oldValue : -oldValue;
-      const newEffect = transaction.type === TransactionType.INCOME ? transaction.value : -transaction.value;
+    } else if (oldCarteiraId) {
+      // Same wallet — compute net change in balance effect, including agendado flips.
+      // Effect is 0 when scheduled (never hits wallet), otherwise ±value.
+      const oldEffect = oldAgendado ? 0 : (oldType === TransactionType.INCOME ? oldValue : -oldValue);
+      const newEffect = newAgendado ? 0 : (transaction.type === TransactionType.INCOME ? transaction.value : -transaction.value);
       const diff = newEffect - oldEffect;
       if (diff !== 0) {
         await this.walletModel.findOneAndUpdate(
