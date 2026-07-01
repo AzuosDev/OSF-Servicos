@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeftRight,
@@ -30,7 +30,9 @@ import type { User } from "../../types/api";
 import { useToast } from "../ui/Toast";
 import { useQuery } from "@tanstack/react-query";
 import { UserProfileModal } from "../modals/UserProfileModal";
-import { TransactionModal } from "../modals/TransactionModal";
+const TransactionModal = lazy(() =>
+  import("../modals/TransactionModal").then((m) => ({ default: m.TransactionModal }))
+);
 
 type NavItem = {
   to: string;
@@ -579,7 +581,9 @@ export function AppLayout() {
         </div>
       )}
 
-      <TransactionModal open={txOpen} onClose={() => setTxOpen(false)} defaultTab={txTab} />
+      <Suspense fallback={null}>
+        <TransactionModal open={txOpen} onClose={() => setTxOpen(false)} defaultTab={txTab} />
+      </Suspense>
 
       <UserProfileModal
         open={userProfileOpen}
