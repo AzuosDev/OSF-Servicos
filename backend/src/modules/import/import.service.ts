@@ -114,11 +114,22 @@ function extractTag(block: string, name: string): string {
   return m ? m[1].trim() : '';
 }
 
+// Detecta e decodifica o buffer respeitando BOM de UTF-16 LE (comum em exports do BB no Windows)
+function decodeBuffer(buffer: Buffer): string {
+  if (buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe) {
+    return buffer.toString('utf16le').replace(/^﻿/, '');
+  }
+  const raw = buffer.toString('utf8');
+  return raw.startsWith('﻿') ? raw.slice(1) : raw;
+}
+
 function parseOFXBody(raw: string): Array<{
   trnType: string; dtPosted: string; trnAmt: string; fitId: string; name: string; memo: string;
 }> {
   const body = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const ofxStart = body.indexOf('<OFX>');
+  // Busca case-insensitive para cobrir bancos que exportam <ofx> em minúsculas
+  const bodyLower = body.toLowerCase();
+  const ofxStart = bodyLower.indexOf('<ofx>');
   if (ofxStart === -1) throw new BadRequestException('Arquivo OFX inválido: nenhum bloco <OFX> encontrado');
 
   const ofxBody = body.slice(ofxStart);
@@ -177,7 +188,7 @@ export class ImportService {
   }
 
   async preview(userId: string, carteiraId: string, fileBuffer: Buffer): Promise<ImportCandidate[]> {
-    const raw = fileBuffer.toString('utf-8');
+    const raw = decodeBuffer(fileBuffer);
     const entries = parseOFXBody(raw);
     const categories = await this.loadCategories(userId);
     const result: ImportCandidate[] = [];

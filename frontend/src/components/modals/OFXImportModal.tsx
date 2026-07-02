@@ -84,9 +84,7 @@ export function OFXImportModal({ open, onClose }: { open: boolean; onClose: () =
       const form = new FormData();
       form.append("file", file);
       form.append("carteiraId", selectedWalletId);
-      const { data } = await api.post<ImportCandidate[]>("/api/import/ofx/preview", form, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const { data } = await api.post<ImportCandidate[]>("/api/import/ofx/preview", form);
       return data;
     },
     onSuccess: (candidates) => {
