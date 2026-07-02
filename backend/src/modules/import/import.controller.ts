@@ -1,7 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
+  Get,
+  Param,
   Post,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -17,11 +21,11 @@ import { ConfirmImportDto } from './dto/confirm-import.dto';
 
 @ApiTags('Import')
 @ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('api/import')
 export class ImportController {
   constructor(private readonly importService: ImportService) {}
 
-  @UseGuards(JwtAuthGuard)
   @Throttle(10, 900)
   @Post('ofx/preview')
   @UseInterceptors(
@@ -46,9 +50,21 @@ export class ImportController {
     return this.importService.preview(user._id.toString(), carteiraId, file.buffer);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('ofx/confirm')
   async confirm(@CurrentUser() user: ICurrentUser, @Body() dto: ConfirmImportDto) {
     return this.importService.confirm(user._id.toString(), dto);
+  }
+
+  @Get('batches')
+  async listBatches(
+    @CurrentUser() user: ICurrentUser,
+    @Query('carteiraId') carteiraId?: string,
+  ) {
+    return this.importService.listBatches(user._id.toString(), carteiraId);
+  }
+
+  @Delete('batches/:batchId')
+  async deleteBatch(@CurrentUser() user: ICurrentUser, @Param('batchId') batchId: string) {
+    return this.importService.deleteBatch(user._id.toString(), batchId);
   }
 }

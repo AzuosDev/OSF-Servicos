@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, History, Loader2, Pencil, RotateCcw, Trash2 } from "lucide-react";
 
 import { api } from "../lib/api";
 import { cn } from "../lib/utils";
@@ -15,6 +15,14 @@ import { DeleteWalletModal } from "../components/modals/DeleteWalletModal";
 import { useToast } from "../components/ui/Toast";
 import type { TransactionsResponse, Wallet } from "../types/api";
 import type { Transaction, TransactionType } from "../types/finance";
+
+type ImportBatch = {
+  _id: string;
+  carteiraId: string;
+  fileName?: string;
+  transactionCount: number;
+  createdAt: string;
+};
 
 const fmt = (v: number) => brlFormatter.format(v);
 
@@ -30,6 +38,7 @@ export function WalletPage() {
   const [txTab, setTxTab] = useState<TransactionType>("EXPENSE");
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [undoBatchTarget, setUndoBatchTarget] = useState<ImportBatch | null>(null);
 
   const handleEditTx = (tx: Transaction) => {
     setSelectedTx(tx);
@@ -74,6 +83,33 @@ export function WalletPage() {
       queryClient.invalidateQueries({ queryKey: ["wallets"] });
       setEditing(false);
     },
+  });
+
+  const batchesQuery = useQuery<ImportBatch[]>({
+    queryKey: ["import-batches", id],
+    queryFn: async () => {
+      const { data } = await api.get<ImportBatch[]>("/api/import/batches", {
+        params: { carteiraId: id },
+      });
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  const undoBatchMutation = useMutation({
+    mutationFn: async (batchId: string) => {
+      await api.delete(`/api/import/batches/${batchId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["import-batches", id] });
+      queryClient.invalidateQueries({ queryKey: ["wallets", id] });
+      queryClient.invalidateQueries({ queryKey: ["wallets"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions", "wallet", id] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      addToast("Importação desfeita com sucesso.", "success");
+      setUndoBatchTarget(null);
+    },
+    onError: () => addToast("Não foi possível desfazer a importação.", "error"),
   });
 
   const deleteMutation = useMutation({
@@ -245,6 +281,46 @@ export function WalletPage() {
           </button>
         )}
       </div>
+      {/* Histórico de Importações */}
+      {(batchesQuery.data?.length ?? 0) > 0 && (
+        <div className="rounded-2xl bg-bg-card p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <History className="h-5 w-5 text-text-secondary" />
+            <h2 className="font-sans text-xl font-bold">Histórico de Importações</h2>
+          </div>
+          <div className="divide-y divide-bg-muted">
+            {batchesQuery.data!.map((batch) => (
+              <div key={batch._id} className="flex items-center justify-between gap-4 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white">
+                    {batch.fileName ?? "extrato.ofx"}
+                  </p>
+                  <p className="text-xs text-text-secondary">
+                    {new Date(batch.createdAt).toLocaleDateString("pt-BR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}{" "}
+                    · {batch.transactionCount} transaç{batch.transactionCount === 1 ? "ão" : "ões"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUndoBatchTarget(batch)}
+                  disabled={undoBatchMutation.isPending}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-accent-red/30 px-3 py-2 text-sm font-semibold text-accent-red transition hover:bg-accent-red/10 disabled:opacity-50"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Desfazer
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <TransactionModal
         open={txOpen}
         onClose={() => { setTxOpen(false); setSelectedTx(null); }}
@@ -258,6 +334,53 @@ export function WalletPage() {
         walletName={wallet.nome}
         isLoading={deleteMutation.isPending}
       />
+
+      {undoBatchTarget && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-bg-muted bg-bg-card p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-accent-red/10 p-2.5">
+                <RotateCcw className="h-5 w-5 text-accent-red" />
+              </div>
+              <h2 className="text-base font-bold text-white">Desfazer importação?</h2>
+            </div>
+            <p className="text-sm text-text-secondary">
+              Isso vai remover{" "}
+              <span className="font-semibold text-white">
+                {undoBatchTarget.transactionCount} transaç{undoBatchTarget.transactionCount === 1 ? "ão" : "ões"}
+              </span>{" "}
+              importadas de{" "}
+              <span className="font-semibold text-white">
+                {undoBatchTarget.fileName ?? "extrato.ofx"}
+              </span>{" "}
+              e reverter os saldos correspondentes. Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setUndoBatchTarget(null)}
+                disabled={undoBatchMutation.isPending}
+                className="flex-1 rounded-xl border border-bg-muted bg-transparent px-4 py-2.5 text-sm font-bold text-white hover:bg-bg-overlay transition disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => undoBatchMutation.mutate(undoBatchTarget._id)}
+                disabled={undoBatchMutation.isPending}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-accent-red px-4 py-2.5 text-sm font-bold text-white hover:brightness-110 transition disabled:opacity-50"
+              >
+                {undoBatchMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-4 w-4" />
+                )}
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

@@ -1,10 +1,11 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Category, CategoryDocument } from '../categories/schemas/category.schema';
 import { TransactionsService } from '../transactions/transactions.service';
 import { TransactionType } from '../transactions/schemas/transaction.schema';
 import { ConfirmImportDto } from './dto/confirm-import.dto';
+import { ImportBatch, ImportBatchDocument } from './schemas/import-batch.schema';
 
 export interface ImportCandidate {
   fitId: string | null;
@@ -180,6 +181,7 @@ function normalizeText(s: string): string {
 export class ImportService {
   constructor(
     @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
+    @InjectModel(ImportBatch.name) private importBatchModel: Model<ImportBatchDocument>,
     private readonly transactionsService: TransactionsService,
   ) {}
 
@@ -258,21 +260,18 @@ export class ImportService {
     return result;
   }
 
-  async confirm(userId: string, dto: ConfirmImportDto): Promise<{ imported: number; skipped: number }> {
+  async confirm(userId: string, dto: ConfirmImportDto): Promise<{ imported: number; skipped: number; batchId: string | null }> {
     let imported = 0;
     let skipped = 0;
+    const createdIds: Types.ObjectId[] = [];
 
     for (const tx of dto.transactions) {
-      // Deduplicação por fitId
       if (tx.fitId) {
         const exists = await this.transactionsService.checkFitIdExists(userId, dto.carteiraId, tx.fitId);
-        if (exists) {
-          skipped++;
-          continue;
-        }
+        if (exists) { skipped++; continue; }
       }
 
-      await this.transactionsService.create(userId, {
+      const t = await this.transactionsService.create(userId, {
         type: tx.type,
         value: tx.value,
         date: tx.date,
@@ -281,10 +280,41 @@ export class ImportService {
         carteiraId: dto.carteiraId,
         fitId: tx.fitId ?? undefined,
       });
-
+      createdIds.push(t._id as Types.ObjectId);
       imported++;
     }
 
-    return { imported, skipped };
+    if (imported > 0) {
+      const batch = await this.importBatchModel.create({
+        userId: new Types.ObjectId(userId),
+        carteiraId: new Types.ObjectId(dto.carteiraId),
+        fileName: dto.fileName ?? undefined,
+        transactionCount: imported,
+      });
+      await this.transactionsService.setImportBatch(createdIds, batch._id as Types.ObjectId);
+      return { imported, skipped, batchId: (batch._id as Types.ObjectId).toString() };
+    }
+
+    return { imported, skipped, batchId: null };
+  }
+
+  async listBatches(userId: string, carteiraId?: string) {
+    const filter: Record<string, unknown> = { userId: new Types.ObjectId(userId) };
+    if (carteiraId && Types.ObjectId.isValid(carteiraId)) {
+      filter.carteiraId = new Types.ObjectId(carteiraId);
+    }
+    return this.importBatchModel.find(filter).sort({ createdAt: -1 }).exec();
+  }
+
+  async deleteBatch(userId: string, batchId: string): Promise<{ removed: number }> {
+    if (!Types.ObjectId.isValid(batchId)) throw new BadRequestException('batchId inválido');
+    const batch = await this.importBatchModel
+      .findOne({ _id: new Types.ObjectId(batchId), userId: new Types.ObjectId(userId) })
+      .exec();
+    if (!batch) throw new NotFoundException('Lote de importação não encontrado');
+
+    const removed = await this.transactionsService.removeAllByImportBatch(userId, batchId);
+    await batch.deleteOne();
+    return { removed };
   }
 }

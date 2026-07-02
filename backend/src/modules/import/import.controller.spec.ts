@@ -11,6 +11,7 @@ import { WalletsModule } from '../wallets/wallets.module';
 import { CategoriesModule } from '../categories/categories.module';
 import { Transaction, TransactionType } from '../transactions/schemas/transaction.schema';
 import { Wallet } from '../wallets/schemas/wallet.schema';
+import { ImportBatch } from './schemas/import-batch.schema';
 
 const FAKE_USER_ID = new Types.ObjectId().toString();
 
@@ -103,6 +104,7 @@ describe('ImportController (e2e)', () => {
   let mongod: MongoMemoryServer;
   let transactionModel: Model<Transaction>;
   let walletModel: Model<Wallet>;
+  let importBatchModel: Model<ImportBatch>;
   let walletId: string;
 
   beforeAll(async () => {
@@ -132,6 +134,7 @@ describe('ImportController (e2e)', () => {
 
     transactionModel = app.get<Model<Transaction>>(getModelToken(Transaction.name));
     walletModel = app.get<Model<Wallet>>(getModelToken(Wallet.name));
+    importBatchModel = app.get<Model<ImportBatch>>(getModelToken(ImportBatch.name));
 
     const wallet = await walletModel.create({
       userId: new Types.ObjectId(FAKE_USER_ID),
@@ -148,6 +151,7 @@ describe('ImportController (e2e)', () => {
 
   afterEach(async () => {
     await transactionModel.deleteMany({ userId: new Types.ObjectId(FAKE_USER_ID) });
+    await importBatchModel.deleteMany({ userId: new Types.ObjectId(FAKE_USER_ID) });
   });
 
   it('preview: filtra "Saldo do dia" (data inválida) e retorna 2 candidatos', async () => {
@@ -188,7 +192,7 @@ describe('ImportController (e2e)', () => {
       })
       .expect(201);
 
-    expect(res.body).toEqual({ imported: 2, skipped: 0 });
+    expect(res.body).toEqual(expect.objectContaining({ imported: 2, skipped: 0 }));
 
     const wallet = await walletModel.findById(walletId);
     // INCOME 1800 - EXPENSE 30 = 1770
@@ -208,14 +212,14 @@ describe('ImportController (e2e)', () => {
       .post('/api/import/ofx/confirm')
       .send(payload)
       .expect(201);
-    expect(first.body).toEqual({ imported: 1, skipped: 0 });
+    expect(first.body).toEqual(expect.objectContaining({ imported: 1, skipped: 0 }));
 
     // Segunda importação com mesmo fitId → deve pular
     const second = await request(app.getHttpServer())
       .post('/api/import/ofx/confirm')
       .send(payload)
       .expect(201);
-    expect(second.body).toEqual({ imported: 0, skipped: 1 });
+    expect(second.body).toEqual(expect.objectContaining({ imported: 0, skipped: 1 }));
 
     // Confirma que só existe 1 transação no banco
     const count = await transactionModel.countDocuments({
@@ -240,6 +244,70 @@ describe('ImportController (e2e)', () => {
 
     expect(sent?.suggestedCategoryName).toBe('Transferências');
     expect(received?.suggestedCategoryName).toBe('Transferências Recebidas');
+  });
+
+  it('confirm: retorna batchId não-nulo quando ao menos uma transação é importada', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/import/ofx/confirm')
+      .send({
+        carteiraId: walletId,
+        transactions: [
+          { fitId: 'BATCHID-001', date: '2026-06-01', value: 50.00, type: TransactionType.EXPENSE, description: 'Batch id test' },
+        ],
+      })
+      .expect(201);
+
+    expect(res.body.batchId).toBeDefined();
+    expect(typeof res.body.batchId).toBe('string');
+    expect(res.body.batchId).not.toBeNull();
+  });
+
+  it('DELETE /batches/:batchId: remove todas as transações do lote e reverte saldo da carteira', async () => {
+    // Captura saldo antes do import para comparação relativa
+    const walletBefore = await walletModel.findById(walletId);
+    const saldoBefore = walletBefore!.saldo;
+
+    // Importa: EXPENSE 100 (−100 no saldo) + INCOME 300 (+300 no saldo) = +200 líquido
+    const confirmRes = await request(app.getHttpServer())
+      .post('/api/import/ofx/confirm')
+      .send({
+        carteiraId: walletId,
+        transactions: [
+          { fitId: 'UNDO-EXP', date: '2026-06-01', value: 100.00, type: TransactionType.EXPENSE, description: 'Desfazer despesa' },
+          { fitId: 'UNDO-INC', date: '2026-06-02', value: 300.00, type: TransactionType.INCOME, description: 'Desfazer receita' },
+        ],
+      })
+      .expect(201);
+
+    const { batchId } = confirmRes.body as { batchId: string };
+    expect(batchId).toBeDefined();
+
+    const walletAfterImport = await walletModel.findById(walletId);
+    expect(walletAfterImport!.saldo).toBe(saldoBefore + 200); // +300 INCOME - 100 EXPENSE
+
+    // Desfaz o lote
+    const deleteRes = await request(app.getHttpServer())
+      .delete(`/api/import/batches/${batchId}`)
+      .expect(200);
+
+    expect(deleteRes.body).toEqual({ removed: 2 });
+
+    // Saldo revertido ao estado anterior
+    const walletAfterUndo = await walletModel.findById(walletId);
+    expect(walletAfterUndo!.saldo).toBe(saldoBefore);
+
+    // Transações deletadas do banco
+    const count = await transactionModel.countDocuments({
+      userId: new Types.ObjectId(FAKE_USER_ID),
+      fitId: { $in: ['UNDO-EXP', 'UNDO-INC'] },
+    });
+    expect(count).toBe(0);
+
+    // ImportBatch também deletado
+    const batchCount = await importBatchModel.countDocuments({
+      userId: new Types.ObjectId(FAKE_USER_ID),
+    });
+    expect(batchCount).toBe(0);
   });
 
   it('preview: marca alreadyImported=true para fitId já existente no banco', async () => {

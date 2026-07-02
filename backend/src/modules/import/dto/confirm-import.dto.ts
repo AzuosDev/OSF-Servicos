@@ -34,6 +34,10 @@ export class ConfirmImportDto {
   @IsNotEmpty()
   carteiraId!: string;
 
+  @IsOptional()
+  @IsString()
+  fileName?: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ConfirmTransactionDto)
