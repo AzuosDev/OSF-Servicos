@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ICurrentUser } from '../../common/types/current-user.type';
@@ -21,6 +22,7 @@ export class ImportController {
   constructor(private readonly importService: ImportService) {}
 
   @UseGuards(JwtAuthGuard)
+  @Throttle(10, 900)
   @Post('ofx/preview')
   @UseInterceptors(
     FileInterceptor('file', {
