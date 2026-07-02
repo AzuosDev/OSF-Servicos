@@ -14,6 +14,44 @@ import { Wallet } from '../wallets/schemas/wallet.schema';
 
 const FAKE_USER_ID = new Types.ObjectId().toString();
 
+// OFX com transações no padrão PIX real (nome de pessoa após DD/MM HH:MM)
+const PIX_OFX = `OFXHEADER:100
+DATA:OFXSGML
+VERSION:102
+SECURITY:NONE
+ENCODING:UTF-8
+CHARSET:NONE
+COMPRESSION:NONE
+OLDFILEUID:NONE
+NEWFILEUID:NONE
+
+<OFX>
+  <BANKMSGSRSV1>
+    <STMTTRNRS>
+      <STMTRS>
+        <BANKTRANLIST>
+          <STMTTRN>
+            <TRNTYPE>DEBIT</TRNTYPE>
+            <DTPOSTED>20260610000000[-3:BRT]</DTPOSTED>
+            <TRNAMT>-200.00</TRNAMT>
+            <FITID>PIX-OUT-001</FITID>
+            <NAME>Pix Enviado</NAME>
+            <MEMO>10/06 14:30 Jose da Silva</MEMO>
+          </STMTTRN>
+          <STMTTRN>
+            <TRNTYPE>CREDIT</TRNTYPE>
+            <DTPOSTED>20260611000000[-3:BRT]</DTPOSTED>
+            <TRNAMT>500.00</TRNAMT>
+            <FITID>PIX-IN-001</FITID>
+            <NAME>Pix Recebido</NAME>
+            <MEMO>11/06 09:00 Maria Oliveira</MEMO>
+          </STMTTRN>
+        </BANKTRANLIST>
+      </STMTRS>
+    </STMTTRNRS>
+  </BANKMSGSRSV1>
+</OFX>`;
+
 // Minimal valid OFX content (BB format)
 const SAMPLE_OFX = `OFXHEADER:100
 DATA:OFXSGML
@@ -185,6 +223,23 @@ describe('ImportController (e2e)', () => {
       fitId: 'DEDUP-001',
     });
     expect(count).toBe(1);
+  });
+
+  it('preview: sugere categoria Transferências para padrão PIX DD/MM HH:MM Nome', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/import/ofx/preview')
+      .field('carteiraId', walletId)
+      .attach('file', Buffer.from(PIX_OFX), { filename: 'pix.ofx', contentType: 'application/octet-stream' })
+      .expect(201);
+
+    const candidates: Array<{ type: string; suggestedCategoryName: string | null }> = res.body;
+    expect(candidates).toHaveLength(2);
+
+    const sent = candidates.find((c) => c.type === 'EXPENSE');
+    const received = candidates.find((c) => c.type === 'INCOME');
+
+    expect(sent?.suggestedCategoryName).toBe('Transferências');
+    expect(received?.suggestedCategoryName).toBe('Transferências Recebidas');
   });
 
   it('preview: marca alreadyImported=true para fitId já existente no banco', async () => {

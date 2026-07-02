@@ -96,7 +96,26 @@ const KEYWORD_RULES: Array<[string, string]> = [
   // Investimentos
   ['investimento', 'investimento'],
   ['tesouro direto', 'investimento'],
+  // Pagamentos online / marketplace
+  ['pagseguro', 'compras'],
+  ['mercadopago', 'compras'],
+  ['paypal', 'compras'],
+  ['shopee', 'compras'],
+  ['magalu', 'compras'],
+  ['americanas', 'compras'],
+  // Clubes e benefícios
+  ['clube de beneficios', 'assinaturas-digitais'],
+  ['clube beneficios', 'assinaturas-digitais'],
+  // Taxas adicionais
+  ['saldo devedor', 'taxas'],
+  ['cobranca iof', 'taxas'],
+  ['debito iof', 'taxas'],
 ];
+
+// Padrão PIX/TED: "DD/MM [HH:MM] Nome" ou "pix/ted Nome"
+// Aplicado como fallback após KEYWORD_RULES; usa o type para escolher entre expense/income.
+const PIX_TRANSFER_PATTERN =
+  /^\d{2}\/\d{2}(?:\s+\d{2}:\d{2})?\s+[a-z][a-z\s.]{2,}$|^(?:pix|ted)\s+[a-z].+/;
 
 // Formatos de data OFX: YYYYMMDDHHMMSS[offset:zone] ou YYYYMMDD
 // Retorna YYYY-MM-DD como string, ou null se ano inválido (ex: 0002)
@@ -178,12 +197,21 @@ export class ImportService {
     categories: CategoryDocument[],
   ): { id: string; name: string } | null {
     const text = normalizeText(`${name} ${memo}`);
+
     for (const [keyword, slug] of KEYWORD_RULES) {
       if (text.includes(normalizeText(keyword))) {
         const cat = categories.find((c) => c.slug === slug);
         if (cat) return { id: (cat._id as Types.ObjectId).toString(), name: cat.name };
       }
     }
+
+    // Fallback: padrão de transferência PIX/TED por nome de pessoa ou empresa
+    if (PIX_TRANSFER_PATTERN.test(text.trim())) {
+      const slug = type === TransactionType.INCOME ? 'transferencias-recebidas' : 'transferencias';
+      const cat = categories.find((c) => c.slug === slug);
+      if (cat) return { id: (cat._id as Types.ObjectId).toString(), name: cat.name };
+    }
+
     return null;
   }
 
