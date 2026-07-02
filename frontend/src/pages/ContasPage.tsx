@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Clock, Inbox, Loader2, Plus, Trash2 } from "lucide-react";
+import { Check, Clock, Inbox, Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
 
 import { api } from "../lib/api";
 
@@ -142,6 +142,7 @@ export function ContasPage() {
   }, []);
 
   const [payBillItem, setPayBillItem] = useState<PendingDisplayItem | null>(null);
+  const [unmarkTarget, setUnmarkTarget] = useState<PendingDisplayItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [parcelStatusOpen, setParcelStatusOpen] = useState(false);
@@ -257,6 +258,25 @@ export function ContasPage() {
       setPayBillItem(null);
     },
     onError: () => addToast("Não foi possível atualizar a conta.", "error"),
+  });
+
+  const unmarkPaid = useMutation({
+    mutationFn: async (id: string) =>
+      api.patch(`/api/accounts/${id}`, { paid: false }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts-group"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["wallets"] });
+      addToast(
+        activeTab === "RECEBER" ? "Recebimento desmarcado com sucesso." : "Pagamento desmarcado com sucesso.",
+        "success",
+      );
+      setUnmarkTarget(null);
+    },
+    onError: () => addToast("Não foi possível desmarcar a conta.", "error"),
   });
 
   const deletePending = useMutation({
@@ -377,6 +397,17 @@ export function ContasPage() {
             >
               <Check className="h-4 w-4" />
               {activeTab === "RECEBER" ? "Marcar como recebido" : "Marcar como pago"}
+            </button>
+          )}
+          {item.paid && (
+            <button
+              type="button"
+              onClick={() => setUnmarkTarget(item)}
+              disabled={unmarkPaid.isPending}
+              className="inline-flex items-center gap-2 rounded-xl bg-bg-muted px-3 py-2 text-sm font-semibold text-text-secondary hover:text-white transition"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Desmarcar
             </button>
           )}
           {item.isParcelada && (
@@ -716,6 +747,46 @@ export function ContasPage() {
         parcelLabel={selectedDelete?.parcelLabel}
         isRecorrente={selectedDelete?.isRecorrente}
       />
+      {unmarkTarget && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-bg-muted bg-bg-card p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-accent-yellow/10 p-2.5">
+                <RotateCcw className="h-5 w-5 text-accent-yellow" />
+              </div>
+              <h2 className="text-base font-bold text-white">Desmarcar como {activeTab === "RECEBER" ? "recebida" : "paga"}?</h2>
+            </div>
+            <p className="text-sm text-text-secondary">
+              A transação de {activeTab === "RECEBER" ? "recebimento" : "pagamento"} gerada para{" "}
+              <span className="font-semibold text-white">"{unmarkTarget.title}"</span> será removida.
+              Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setUnmarkTarget(null)}
+                disabled={unmarkPaid.isPending}
+                className="flex-1 rounded-xl border border-bg-muted bg-transparent px-4 py-2.5 text-sm font-bold text-white hover:bg-bg-overlay transition disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => unmarkPaid.mutate(unmarkTarget.id)}
+                disabled={unmarkPaid.isPending}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-accent-yellow px-4 py-2.5 text-sm font-bold text-black hover:brightness-110 transition disabled:opacity-50"
+              >
+                {unmarkPaid.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-4 w-4" />
+                )}
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </section>
   );
 }
