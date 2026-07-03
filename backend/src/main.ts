@@ -6,7 +6,6 @@ import { AppModule } from "./app.module";
 import { ValidationPipe } from "@nestjs/common";
 import helmet from "helmet";
 import { ConfigService } from "@nestjs/config";
-import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import type { Request, Response, NextFunction } from "express";
 
 async function bootstrap() {
@@ -59,6 +58,7 @@ async function bootstrap() {
   );
 
   if (process.env.NODE_ENV !== "production") {
+    const { SwaggerModule, DocumentBuilder } = await import("@nestjs/swagger");
     const swaggerConfig = new DocumentBuilder()
       .setTitle('MeuGasto API')
       .setDescription('MeuGasto backend API')
