@@ -48,7 +48,7 @@ export function LoginPage() {
     if (!webAuthnSupported || hasAutoTriggered.current) return;
     if (!localStorage.getItem(LAST_EMAIL_KEY)) return;
     hasAutoTriggered.current = true;
-    void handleBiometricLogin();
+    void handleBiometricLogin(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [webAuthnSupported]);
 
@@ -86,7 +86,7 @@ export function LoginPage() {
     }
   }
 
-  async function handleBiometricLogin() {
+  async function handleBiometricLogin(silent = false) {
     setBiometricError(null);
     const email = (emailValue || localStorage.getItem(LAST_EMAIL_KEY) || "").trim().toLowerCase();
 
@@ -117,7 +117,7 @@ export function LoginPage() {
       const name = (err as { name?: string })?.name;
 
       if (name === "NotAllowedError") {
-        setBiometricError("Operação cancelada pelo dispositivo.");
+        if (!silent) setBiometricError("Operação cancelada pelo dispositivo.");
       } else if (apiMsg) {
         setBiometricError(apiMsg);
       } else {
@@ -197,7 +197,7 @@ export function LoginPage() {
 
           <button
             type="button"
-            onClick={handleBiometricLogin}
+            onClick={() => handleBiometricLogin()}
             disabled={biometricLoading || isSubmitting}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-border-default bg-bg-muted px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-overlay disabled:opacity-50"
           >
