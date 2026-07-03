@@ -1,9 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff, Lock, Mail } from "lucide-react";
-import { useState } from "react";
+import { Eye, EyeOff, Fingerprint, Lock, Loader2, Mail } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
+import { browserSupportsWebAuthn, startAuthentication } from "@simplewebauthn/browser";
 
 import { AuthCard } from "../components/AuthCard";
 import { Field } from "../components/Field";
@@ -11,7 +12,11 @@ import { SubmitButton } from "../components/SubmitButton";
 import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
 import { getApiErrorMessages } from "../lib/errors";
+import { WEBAUTHN_TRIED_KEY } from "../lib/webauthn-suggestion";
 import type { AuthTokens } from "../types/api";
+import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
+
+const LAST_EMAIL_KEY = "contacerta_last_email";
 
 const loginSchema = z.object({
   email: z.string().trim().email("Informe um email válido"),
@@ -23,21 +28,49 @@ type LoginForm = z.infer<typeof loginSchema>;
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [apiErrors, setApiErrors] = useState<string[]>([]);
+  const [webAuthnSupported, setWebAuthnSupported] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
+  const [biometricError, setBiometricError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTo = (location.state as { from?: string } | null)?.from ?? "/dashboard";
+  const hasCheckedSupport = useRef(false);
+  const hasAutoTriggered = useRef(false);
+
+  useEffect(() => {
+    if (hasCheckedSupport.current) return;
+    hasCheckedSupport.current = true;
+    setWebAuthnSupported(browserSupportsWebAuthn());
+  }, []);
+
+  // Auto-dispara biometria ao carregar se há email salvo e browser suporta WebAuthn.
+  // Chrome Android: funciona direto. Safari iOS: cai em NotAllowedError e recua para o botão manual.
+  useEffect(() => {
+    if (!webAuthnSupported || hasAutoTriggered.current) return;
+    if (!localStorage.getItem(LAST_EMAIL_KEY)) return;
+    hasAutoTriggered.current = true;
+    void handleBiometricLogin(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [webAuthnSupported]);
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: {
+      email: localStorage.getItem(LAST_EMAIL_KEY) ?? "",
+      password: "",
+    },
   });
+
+  const emailValue = watch("email");
 
   async function onSubmit(values: LoginForm) {
     setApiErrors([]);
+    setBiometricError(null);
 
     try {
       const { data } = await api.post<AuthTokens>("/api/auth/login", values);
@@ -46,10 +79,57 @@ export function LoginPage() {
         throw new Error("Resposta inválida do servidor");
       }
 
+      localStorage.setItem(LAST_EMAIL_KEY, values.email.trim().toLowerCase());
       setTokens(data.accessToken, data.refreshToken);
       navigate(redirectTo, { replace: true });
     } catch (error) {
       setApiErrors(getApiErrorMessages(error, "Nao foi possivel entrar. Verifique suas credenciais."));
+    }
+  }
+
+  async function handleBiometricLogin(silent = false) {
+    setBiometricError(null);
+    const email = (emailValue || localStorage.getItem(LAST_EMAIL_KEY) || "").trim().toLowerCase();
+
+    if (!email) {
+      setBiometricError("Informe seu email antes de usar a biometria.");
+      return;
+    }
+
+    setBiometricLoading(true);
+    try {
+      const { data: options } = await api.post<PublicKeyCredentialRequestOptionsJSON>(
+        "/api/auth/webauthn/login/options",
+        { email },
+      );
+
+      const authResponse = await startAuthentication({ optionsJSON: options });
+
+      const { data: tokens } = await api.post<AuthTokens>(
+        "/api/auth/webauthn/login/verify",
+        { email, response: authResponse },
+      );
+
+      localStorage.setItem(LAST_EMAIL_KEY, email);
+      setTokens(tokens.accessToken, tokens.refreshToken);
+      navigate(redirectTo, { replace: true });
+    } catch (err: unknown) {
+      const apiMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      const name = (err as { name?: string })?.name;
+      const status = (err as { response?: { status?: number } })?.response?.status;
+
+      if (name === "NotAllowedError") {
+        if (!silent) setBiometricError("Operação cancelada pelo dispositivo.");
+      } else if (status === 404) {
+        // Sem credencial: sinaliza para sugerir cadastro após login com senha
+        sessionStorage.setItem(WEBAUTHN_TRIED_KEY, "tried");
+      } else if (apiMsg) {
+        setBiometricError(apiMsg);
+      } else {
+        setBiometricError("Não foi possível autenticar. Use email e senha.");
+      }
+    } finally {
+      setBiometricLoading(false);
     }
   }
 
@@ -111,6 +191,33 @@ export function LoginPage() {
 
         <SubmitButton loading={isSubmitting}>Entrar</SubmitButton>
       </form>
+
+      {webAuthnSupported && (
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border-default" />
+            <span className="text-xs text-text-secondary">ou</span>
+            <div className="h-px flex-1 bg-border-default" />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleBiometricLogin()}
+            disabled={biometricLoading || isSubmitting}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-border-default bg-bg-muted px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-overlay disabled:opacity-50"
+          >
+            {biometricLoading ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Aguardando biometria...</>
+            ) : (
+              <><Fingerprint className="h-4 w-4 text-accent-lime" /> Entrar com biometria</>
+            )}
+          </button>
+
+          {biometricError && (
+            <p className="text-center text-xs text-accent-red">{biometricError}</p>
+          )}
+        </div>
+      )}
     </AuthCard>
   );
 }

@@ -2,7 +2,7 @@ import { Rocket } from "lucide-react";
 import { ModalShell } from "./ModalShell";
 
 // Altere esta constante a cada novo deploy para exibir o modal novamente
-const WHATS_NEW_VERSION = "2025-07-v1";
+const WHATS_NEW_VERSION = "2025-07-v2";
 const STORAGE_KEY = "whats-new-seen";
 
 export function hasSeenWhatsNew() {
@@ -15,41 +15,24 @@ export function markWhatsNewAsSeen() {
 
 const sections = [
   {
-    emoji: "🏦",
-    title: "Carteiras",
+    emoji: "🔐",
+    title: "Login com Biometria",
     items: [
-      "Vinculação de transações a carteiras com ajuste automático de saldo",
-      "Transferência entre carteiras com proteção contra exclusão acidental",
-      "Logos de banco, ícones automáticos e opção de ocultar valores",
-      "Extrato paginado por carteira",
+      "Entre com Face ID, digital ou PIN — sem precisar digitar a senha",
+      "O prompt biométrico abre automaticamente ao carregar a tela de login",
+      "Gerencie suas chaves biométricas em Minha Conta (adicionar e remover)",
+      "Troque a senha confirmando via biometria, sem precisar informar a senha atual",
+      "Sugestão inteligente para ativar biometria após o primeiro login com email e senha",
     ],
   },
   {
-    emoji: "📋",
-    title: "Contas a Pagar / Receber",
+    emoji: "📄",
+    title: "Importação de Extratos (OFX)",
     items: [
-      'Tela de Contas reformulada com seções "Pendentes" e "Pagas", resumo por status e estado vazio',
-      "Modal unificado de criação e edição com campos de parcelamento e recorrência restaurados",
-      "Pagamento dinâmico com seleção de carteira e estorno automático em cascata",
-      "Correção: edição de data em contas parceladas agora persiste corretamente",
-    ],
-  },
-  {
-    emoji: "💸",
-    title: "Transações",
-    items: [
-      'Saldo Histórico (Sem Carteira): transações legadas sem carteira agora aparecem como um saldo virtual',
-      "Migração em lote — associe transações antigas a uma carteira diretamente na tela",
-      "Placeholder dinâmico de descrição baseado na categoria selecionada",
-    ],
-  },
-  {
-    emoji: "✨",
-    title: "Experiência geral",
-    items: [
-      "Interface totalmente responsiva no mobile, sem sobreposição com a barra inferior",
-      "Correção de fuso horário em recorrências e atomicidade ao quitar contas",
-      "Performance: lazy loading, bundle splitting e tree-shaking de ícones",
+      "Importe o extrato do seu banco (.ofx) direto na página da carteira",
+      "Categorização automática de PIX, TED e transferências por palavras-chave",
+      "Histórico de importações com botão 'Desfazer' para reverter um lote inteiro",
+      "Deduplicação automática — transações já importadas são ignoradas",
     ],
   },
 ];

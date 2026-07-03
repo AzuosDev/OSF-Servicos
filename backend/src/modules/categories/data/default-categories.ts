@@ -2,6 +2,8 @@ export const DEFAULT_CATEGORIES = [
   { name: 'Educação', slug: 'educacao', icon: 'GraduationCap', color: '#8B5CF6', isDefault: true },
   { name: 'Eletrônicos', slug: 'eletronicos', icon: 'Laptop', color: '#3B82F6', isDefault: true },
   { name: 'Transferência Conta Própria', slug: 'transferencia-conta-propria', icon: 'ArrowLeftRight', color: '#6B7280', isDefault: true },
+  { name: 'Transferências', slug: 'transferencias', icon: 'ArrowLeftRight', color: '#6B7280', isDefault: true },
+  { name: 'Transferências Recebidas', slug: 'transferencias-recebidas', icon: 'ArrowLeftRight', color: '#22C55E', isDefault: true, isIncome: true },
   { name: 'Assinaturas Digitais', slug: 'assinaturas-digitais', icon: 'Repeat', color: '#EC4899', isDefault: true },
   { name: 'Cartão de Crédito', slug: 'cartao-credito', icon: 'CreditCard', color: '#F97316', isDefault: true },
   { name: 'Casa', slug: 'casa', icon: 'Home', color: '#14B8A6', isDefault: true },

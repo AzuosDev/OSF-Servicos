@@ -39,7 +39,8 @@ export class TransactionsService {
   }
 
   async create(userId: string, dto: CreateTransactionDto) {
-    if (dto.type === TransactionType.EXPENSE && !dto.categoryId) {
+    // fitId indica transação importada via OFX — categoria opcional nesses casos
+    if (dto.type === TransactionType.EXPENSE && !dto.categoryId && !dto.fitId) {
       throw new BadRequestException('categoryId is required for expense transactions');
     }
 
@@ -73,6 +74,7 @@ export class TransactionsService {
       date: new Date(dto.date),
       carteiraId: carteiraObjectId,
       agendado: isScheduled,
+      fitId: dto.fitId ?? undefined,
     });
 
     if (!isScheduled) {
@@ -226,6 +228,15 @@ export class TransactionsService {
 
     await transaction.save();
     return transaction;
+  }
+
+  async checkFitIdExists(userId: string, carteiraId: string, fitId: string): Promise<boolean> {
+    const doc = await this.transactionModel.findOne({
+      userId: this.toObjectId(userId, 'userId'),
+      carteiraId: this.toObjectId(carteiraId, 'carteiraId'),
+      fitId,
+    }).exec();
+    return !!doc;
   }
 
   async remove(userId: string, id: string) {

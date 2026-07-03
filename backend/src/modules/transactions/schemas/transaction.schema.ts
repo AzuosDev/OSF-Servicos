@@ -49,7 +49,15 @@ export class Transaction {
 
   @Prop({ default: false })
   agendado?: boolean;
+
+  @Prop({ type: String, maxlength: 255 })
+  fitId?: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'ImportBatch' })
+  importBatchId?: Types.ObjectId;
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);
 TransactionSchema.index({ userId: 1, date: -1 });
+TransactionSchema.index({ userId: 1, carteiraId: 1, fitId: 1 }, { sparse: true });
+TransactionSchema.index({ importBatchId: 1 }, { sparse: true });

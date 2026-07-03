@@ -22,6 +22,12 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
+  // FormData: deixar o browser/axios definir o boundary correto no Content-Type.
+  // O default da instância (application/json) sobrescreve esse comportamento sem esse delete.
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
+
   return config;
 });
 

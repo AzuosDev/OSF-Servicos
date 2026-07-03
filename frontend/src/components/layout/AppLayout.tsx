@@ -14,6 +14,7 @@ import {
   Menu,
   Moon,
   Plus,
+  Settings,
   Sun,
   Target,
   TrendingDown,
@@ -30,6 +31,8 @@ import type { User } from "../../types/api";
 import { useToast } from "../ui/Toast";
 import { useQuery } from "@tanstack/react-query";
 import { UserProfileModal } from "../modals/UserProfileModal";
+import { WebAuthnSuggestionModal } from "../modals/WebAuthnSuggestionModal";
+import { useWebAuthnSuggestion } from "../../hooks/useWebAuthnSuggestion";
 import { hasSeenWhatsNew } from "../modals/WhatsNewModal";
 const TransactionModal = lazy(() =>
   import("../modals/TransactionModal").then((m) => ({ default: m.TransactionModal }))
@@ -75,6 +78,7 @@ const pageTitles: Record<string, string> = {
   "/contas": "Contas",
   "/goals": "Metas Financeiras",
   "/budget": "Orçamento",
+  "/configuracoes": "Configurações",
 };
 
 const fallbackEmail = "usuario@meugasto.app";
@@ -176,6 +180,8 @@ function SidebarContent({
   collapsed = false,
   onToggleCollapse,
 }: SidebarContentProps) {
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+
   return (
     <>
       <div
@@ -275,47 +281,74 @@ function SidebarContent({
           collapsed && "px-3",
         )}
       >
-        <div
-          className={cn(
-            "flex items-center gap-3",
-            collapsed && "justify-center",
-          )}
-        >
-          <button
-            type="button"
-            onClick={onOpenProfile}
-            className="shrink-0 rounded-full transition hover:ring-2 hover:ring-accent-lime/50 focus:outline-none"
-            title={collapsed ? (name || email) : "Abrir perfil"}
-            aria-label="Abrir perfil do usuário"
+        <div className="relative">
+          <div
+            className={cn(
+              "flex items-center gap-3",
+              collapsed && "justify-center",
+            )}
           >
-            <Avatar email={email} name={name} avatarUrl={avatarUrl} />
-          </button>
-          {!collapsed && (
             <button
               type="button"
-              onClick={onOpenProfile}
-              className="min-w-0 flex-1 text-left transition hover:opacity-80"
+              onClick={collapsed ? () => setUserMenuOpen((v) => !v) : onOpenProfile}
+              className="shrink-0 rounded-full transition hover:ring-2 hover:ring-accent-lime/50 focus:outline-none"
+              title={collapsed ? (name || email) : "Abrir perfil"}
+              aria-label={collapsed ? "Menu do usuário" : "Abrir perfil do usuário"}
             >
-              <p className="truncate text-sm font-semibold text-text-primary">
-                {name || email.split("@")[0]}
-              </p>
-              <p className="truncate text-xs text-text-secondary">{email}</p>
+              <Avatar email={email} name={name} avatarUrl={avatarUrl} />
             </button>
+            {!collapsed && (
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen((v) => !v)}
+                className="min-w-0 flex-1 text-left transition hover:opacity-80"
+                aria-label="Menu do usuário"
+              >
+                <p className="truncate text-sm font-semibold text-text-primary">
+                  {name || email.split("@")[0]}
+                </p>
+                <p className="truncate text-xs text-text-secondary">{email}</p>
+              </button>
+            )}
+          </div>
+
+          {userMenuOpen && (
+            <>
+              <button
+                className="fixed inset-0 z-10 h-full w-full cursor-default"
+                onClick={() => setUserMenuOpen(false)}
+                aria-hidden="true"
+                tabIndex={-1}
+              />
+              <div
+                className={cn(
+                  "absolute z-20 min-w-[180px] rounded-xl border border-border-default bg-bg-card p-1 shadow-xl",
+                  collapsed
+                    ? "bottom-0 left-full ml-3"
+                    : "bottom-full left-0 mb-2 w-full",
+                )}
+              >
+                <button
+                  onClick={() => { setUserMenuOpen(false); onOpenProfile?.(); }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
+                >
+                  <Settings className="h-4 w-4" />
+                  Configurações
+                </button>
+                <button
+                  onClick={() => { setUserMenuOpen(false); onLogout(); }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-text-secondary transition hover:bg-bg-overlay hover:text-accent-red"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sair
+                </button>
+              </div>
+            </>
           )}
         </div>
+
         <div className="mt-4 grid gap-1">
           <ThemeToggleButton collapsed={collapsed} />
-          <button
-            onClick={onLogout}
-            className={cn(
-              "flex w-full items-center rounded-xl px-3 py-2.5 text-sm text-text-secondary transition hover:bg-bg-overlay hover:text-accent-red",
-              collapsed ? "justify-center" : "gap-3",
-            )}
-            title={collapsed ? "Sair" : undefined}
-          >
-            <LogOut className="h-4 w-4" />
-            {!collapsed && "Sair"}
-          </button>
         </div>
       </div>
     </>
@@ -340,6 +373,7 @@ export function AppLayout() {
   const [userProfileOpen, setUserProfileOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
+  const webAuthnSuggestion = useWebAuthnSuggestion();
 
   const [email, setEmail] = useState(
     () => getUserEmailFromToken() ?? fallbackEmail,
@@ -597,6 +631,13 @@ export function AppLayout() {
       <UserProfileModal
         open={userProfileOpen}
         onClose={() => setUserProfileOpen(false)}
+      />
+
+      <WebAuthnSuggestionModal
+        open={webAuthnSuggestion.open}
+        isForm1={webAuthnSuggestion.isForm1}
+        onDismiss={webAuthnSuggestion.dismiss}
+        onRegistered={webAuthnSuggestion.markRegistered}
       />
     </div>
   </TransactionModalContext.Provider>

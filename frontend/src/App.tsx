@@ -21,6 +21,7 @@ const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage").then((m
 const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage").then((m) => ({ default: m.VerifyEmailPage })));
 const WalletPage = lazy(() => import("./pages/WalletPage").then((m) => ({ default: m.WalletPage })));
 const WalletsPage = lazy(() => import("./pages/WalletsPage").then((m) => ({ default: m.WalletsPage })));
+const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 
 function PageLoader() {
   return (
@@ -91,6 +92,7 @@ export default function App() {
                   <Route path="/pending" element={<Navigate to="/contas" replace />} />
                   <Route path="/carteiras" element={<WalletsPage />} />
                   <Route path="/carteiras/:id" element={<WalletPage />} />
+                  <Route path="/configuracoes" element={<SettingsPage />} />
                 </Route>
               </Route>
 

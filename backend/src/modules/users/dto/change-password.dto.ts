@@ -1,8 +1,13 @@
-import { IsString, Matches, MinLength } from 'class-validator';
+import { IsOptional, IsString, Matches, MinLength } from 'class-validator';
 
 export class ChangePasswordDto {
+  @IsOptional()
   @IsString()
-  currentPassword!: string;
+  currentPassword?: string;
+
+  @IsOptional()
+  @IsString()
+  reauthedToken?: string;
 
   @IsString()
   @MinLength(8, { message: 'A senha deve ter pelo menos 8 caracteres.' })

@@ -8,17 +8,21 @@ import {
   AlertTriangle,
   Camera,
   Check,
+  Fingerprint,
   Globe,
   KeyRound,
   Loader2,
   LogOut,
   Moon,
+  ShieldCheck,
   Sun,
   Trash2,
   Upload,
   User as UserIcon,
   X,
 } from "lucide-react";
+import { browserSupportsWebAuthn, startAuthentication, startRegistration } from "@simplewebauthn/browser";
+import type { PublicKeyCredentialRequestOptionsJSON, PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/browser";
 
 import { api } from "../../lib/api";
 import { clearTokens, getRefreshToken } from "../../lib/auth";
@@ -35,7 +39,7 @@ const nameSchema = z.object({
 
 const passwordSchema = z
   .object({
-    currentPassword: z.string().min(1, "Informe a senha atual."),
+    currentPassword: z.string().optional(),
     newPassword: z
       .string()
       .min(8, "Mínimo de 8 caracteres.")
@@ -51,7 +55,22 @@ const passwordSchema = z
 type NameValues = z.infer<typeof nameSchema>;
 type PasswordValues = z.infer<typeof passwordSchema>;
 
+type WebAuthnCredential = {
+  credentialId: string;
+  deviceType?: string;
+  backedUp?: boolean;
+  transports?: string[];
+  createdAt?: string;
+};
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+function credentialLabel(cred: WebAuthnCredential): string {
+  if (cred.backedUp || cred.deviceType === "multiDevice") return "Passkey sincronizada";
+  if (cred.transports?.includes("internal")) return "Biometria do dispositivo";
+  if (cred.transports?.includes("usb")) return "Chave de segurança USB";
+  return "Chave de acesso";
+}
 
 function compressImage(file: File, maxSize = 200): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -111,6 +130,11 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
   const [imgError, setImgError] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [hasGravatar, setHasGravatar] = useState<boolean | null>(null);
+  const [reauthedToken, setReauthedToken] = useState<string | null>(null);
+  const [biometricLoading, setBiometricLoading] = useState(false);
+  const [biometricError, setBiometricError] = useState<string | null>(null);
+  const [registerLoading, setRegisterLoading] = useState(false);
+  const [registerError, setRegisterError] = useState<string | null>(null);
 
   const userQuery = useQuery<User>({
     queryKey: ["user-profile"],
@@ -118,6 +142,14 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
     enabled: open,
     staleTime: 1000 * 60 * 5,
   });
+
+  const credentialsQuery = useQuery<WebAuthnCredential[]>({
+    queryKey: ["webauthn-credentials"],
+    queryFn: () => api.get<{ credentialId: string }[]>("/api/auth/webauthn/credentials").then((r) => r.data),
+    enabled: open,
+    staleTime: 1000 * 60 * 5,
+  });
+  const webAuthnAvailable = (credentialsQuery.data?.length ?? 0) > 0 && browserSupportsWebAuthn();
 
   const user = userQuery.data;
   const email = user?.email ?? "";
@@ -176,10 +208,12 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
   });
 
   const changePasswordMutation = useMutation({
-    mutationFn: (data: { currentPassword: string; newPassword: string }) =>
+    mutationFn: (data: { currentPassword?: string; reauthedToken?: string; newPassword: string }) =>
       api.patch("/api/users/me/password", data),
     onSuccess: () => {
       passwordForm.reset();
+      setReauthedToken(null);
+      setBiometricError(null);
       setPasswordSaved(true);
       setTimeout(() => setPasswordSaved(false), 2500);
     },
@@ -188,6 +222,65 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
       passwordForm.setError("currentPassword", { message: msg });
     },
   });
+
+  const handleBiometricConfirm = async () => {
+    setBiometricError(null);
+    setBiometricLoading(true);
+    try {
+      const { data: options } = await api.post<PublicKeyCredentialRequestOptionsJSON>(
+        "/api/auth/webauthn/reauth/options",
+      );
+      const response = await startAuthentication({ optionsJSON: options });
+      const { data } = await api.post<{ reauthedToken: string }>(
+        "/api/auth/webauthn/reauth/verify",
+        response,
+      );
+      setReauthedToken(data.reauthedToken);
+    } catch (err: unknown) {
+      const name = (err as { name?: string })?.name;
+      if (name === "NotAllowedError") {
+        setBiometricError("Operação cancelada pelo dispositivo.");
+      } else {
+        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+        setBiometricError(msg ?? "Não foi possível autenticar via biometria.");
+      }
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
+
+  const removeCredentialMutation = useMutation({
+    mutationFn: (credentialId: string) =>
+      api.delete(`/api/auth/webauthn/credentials/${encodeURIComponent(credentialId)}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["webauthn-credentials"] });
+    },
+  });
+
+  const handleRegisterBiometric = async () => {
+    setRegisterError(null);
+    setRegisterLoading(true);
+    try {
+      const { data: options } = await api.post<PublicKeyCredentialCreationOptionsJSON>(
+        "/api/auth/webauthn/register/options",
+      );
+      const response = await startRegistration({ optionsJSON: options });
+      await api.post("/api/auth/webauthn/register/verify", response);
+      queryClient.invalidateQueries({ queryKey: ["webauthn-credentials"] });
+    } catch (err: unknown) {
+      const name = (err as { name?: string })?.name;
+      if (name === "NotAllowedError") {
+        setRegisterError("Operação cancelada pelo dispositivo.");
+      } else if (name === "InvalidStateError") {
+        setRegisterError("Este dispositivo já está cadastrado.");
+      } else {
+        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+        setRegisterError(msg ?? "Não foi possível cadastrar a biometria.");
+      }
+    } finally {
+      setRegisterLoading(false);
+    }
+  };
 
   const resetDataMutation = useMutation({
     mutationFn: () => api.delete("/api/users/me/data"),
@@ -399,28 +492,68 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
         {/* ── Senha ── */}
         <SectionCard title="Alterar Senha">
           <form
-            onSubmit={passwordForm.handleSubmit((data) =>
-              changePasswordMutation.mutate({
-                currentPassword: data.currentPassword,
-                newPassword: data.newPassword,
-              }),
-            )}
+            onSubmit={passwordForm.handleSubmit((data) => {
+              if (reauthedToken) {
+                return changePasswordMutation.mutate({ reauthedToken, newPassword: data.newPassword });
+              }
+              if (!data.currentPassword) {
+                passwordForm.setError("currentPassword", { message: "Informe a senha atual." });
+                return;
+              }
+              return changePasswordMutation.mutate({ currentPassword: data.currentPassword, newPassword: data.newPassword });
+            })}
             className="space-y-3"
           >
-            <div>
-              <input
-                type="password"
-                placeholder="Senha atual"
-                autoComplete="current-password"
-                className={inputClass}
-                {...passwordForm.register("currentPassword")}
-              />
-              {passwordForm.formState.errors.currentPassword && (
-                <p className="mt-1 text-xs text-accent-red">
-                  {passwordForm.formState.errors.currentPassword.message}
-                </p>
-              )}
-            </div>
+            {/* Campo senha atual — oculto quando biometria confirmada */}
+            {reauthedToken ? (
+              <div className="flex items-center justify-between rounded-xl bg-accent-lime/10 px-4 py-3">
+                <div className="flex items-center gap-2 text-sm text-accent-lime">
+                  <ShieldCheck className="h-4 w-4 shrink-0" />
+                  Biometria confirmada
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReauthedToken(null)}
+                  className="text-xs text-text-secondary underline hover:text-text-primary"
+                >
+                  Trocar
+                </button>
+              </div>
+            ) : (
+              <div>
+                <input
+                  type="password"
+                  placeholder="Senha atual"
+                  autoComplete="current-password"
+                  className={inputClass}
+                  {...passwordForm.register("currentPassword")}
+                />
+                {passwordForm.formState.errors.currentPassword && (
+                  <p className="mt-1 text-xs text-accent-red">
+                    {passwordForm.formState.errors.currentPassword.message}
+                  </p>
+                )}
+                {webAuthnAvailable && (
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={handleBiometricConfirm}
+                      disabled={biometricLoading}
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary disabled:opacity-50"
+                    >
+                      {biometricLoading ? (
+                        <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Aguardando biometria...</>
+                      ) : (
+                        <><Fingerprint className="h-3.5 w-3.5 text-accent-lime" /> Confirmar com biometria</>
+                      )}
+                    </button>
+                    {biometricError && (
+                      <p className="mt-1 text-xs text-accent-red">{biometricError}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <div>
               <input
                 type="password"
@@ -465,6 +598,70 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
             </button>
           </form>
         </SectionCard>
+
+        {/* ── Biometria / Passkeys ── */}
+        {browserSupportsWebAuthn() && (
+          <SectionCard title="Biometria / Passkeys">
+            {credentialsQuery.isLoading ? (
+              <div className="mb-3 h-10 animate-pulse rounded-xl bg-bg-overlay" />
+            ) : (credentialsQuery.data?.length ?? 0) === 0 ? (
+              <p className="mb-3 text-xs text-text-muted">Nenhuma chave biométrica cadastrada.</p>
+            ) : (
+              <ul className="mb-3 space-y-2">
+                {credentialsQuery.data?.map((cred) => (
+                  <li
+                    key={cred.credentialId}
+                    className="flex items-center justify-between rounded-xl bg-bg-overlay px-3 py-2"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Fingerprint className="h-4 w-4 shrink-0 text-accent-lime" />
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-medium text-text-primary">
+                          {credentialLabel(cred)}
+                        </p>
+                        {cred.createdAt && (
+                          <p className="text-xs text-text-muted">
+                            {new Date(cred.createdAt).toLocaleDateString("pt-BR")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeCredentialMutation.mutate(cred.credentialId)}
+                      disabled={removeCredentialMutation.isPending}
+                      className="ml-2 shrink-0 rounded-lg p-1.5 text-text-muted transition hover:bg-accent-red/10 hover:text-accent-red disabled:opacity-50"
+                      aria-label="Remover credencial"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button
+              type="button"
+              onClick={handleRegisterBiometric}
+              disabled={registerLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-accent-lime/40 px-4 py-2.5 text-sm font-medium text-accent-lime transition hover:bg-accent-lime/5 disabled:opacity-50"
+            >
+              {registerLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Aguardando dispositivo...
+                </>
+              ) : (
+                <>
+                  <Fingerprint className="h-4 w-4" />
+                  Adicionar biometria
+                </>
+              )}
+            </button>
+            {registerError && (
+              <p className="mt-2 text-xs text-accent-red">{registerError}</p>
+            )}
+          </SectionCard>
+        )}
 
         {/* ── Conta ── */}
         <SectionCard title="Conta">
