@@ -14,6 +14,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { WalletsModule } from './modules/wallets/wallets.module';
 import { ImportModule } from './modules/import/import.module';
+import { WebAuthnModule } from './modules/webauthn/webauthn.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { ImportModule } from './modules/import/import.module';
     ExpensesModule,
     WalletsModule,
     ImportModule,
+    WebAuthnModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

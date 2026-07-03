@@ -14,6 +14,7 @@ import {
   Menu,
   Moon,
   Plus,
+  Settings,
   Sun,
   Target,
   TrendingDown,
@@ -75,6 +76,7 @@ const pageTitles: Record<string, string> = {
   "/contas": "Contas",
   "/goals": "Metas Financeiras",
   "/budget": "Orçamento",
+  "/configuracoes": "Configurações",
 };
 
 const fallbackEmail = "usuario@meugasto.app";
@@ -305,6 +307,23 @@ function SidebarContent({
         </div>
         <div className="mt-4 grid gap-1">
           <ThemeToggleButton collapsed={collapsed} />
+          <Link
+            to="/configuracoes"
+            onClick={onNavigate}
+            title={collapsed ? "Configurações" : undefined}
+            className={cn(
+              "group relative flex w-full items-center rounded-xl px-3 py-2.5 text-sm text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary",
+              collapsed ? "justify-center" : "gap-3",
+            )}
+          >
+            <Settings className="h-4 w-4" />
+            {!collapsed && <span>Configurações</span>}
+            {collapsed && (
+              <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-border-default bg-bg-card px-3 py-2 text-xs font-semibold text-text-primary opacity-0 shadow-xl transition group-hover:opacity-100">
+                Configurações
+              </span>
+            )}
+          </Link>
           <button
             onClick={onLogout}
             className={cn(
