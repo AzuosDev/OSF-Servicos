@@ -9,6 +9,15 @@ export default defineConfig(() => ({
       ? [visualizer({ open: true, filename: "dist/stats.html" })]
       : []),
   ],
+  server: {
+    allowedHosts: ["steerable-gender-drench.ngrok-free.dev"],
+    proxy: {
+      "/api": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+      },
+    },
+  },
   build: {
     sourcemap: false,
     rollupOptions: {

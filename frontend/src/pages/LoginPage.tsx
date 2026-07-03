@@ -34,12 +34,23 @@ export function LoginPage() {
   const location = useLocation();
   const redirectTo = (location.state as { from?: string } | null)?.from ?? "/dashboard";
   const hasCheckedSupport = useRef(false);
+  const hasAutoTriggered = useRef(false);
 
   useEffect(() => {
     if (hasCheckedSupport.current) return;
     hasCheckedSupport.current = true;
     setWebAuthnSupported(browserSupportsWebAuthn());
   }, []);
+
+  // Auto-dispara biometria ao carregar se há email salvo e browser suporta WebAuthn.
+  // Chrome Android: funciona direto. Safari iOS: cai em NotAllowedError e recua para o botão manual.
+  useEffect(() => {
+    if (!webAuthnSupported || hasAutoTriggered.current) return;
+    if (!localStorage.getItem(LAST_EMAIL_KEY)) return;
+    hasAutoTriggered.current = true;
+    void handleBiometricLogin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [webAuthnSupported]);
 
   const {
     register,
