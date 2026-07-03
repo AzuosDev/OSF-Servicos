@@ -121,8 +121,8 @@ export function LoginPage() {
       if (name === "NotAllowedError") {
         if (!silent) setBiometricError("Operação cancelada pelo dispositivo.");
       } else if (status === 404) {
-        // Sem credencial: sinaliza para sugerir cadastro após login com senha
-        sessionStorage.setItem(WEBAUTHN_TRIED_KEY, "tried");
+        // Só sinaliza sugestão quando o usuário clicou manualmente (não no auto-trigger silencioso)
+        if (!silent) sessionStorage.setItem(WEBAUTHN_TRIED_KEY, "tried");
       } else if (apiMsg) {
         setBiometricError(apiMsg);
       } else {
