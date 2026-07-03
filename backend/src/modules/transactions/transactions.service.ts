@@ -184,6 +184,12 @@ export class TransactionsService {
       transaction.date = new Date(dto.date);
       transaction.agendado = dto.date > new Date().toISOString().slice(0, 10);
     }
+    if (typeof dto.carteiraDestinoId !== 'undefined') {
+      transaction.carteiraDestinoId =
+        dto.carteiraDestinoId && Types.ObjectId.isValid(dto.carteiraDestinoId)
+          ? new Types.ObjectId(dto.carteiraDestinoId)
+          : undefined;
+    }
 
     const newAgendado = transaction.agendado ?? false;
 

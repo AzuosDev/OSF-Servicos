@@ -11,9 +11,10 @@ import {
   Target,
   Trash2,
 } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { CurrencyInput } from "../components/ui/CurrencyInput";
 import { ModalShell } from "../components/modals/ModalShell";
 import { useToast } from "../components/ui/Toast";
 import { ConfirmDeleteModal } from "../components/modals/ConfirmDeleteModal";
@@ -269,13 +270,17 @@ function GoalFormModal({
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className="mb-1 block text-sm text-text-secondary">Valor da meta</span>
-            <input
-              type="number"
-              min={1}
-              step="0.01"
-              placeholder="R$"
-              {...form.register("targetValue")}
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+            <Controller
+              control={form.control}
+              name="targetValue"
+              render={({ field }) => (
+                <CurrencyInput
+                  value={Number(field.value ?? 0)}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+                />
+              )}
             />
             {form.formState.errors.targetValue?.message && (
               <p className="mt-1 text-xs text-accent-red">{form.formState.errors.targetValue.message}</p>
@@ -284,12 +289,17 @@ function GoalFormModal({
 
           <label className="block">
             <span className="mb-1 block text-sm text-text-secondary">Valor atual</span>
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              {...form.register("currentValue")}
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+            <Controller
+              control={form.control}
+              name="currentValue"
+              render={({ field }) => (
+                <CurrencyInput
+                  value={Number(field.value ?? 0)}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+                />
+              )}
             />
             {form.formState.errors.currentValue?.message && (
               <p className="mt-1 text-xs text-accent-red">{form.formState.errors.currentValue.message}</p>
@@ -421,14 +431,17 @@ function GoalValueModal({
         <label className="block">
           <span className="mb-2 block text-sm text-text-secondary">Novo valor atual</span>
           <div className="flex items-center rounded-2xl border border-bg-muted bg-bg-muted px-4 py-3 focus-within:border-accent-lime">
-            <span className="font-sans text-2xl font-bold text-text-secondary">R$</span>
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              inputMode="decimal"
-              {...form.register("currentValue")}
-              className="w-full bg-transparent text-center font-sans text-3xl font-bold text-accent-lime outline-none"
+            <Controller
+              control={form.control}
+              name="currentValue"
+              render={({ field }) => (
+                <CurrencyInput
+                  value={Number(field.value ?? 0)}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  className="w-full bg-transparent text-center font-sans text-3xl font-bold text-accent-lime outline-none"
+                />
+              )}
             />
           </div>
           {form.formState.errors.currentValue?.message && (

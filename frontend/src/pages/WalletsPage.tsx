@@ -9,6 +9,7 @@ import { cn } from "../lib/utils";
 import { detectBankIcon } from "../lib/bankIcons";
 import { BankLogo } from "../components/ui/BankLogo";
 import { DeleteWalletModal } from "../components/modals/DeleteWalletModal";
+import { CurrencyInput } from "../components/ui/CurrencyInput";
 import { OFXImportModal } from "../components/modals/OFXImportModal";
 import { useToast } from "../components/ui/Toast";
 import type { Wallet } from "../types/api";
@@ -42,7 +43,7 @@ export function WalletsPage() {
     }
   }, [searchParams, setSearchParams]);
   const [nome, setNome] = useState("");
-  const [saldo, setSaldo] = useState("");
+  const [saldo, setSaldo] = useState(0);
   const [icone, setIcone] = useState("🏦");
 
   const { data: wallets = [], isLoading } = useQuery<Wallet[]>({
@@ -57,7 +58,7 @@ export function WalletsPage() {
     mutationFn: async () => {
       await api.post("/api/wallets", {
         nome: nome.trim(),
-        saldo: saldo ? parseFloat(saldo.replace(",", ".")) : 0,
+        saldo,
         icone: icone || "🏦",
       });
     },
@@ -66,7 +67,7 @@ export function WalletsPage() {
       setShowForm(false);
       setIsCustomBank(false);
       setNome("");
-      setSaldo("");
+      setSaldo(0);
       setIcone("🏦");
     },
   });
@@ -197,13 +198,9 @@ export function WalletsPage() {
               {/* Saldo inicial */}
               <label className="block">
                 <span className="mb-1 block text-sm text-text-secondary">Saldo inicial</span>
-                <input
+                <CurrencyInput
                   value={saldo}
-                  onChange={(e) => setSaldo(e.target.value)}
-                  placeholder="0,00"
-                  type="number"
-                  min="0"
-                  step="0.01"
+                  onChange={setSaldo}
                   className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
                 />
               </label>
@@ -211,7 +208,7 @@ export function WalletsPage() {
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => { setShowForm(false); setIsCustomBank(false); setNome(""); setIcone("🏦"); }}
+              onClick={() => { setShowForm(false); setIsCustomBank(false); setNome(""); setSaldo(0); setIcone("🏦"); }}
               className="flex-1 rounded-xl border border-bg-muted py-3 text-sm font-bold transition hover:bg-bg-muted"
             >
               Cancelar

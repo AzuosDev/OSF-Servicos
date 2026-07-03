@@ -4,7 +4,8 @@ import { Loader2, Wallet } from "lucide-react";
 
 import { api } from "../../lib/api";
 import { getApiErrorMessages } from "../../lib/errors";
-import { parseCurrencyInput, isPastMonth } from "../../lib/finance";
+import { isPastMonth } from "../../lib/finance";
+import { CurrencyInput } from "../ui/CurrencyInput";
 import { ModalShell } from "./ModalShell";
 import { useCategories, useIncomeCategories, useWallets } from "./TransactionFormFields";
 import { DynamicIcon } from "../DynamicIcon";
@@ -48,7 +49,7 @@ function buildPendingPayload({
   recorrencia,
 }: {
   title: string;
-  value: string;
+  value: number;
   dueDate: string;
   description: string;
   isParcelada: boolean;
@@ -61,7 +62,7 @@ function buildPendingPayload({
   parcelas: { totalParcelas?: string; dataInicio?: string; dataFim?: string };
   recorrencia: { periodoRecorrencia?: string; dataProxima?: string; dataTermino?: string };
 }) {
-  const normalizedValue = parseCurrencyInput(value);
+  const normalizedValue = value;
   const baseDate = parcelas.dataInicio || dueDate ? new Date(parcelas.dataInicio || dueDate) : undefined;
   const totalParcelas = Number(parcelas.totalParcelas);
 
@@ -134,7 +135,7 @@ export function AccountModal({
   const [formIsParcelada, setFormIsParcelada] = useState(false);
   const [formIsRecorrente, setFormIsRecorrente] = useState(false);
   const [formTitle, setFormTitle] = useState("");
-  const [formValue, setFormValue] = useState("");
+  const [formValue, setFormValue] = useState(0);
   const [formDueDate, setFormDueDate] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formParcelas, setFormParcelas] = useState<{ totalParcelas?: string; dataInicio?: string; dataFim?: string }>({});
@@ -188,7 +189,7 @@ export function AccountModal({
         setFormIsParcelada(!!editAccount.isParcelada);
         setFormIsRecorrente(!!editAccount.isRecorrente);
         setFormTitle(editAccount.title ?? "");
-        setFormValue(String(editAccount.value ?? ""));
+        setFormValue(editAccount.value ?? 0);
         setFormDueDate(editAccount.dueDate?.slice(0, 10) ?? "");
         setFormDescription(editAccount.description ?? "");
         setFormParcelas({
@@ -215,7 +216,7 @@ export function AccountModal({
         setFormIsParcelada(false);
         setFormIsRecorrente(false);
         setFormTitle("");
-        setFormValue("");
+        setFormValue(0);
         setFormDueDate("");
         setFormDescription("");
         setFormParcelas({});
@@ -401,16 +402,11 @@ export function AccountModal({
           <label className="mb-2 block text-sm text-text-secondary">
             {formIsParcelada ? "Valor total" : "Valor"}
           </label>
-          <div className="flex items-center gap-3 rounded-xl border border-bg-muted bg-bg-muted px-4 py-3">
-            <span className="shrink-0 text-sm font-medium text-text-secondary">R$</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="0"
-              className="flex-1 bg-transparent text-center text-xl font-bold text-accent-lime outline-none [appearance:textfield] placeholder:text-text-muted [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          <div className="flex items-center rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 focus-within:border-accent-lime">
+            <CurrencyInput
               value={formValue}
-              onChange={(e) => setFormValue(e.target.value)}
+              onChange={setFormValue}
+              className="flex-1 bg-transparent text-center text-xl font-bold text-accent-lime outline-none"
             />
           </div>
         </div>
@@ -428,9 +424,9 @@ export function AccountModal({
                 onChange={(e) => setFormParcelas((prev) => ({ ...prev, totalParcelas: e.target.value }))}
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
               />
-              {formParcelas.totalParcelas && formValue && (
+              {formParcelas.totalParcelas && formValue > 0 && (
                 <p className="mt-1 text-xs text-text-secondary">
-                  Valor da parcela: R$ {(parseFloat(formValue) / Number(formParcelas.totalParcelas)).toFixed(2)}
+                  Valor da parcela: R$ {(formValue / Number(formParcelas.totalParcelas)).toFixed(2)}
                 </p>
               )}
             </label>

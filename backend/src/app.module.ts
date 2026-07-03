@@ -3,7 +3,6 @@ import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { MongoMemoryServer } from 'mongodb-memory-server';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { CategoriesModule } from './modules/categories/categories.module';
@@ -28,6 +27,11 @@ import { WebAuthnModule } from './modules/webauthn/webauthn.module';
           return { uri };
         }
 
+        if (process.env.NODE_ENV === 'production') {
+          throw new Error('MONGODB_URI is required in production');
+        }
+
+        const { MongoMemoryServer } = await import('mongodb-memory-server');
         const mongoServer = await MongoMemoryServer.create();
         return { uri: mongoServer.getUri() };
       },
