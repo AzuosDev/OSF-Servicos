@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+﻿import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Controller, useForm } from "react-hook-form";
@@ -24,7 +24,7 @@ const schema = z.object({
   categoryId: z.string().optional().default(""),
   carteiraId: z.string().min(1, "Selecione uma carteira."),
   date: z.string().min(1, "Informe a data."),
-  description: z.string().max(500, "Use até 500 caracteres.").optional(),
+  description: z.string().max(500, "Use atÃ© 500 caracteres.").optional(),
 });
 
 function todayInputValue() {
@@ -117,7 +117,7 @@ export function AddIncomeModal({
         className="space-y-5"
         onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
       >
-        <AmountField register={form.register} errors={form.formState.errors} />
+        <AmountField control={form.control} errors={form.formState.errors} />
 
         <Controller
           control={form.control}
@@ -155,7 +155,7 @@ export function AddIncomeModal({
 
         {mutation.isError && (
           <div className="rounded-xl bg-accent-red/10 p-3 text-sm text-accent-red">
-            {getApiErrorMessages(mutation.error, "Não foi possível salvar o ganho.").map((message) => (
+            {getApiErrorMessages(mutation.error, "NÃ£o foi possÃ­vel salvar o ganho.").map((message) => (
               <p key={message}>{message}</p>
             ))}
           </div>
@@ -164,3 +164,4 @@ export function AddIncomeModal({
     </ModalShell>
   );
 }
+

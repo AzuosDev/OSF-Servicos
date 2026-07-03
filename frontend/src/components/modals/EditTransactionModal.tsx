@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+﻿import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Controller, useForm } from "react-hook-form";
@@ -26,7 +26,7 @@ const baseSchema = z.object({
   categoryId: z.string().default(""),
   carteiraId: z.string().optional().default(""),
   date: z.string().min(1, "Informe a data."),
-  description: z.string().max(500, "Use até 500 caracteres.").optional(),
+  description: z.string().max(500, "Use atÃ© 500 caracteres.").optional(),
 });
 
 export function EditTransactionModal({
@@ -123,13 +123,13 @@ export function EditTransactionModal({
             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Salvar Alterações
+            Salvar AlteraÃ§Ãµes
           </button>
         </div>
       }
     >
       <form id="edit-transaction-form" className="space-y-5" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
-        <AmountField register={form.register} errors={form.formState.errors} />
+        <AmountField control={form.control} errors={form.formState.errors} />
 
         <Controller
           control={form.control}
@@ -178,4 +178,5 @@ export function EditTransactionModal({
     </ModalShell>
   );
 }
+
 

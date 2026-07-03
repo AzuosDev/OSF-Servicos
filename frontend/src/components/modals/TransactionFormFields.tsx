@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import type { FieldErrors, UseFormRegister, UseFormWatch } from "react-hook-form";
+import { Controller } from "react-hook-form";
+import type { Control, FieldErrors, FieldValues, Path, UseFormRegister, UseFormWatch } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CurrencyInput } from "../ui/CurrencyInput";
 import { X } from "lucide-react";
 
 import { DynamicIcon } from "../DynamicIcon";
@@ -48,29 +50,32 @@ export function useIncomeCategories() {
   });
 }
 
-export function AmountField({
-  register,
+export function AmountField<TFieldValues extends FieldValues>({
+  control,
   errors,
 }: {
-  register: UseFormRegister<any>;
-  errors: any;
+  control: Control<TFieldValues>;
+  errors: FieldErrors<TFieldValues>;
 }) {
   return (
     <label className="block">
       <span className="mb-2 block text-sm text-text-secondary">Valor</span>
       <div className="flex items-center rounded-2xl border border-bg-muted bg-bg-muted px-4 py-3 focus-within:border-accent-lime">
-        <span className="font-sans text-2xl font-bold text-text-secondary">R$</span>
-        <input
-          type="number"
-          step="0.01"
-          min="0"
-          inputMode="decimal"
-          className="w-full bg-transparent text-center font-sans text-3xl font-bold text-accent-lime outline-none"
-          {...register("amount", { valueAsNumber: true })}
+        <Controller
+          control={control}
+          name={"amount" as Path<TFieldValues>}
+          render={({ field }) => (
+            <CurrencyInput
+              value={field.value ?? 0}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              className="w-full bg-transparent text-center font-sans text-3xl font-bold text-accent-lime outline-none"
+            />
+          )}
         />
       </div>
       {errors.amount && (
-        <p className="mt-2 text-xs text-accent-red">{errors.amount.message}</p>
+        <p className="mt-2 text-xs text-accent-red">{String(errors.amount.message)}</p>
       )}
     </label>
   );

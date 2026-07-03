@@ -330,7 +330,7 @@ export function TransactionModal({
           className="space-y-5"
           onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
         >
-          <AmountField register={form.register as never} errors={form.formState.errors} />
+          <AmountField control={form.control} errors={form.formState.errors} />
 
           {/* INCOME / EXPENSE */}
           {activeTab !== "TRANSFER" && (
