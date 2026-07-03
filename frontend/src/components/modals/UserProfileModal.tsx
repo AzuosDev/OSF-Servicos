@@ -8,17 +8,21 @@ import {
   AlertTriangle,
   Camera,
   Check,
+  Fingerprint,
   Globe,
   KeyRound,
   Loader2,
   LogOut,
   Moon,
+  ShieldCheck,
   Sun,
   Trash2,
   Upload,
   User as UserIcon,
   X,
 } from "lucide-react";
+import { browserSupportsWebAuthn, startAuthentication } from "@simplewebauthn/browser";
+import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 
 import { api } from "../../lib/api";
 import { clearTokens, getRefreshToken } from "../../lib/auth";
@@ -35,7 +39,7 @@ const nameSchema = z.object({
 
 const passwordSchema = z
   .object({
-    currentPassword: z.string().min(1, "Informe a senha atual."),
+    currentPassword: z.string().optional(),
     newPassword: z
       .string()
       .min(8, "Mínimo de 8 caracteres.")
@@ -111,6 +115,9 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
   const [imgError, setImgError] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [hasGravatar, setHasGravatar] = useState<boolean | null>(null);
+  const [reauthedToken, setReauthedToken] = useState<string | null>(null);
+  const [biometricLoading, setBiometricLoading] = useState(false);
+  const [biometricError, setBiometricError] = useState<string | null>(null);
 
   const userQuery = useQuery<User>({
     queryKey: ["user-profile"],
@@ -118,6 +125,14 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
     enabled: open,
     staleTime: 1000 * 60 * 5,
   });
+
+  const credentialsQuery = useQuery<{ credentialId: string }[]>({
+    queryKey: ["webauthn-credentials"],
+    queryFn: () => api.get<{ credentialId: string }[]>("/api/auth/webauthn/credentials").then((r) => r.data),
+    enabled: open,
+    staleTime: 1000 * 60 * 5,
+  });
+  const webAuthnAvailable = (credentialsQuery.data?.length ?? 0) > 0 && browserSupportsWebAuthn();
 
   const user = userQuery.data;
   const email = user?.email ?? "";
@@ -176,10 +191,12 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
   });
 
   const changePasswordMutation = useMutation({
-    mutationFn: (data: { currentPassword: string; newPassword: string }) =>
+    mutationFn: (data: { currentPassword?: string; reauthedToken?: string; newPassword: string }) =>
       api.patch("/api/users/me/password", data),
     onSuccess: () => {
       passwordForm.reset();
+      setReauthedToken(null);
+      setBiometricError(null);
       setPasswordSaved(true);
       setTimeout(() => setPasswordSaved(false), 2500);
     },
@@ -188,6 +205,32 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
       passwordForm.setError("currentPassword", { message: msg });
     },
   });
+
+  const handleBiometricConfirm = async () => {
+    setBiometricError(null);
+    setBiometricLoading(true);
+    try {
+      const { data: options } = await api.post<PublicKeyCredentialRequestOptionsJSON>(
+        "/api/auth/webauthn/reauth/options",
+      );
+      const response = await startAuthentication({ optionsJSON: options });
+      const { data } = await api.post<{ reauthedToken: string }>(
+        "/api/auth/webauthn/reauth/verify",
+        response,
+      );
+      setReauthedToken(data.reauthedToken);
+    } catch (err: unknown) {
+      const name = (err as { name?: string })?.name;
+      if (name === "NotAllowedError") {
+        setBiometricError("Operação cancelada pelo dispositivo.");
+      } else {
+        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+        setBiometricError(msg ?? "Não foi possível autenticar via biometria.");
+      }
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
 
   const resetDataMutation = useMutation({
     mutationFn: () => api.delete("/api/users/me/data"),
@@ -399,28 +442,68 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
         {/* ── Senha ── */}
         <SectionCard title="Alterar Senha">
           <form
-            onSubmit={passwordForm.handleSubmit((data) =>
-              changePasswordMutation.mutate({
-                currentPassword: data.currentPassword,
-                newPassword: data.newPassword,
-              }),
-            )}
+            onSubmit={passwordForm.handleSubmit((data) => {
+              if (reauthedToken) {
+                return changePasswordMutation.mutate({ reauthedToken, newPassword: data.newPassword });
+              }
+              if (!data.currentPassword) {
+                passwordForm.setError("currentPassword", { message: "Informe a senha atual." });
+                return;
+              }
+              return changePasswordMutation.mutate({ currentPassword: data.currentPassword, newPassword: data.newPassword });
+            })}
             className="space-y-3"
           >
-            <div>
-              <input
-                type="password"
-                placeholder="Senha atual"
-                autoComplete="current-password"
-                className={inputClass}
-                {...passwordForm.register("currentPassword")}
-              />
-              {passwordForm.formState.errors.currentPassword && (
-                <p className="mt-1 text-xs text-accent-red">
-                  {passwordForm.formState.errors.currentPassword.message}
-                </p>
-              )}
-            </div>
+            {/* Campo senha atual — oculto quando biometria confirmada */}
+            {reauthedToken ? (
+              <div className="flex items-center justify-between rounded-xl bg-accent-lime/10 px-4 py-3">
+                <div className="flex items-center gap-2 text-sm text-accent-lime">
+                  <ShieldCheck className="h-4 w-4 shrink-0" />
+                  Biometria confirmada
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReauthedToken(null)}
+                  className="text-xs text-text-secondary underline hover:text-text-primary"
+                >
+                  Trocar
+                </button>
+              </div>
+            ) : (
+              <div>
+                <input
+                  type="password"
+                  placeholder="Senha atual"
+                  autoComplete="current-password"
+                  className={inputClass}
+                  {...passwordForm.register("currentPassword")}
+                />
+                {passwordForm.formState.errors.currentPassword && (
+                  <p className="mt-1 text-xs text-accent-red">
+                    {passwordForm.formState.errors.currentPassword.message}
+                  </p>
+                )}
+                {webAuthnAvailable && (
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={handleBiometricConfirm}
+                      disabled={biometricLoading}
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary disabled:opacity-50"
+                    >
+                      {biometricLoading ? (
+                        <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Aguardando biometria...</>
+                      ) : (
+                        <><Fingerprint className="h-3.5 w-3.5 text-accent-lime" /> Confirmar com biometria</>
+                      )}
+                    </button>
+                    {biometricError && (
+                      <p className="mt-1 text-xs text-accent-red">{biometricError}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <div>
               <input
                 type="password"

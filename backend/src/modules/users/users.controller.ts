@@ -1,9 +1,10 @@
-import { Body, Controller, Delete, Get, HttpCode, Patch, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Patch, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ICurrentUser } from '../../common/types/current-user.type';
 import { UsersService } from './users.service';
+import { WebAuthnService } from '../webauthn/webauthn.service';
 import { UpdateNameDto } from './dto/update-name.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 
@@ -12,7 +13,10 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 @Controller('api/users')
 @UseGuards(JwtAuthGuard)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly webAuthnService: WebAuthnService,
+  ) {}
 
   @Get('me')
   async me(@CurrentUser() user: ICurrentUser) {
@@ -27,7 +31,18 @@ export class UsersController {
   @Patch('me/password')
   @HttpCode(200)
   async changePassword(@CurrentUser() user: ICurrentUser, @Body() dto: ChangePasswordDto) {
-    return this.usersService.changePassword(user._id.toString(), dto.currentPassword, dto.newPassword);
+    const userId = user._id.toString();
+
+    if (dto.reauthedToken) {
+      await this.webAuthnService.consumeReauthToken(userId, dto.reauthedToken);
+      return this.usersService.changePasswordDirect(userId, dto.newPassword);
+    }
+
+    if (!dto.currentPassword) {
+      throw new BadRequestException('Informe a senha atual ou confirme via biometria.');
+    }
+
+    return this.usersService.changePassword(userId, dto.currentPassword, dto.newPassword);
   }
 
   @Patch('me/avatar')

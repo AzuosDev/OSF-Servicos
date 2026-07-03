@@ -8,7 +8,7 @@ export class WebAuthnChallenge {
   @Prop({ required: true })
   challenge!: string;
 
-  @Prop({ required: true, enum: ['register', 'login'] })
+  @Prop({ required: true, enum: ['register', 'login', 'reauth'] })
   type!: string;
 
   @Prop({ type: Types.ObjectId, ref: 'User' })
@@ -19,6 +19,9 @@ export class WebAuthnChallenge {
 
   @Prop({ required: true })
   expiresAt!: Date;
+
+  @Prop()
+  reauthedToken?: string;
 }
 
 export const WebAuthnChallengeSchema = SchemaFactory.createForClass(WebAuthnChallenge);

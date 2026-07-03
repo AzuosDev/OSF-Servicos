@@ -16,5 +16,6 @@ import { WebAuthnChallenge, WebAuthnChallengeSchema } from './schemas/webauthn-c
   ],
   controllers: [WebAuthnController],
   providers: [WebAuthnService],
+  exports: [WebAuthnService],
 })
 export class WebAuthnModule {}

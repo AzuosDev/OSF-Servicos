@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import * as crypto from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import {
   generateAuthenticationOptions,
@@ -210,6 +211,100 @@ export class WebAuthnService {
       .find({ userId: new Types.ObjectId(userId) })
       .select('credentialId deviceType backedUp transports createdAt')
       .exec();
+  }
+
+  async getReauthOptions(userId: string) {
+    const credentials = await this.credentialModel
+      .find({ userId: new Types.ObjectId(userId) })
+      .exec();
+
+    if (credentials.length === 0) {
+      throw new NotFoundException(
+        'Nenhuma credencial biométrica cadastrada. Registre a biometria primeiro em Configurações.',
+      );
+    }
+
+    const options = await generateAuthenticationOptions({
+      rpID: this.rpID,
+      allowCredentials: credentials.map((c) => ({
+        id: c.credentialId,
+        transports: c.transports as AuthenticatorTransportFuture[],
+      })),
+      userVerification: 'preferred',
+    });
+
+    await this.challengeModel
+      .deleteMany({ userId: new Types.ObjectId(userId), type: 'reauth' })
+      .exec();
+
+    await this.challengeModel.create({
+      challenge: options.challenge,
+      type: 'reauth',
+      userId: new Types.ObjectId(userId),
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    });
+
+    return options;
+  }
+
+  async verifyReauth(userId: string, response: AuthenticationResponseJSON): Promise<{ reauthedToken: string }> {
+    const stored = await this.challengeModel
+      .findOne({
+        userId: new Types.ObjectId(userId),
+        type: 'reauth',
+        expiresAt: { $gt: new Date() },
+      })
+      .exec();
+
+    if (!stored) throw new BadRequestException('Desafio inválido ou expirado');
+
+    const credential = await this.credentialModel
+      .findOne({ credentialId: response.id, userId: new Types.ObjectId(userId) })
+      .exec();
+
+    if (!credential) throw new UnauthorizedException('Credencial não encontrada');
+
+    const { verified, authenticationInfo } = await verifyAuthenticationResponse({
+      response,
+      expectedChallenge: stored.challenge,
+      expectedOrigin: this.origin,
+      expectedRPID: [this.rpID],
+      credential: {
+        id: credential.credentialId,
+        publicKey: Buffer.from(credential.publicKey, 'base64url') as unknown as Uint8Array<ArrayBuffer>,
+        counter: credential.counter,
+        transports: credential.transports as AuthenticatorTransportFuture[],
+      },
+      requireUserVerification: false,
+    });
+
+    if (!verified) throw new UnauthorizedException('Verificação biométrica falhou');
+
+    await this.credentialModel
+      .findByIdAndUpdate(credential._id, { counter: authenticationInfo.newCounter })
+      .exec();
+
+    const reauthedToken = crypto.randomBytes(32).toString('base64url');
+    await this.challengeModel
+      .findByIdAndUpdate(stored._id, { reauthedToken })
+      .exec();
+
+    return { reauthedToken };
+  }
+
+  async consumeReauthToken(userId: string, token: string): Promise<void> {
+    const doc = await this.challengeModel
+      .findOneAndDelete({
+        userId: new Types.ObjectId(userId),
+        type: 'reauth',
+        reauthedToken: token,
+        expiresAt: { $gt: new Date() },
+      })
+      .exec();
+
+    if (!doc) {
+      throw new UnauthorizedException('Token de reautenticação inválido ou expirado.');
+    }
   }
 
   async deleteCredential(userId: string, credentialId: string) {

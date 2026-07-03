@@ -62,6 +62,28 @@ export class WebAuthnController {
     );
   }
 
+  // ── Re-authentication (JWT-protected, for password change) ───────────
+
+  @UseGuards(JwtAuthGuard)
+  @Post('reauth/options')
+  @HttpCode(200)
+  async reauthOptions(@Req() req: RequestWithUser) {
+    return this.webAuthnService.getReauthOptions(req.user._id.toString());
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('reauth/verify')
+  @HttpCode(200)
+  async reauthVerify(
+    @Req() req: RequestWithUser,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.webAuthnService.verifyReauth(
+      req.user._id.toString(),
+      body as unknown as AuthenticationResponseJSON,
+    );
+  }
+
   // ── Credential management ─────────────────────────────────────────────
 
   @UseGuards(JwtAuthGuard)

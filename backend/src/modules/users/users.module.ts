@@ -7,10 +7,12 @@ import { Transaction, TransactionSchema } from '../transactions/schemas/transact
 import { Wallet, WalletSchema } from '../wallets/schemas/wallet.schema';
 import { Goal, GoalSchema } from '../goals/schemas/goal.schema';
 import { PendingAccount, PendingAccountSchema } from '../pending/schemas/pending-account.schema';
+import { WebAuthnModule } from '../webauthn/webauthn.module';
 
 @Global()
 @Module({
   imports: [
+    WebAuthnModule,
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: Transaction.name, schema: TransactionSchema },

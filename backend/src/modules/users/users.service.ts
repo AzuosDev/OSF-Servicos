@@ -92,6 +92,15 @@ export class UsersService {
     return { ok: true };
   }
 
+  async changePasswordDirect(userId: string, newPassword: string): Promise<{ ok: boolean }> {
+    const user = await this.userModel.findById(userId).exec();
+    if (!user) throw new NotFoundException('User not found');
+    const hashed = await bcrypt.hash(newPassword, 12);
+    Object.assign(user, { password: hashed });
+    await user.save();
+    return { ok: true };
+  }
+
   async resetData(userId: string) {
     const userObjectId = new Types.ObjectId(userId);
     await Promise.all([
