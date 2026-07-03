@@ -10,7 +10,6 @@ export default defineConfig(() => ({
       : []),
   ],
   server: {
-    allowedHosts: ["steerable-gender-drench.ngrok-free.dev"],
     proxy: {
       "/api": {
         target: "http://localhost:3000",

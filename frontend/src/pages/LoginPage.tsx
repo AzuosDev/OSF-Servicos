@@ -12,6 +12,7 @@ import { SubmitButton } from "../components/SubmitButton";
 import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
 import { getApiErrorMessages } from "../lib/errors";
+import { WEBAUTHN_TRIED_KEY } from "../lib/webauthn-suggestion";
 import type { AuthTokens } from "../types/api";
 import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 
@@ -115,9 +116,13 @@ export function LoginPage() {
     } catch (err: unknown) {
       const apiMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       const name = (err as { name?: string })?.name;
+      const status = (err as { response?: { status?: number } })?.response?.status;
 
       if (name === "NotAllowedError") {
         if (!silent) setBiometricError("Operação cancelada pelo dispositivo.");
+      } else if (status === 404) {
+        // Sem credencial: sinaliza para sugerir cadastro após login com senha
+        sessionStorage.setItem(WEBAUTHN_TRIED_KEY, "tried");
       } else if (apiMsg) {
         setBiometricError(apiMsg);
       } else {

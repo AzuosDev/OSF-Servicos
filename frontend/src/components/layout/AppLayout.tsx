@@ -31,6 +31,8 @@ import type { User } from "../../types/api";
 import { useToast } from "../ui/Toast";
 import { useQuery } from "@tanstack/react-query";
 import { UserProfileModal } from "../modals/UserProfileModal";
+import { WebAuthnSuggestionModal } from "../modals/WebAuthnSuggestionModal";
+import { useWebAuthnSuggestion } from "../../hooks/useWebAuthnSuggestion";
 import { hasSeenWhatsNew } from "../modals/WhatsNewModal";
 const TransactionModal = lazy(() =>
   import("../modals/TransactionModal").then((m) => ({ default: m.TransactionModal }))
@@ -371,6 +373,7 @@ export function AppLayout() {
   const [userProfileOpen, setUserProfileOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
+  const webAuthnSuggestion = useWebAuthnSuggestion();
 
   const [email, setEmail] = useState(
     () => getUserEmailFromToken() ?? fallbackEmail,
@@ -628,6 +631,13 @@ export function AppLayout() {
       <UserProfileModal
         open={userProfileOpen}
         onClose={() => setUserProfileOpen(false)}
+      />
+
+      <WebAuthnSuggestionModal
+        open={webAuthnSuggestion.open}
+        isForm1={webAuthnSuggestion.isForm1}
+        onDismiss={webAuthnSuggestion.dismiss}
+        onRegistered={webAuthnSuggestion.markRegistered}
       />
     </div>
   </TransactionModalContext.Provider>
