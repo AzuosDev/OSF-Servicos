@@ -21,8 +21,8 @@ import {
   User as UserIcon,
   X,
 } from "lucide-react";
-import { browserSupportsWebAuthn, startAuthentication } from "@simplewebauthn/browser";
-import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
+import { browserSupportsWebAuthn, startAuthentication, startRegistration } from "@simplewebauthn/browser";
+import type { PublicKeyCredentialRequestOptionsJSON, PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/browser";
 
 import { api } from "../../lib/api";
 import { clearTokens, getRefreshToken } from "../../lib/auth";
@@ -55,7 +55,22 @@ const passwordSchema = z
 type NameValues = z.infer<typeof nameSchema>;
 type PasswordValues = z.infer<typeof passwordSchema>;
 
+type WebAuthnCredential = {
+  credentialId: string;
+  deviceType?: string;
+  backedUp?: boolean;
+  transports?: string[];
+  createdAt?: string;
+};
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+function credentialLabel(cred: WebAuthnCredential): string {
+  if (cred.backedUp || cred.deviceType === "multiDevice") return "Passkey sincronizada";
+  if (cred.transports?.includes("internal")) return "Biometria do dispositivo";
+  if (cred.transports?.includes("usb")) return "Chave de segurança USB";
+  return "Chave de acesso";
+}
 
 function compressImage(file: File, maxSize = 200): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -118,6 +133,8 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
   const [reauthedToken, setReauthedToken] = useState<string | null>(null);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [biometricError, setBiometricError] = useState<string | null>(null);
+  const [registerLoading, setRegisterLoading] = useState(false);
+  const [registerError, setRegisterError] = useState<string | null>(null);
 
   const userQuery = useQuery<User>({
     queryKey: ["user-profile"],
@@ -126,7 +143,7 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
     staleTime: 1000 * 60 * 5,
   });
 
-  const credentialsQuery = useQuery<{ credentialId: string }[]>({
+  const credentialsQuery = useQuery<WebAuthnCredential[]>({
     queryKey: ["webauthn-credentials"],
     queryFn: () => api.get<{ credentialId: string }[]>("/api/auth/webauthn/credentials").then((r) => r.data),
     enabled: open,
@@ -229,6 +246,39 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
       }
     } finally {
       setBiometricLoading(false);
+    }
+  };
+
+  const removeCredentialMutation = useMutation({
+    mutationFn: (credentialId: string) =>
+      api.delete(`/api/auth/webauthn/credentials/${encodeURIComponent(credentialId)}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["webauthn-credentials"] });
+    },
+  });
+
+  const handleRegisterBiometric = async () => {
+    setRegisterError(null);
+    setRegisterLoading(true);
+    try {
+      const { data: options } = await api.post<PublicKeyCredentialCreationOptionsJSON>(
+        "/api/auth/webauthn/register/options",
+      );
+      const response = await startRegistration({ optionsJSON: options });
+      await api.post("/api/auth/webauthn/register/verify", response);
+      queryClient.invalidateQueries({ queryKey: ["webauthn-credentials"] });
+    } catch (err: unknown) {
+      const name = (err as { name?: string })?.name;
+      if (name === "NotAllowedError") {
+        setRegisterError("Operação cancelada pelo dispositivo.");
+      } else if (name === "InvalidStateError") {
+        setRegisterError("Este dispositivo já está cadastrado.");
+      } else {
+        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+        setRegisterError(msg ?? "Não foi possível cadastrar a biometria.");
+      }
+    } finally {
+      setRegisterLoading(false);
     }
   };
 
@@ -548,6 +598,70 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
             </button>
           </form>
         </SectionCard>
+
+        {/* ── Biometria / Passkeys ── */}
+        {browserSupportsWebAuthn() && (
+          <SectionCard title="Biometria / Passkeys">
+            {credentialsQuery.isLoading ? (
+              <div className="mb-3 h-10 animate-pulse rounded-xl bg-bg-overlay" />
+            ) : (credentialsQuery.data?.length ?? 0) === 0 ? (
+              <p className="mb-3 text-xs text-text-muted">Nenhuma chave biométrica cadastrada.</p>
+            ) : (
+              <ul className="mb-3 space-y-2">
+                {credentialsQuery.data?.map((cred) => (
+                  <li
+                    key={cred.credentialId}
+                    className="flex items-center justify-between rounded-xl bg-bg-overlay px-3 py-2"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Fingerprint className="h-4 w-4 shrink-0 text-accent-lime" />
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-medium text-text-primary">
+                          {credentialLabel(cred)}
+                        </p>
+                        {cred.createdAt && (
+                          <p className="text-xs text-text-muted">
+                            {new Date(cred.createdAt).toLocaleDateString("pt-BR")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeCredentialMutation.mutate(cred.credentialId)}
+                      disabled={removeCredentialMutation.isPending}
+                      className="ml-2 shrink-0 rounded-lg p-1.5 text-text-muted transition hover:bg-accent-red/10 hover:text-accent-red disabled:opacity-50"
+                      aria-label="Remover credencial"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button
+              type="button"
+              onClick={handleRegisterBiometric}
+              disabled={registerLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-accent-lime/40 px-4 py-2.5 text-sm font-medium text-accent-lime transition hover:bg-accent-lime/5 disabled:opacity-50"
+            >
+              {registerLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Aguardando dispositivo...
+                </>
+              ) : (
+                <>
+                  <Fingerprint className="h-4 w-4" />
+                  Adicionar biometria
+                </>
+              )}
+            </button>
+            {registerError && (
+              <p className="mt-2 text-xs text-accent-red">{registerError}</p>
+            )}
+          </SectionCard>
+        )}
 
         {/* ── Conta ── */}
         <SectionCard title="Conta">

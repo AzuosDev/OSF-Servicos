@@ -326,14 +326,13 @@ function SidebarContent({
                     : "bottom-full left-0 mb-2 w-full",
                 )}
               >
-                <Link
-                  to="/configuracoes"
-                  onClick={() => { setUserMenuOpen(false); onNavigate?.(); }}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
+                <button
+                  onClick={() => { setUserMenuOpen(false); onOpenProfile?.(); }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
                 >
                   <Settings className="h-4 w-4" />
                   Configurações
-                </Link>
+                </button>
                 <button
                   onClick={() => { setUserMenuOpen(false); onLogout(); }}
                   className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-text-secondary transition hover:bg-bg-overlay hover:text-accent-red"
