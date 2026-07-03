@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Category, CategoryDocument } from '../categories/schemas/category.schema';
@@ -290,8 +290,8 @@ export class ImportService {
         carteiraId: new Types.ObjectId(dto.carteiraId),
         fileName: dto.fileName ?? undefined,
         transactionCount: imported,
+        transactionIds: createdIds,
       });
-      await this.transactionsService.setImportBatch(createdIds, batch._id as Types.ObjectId);
       return { imported, skipped, batchId: (batch._id as Types.ObjectId).toString() };
     }
 
@@ -313,7 +313,22 @@ export class ImportService {
       .exec();
     if (!batch) throw new NotFoundException('Lote de importação não encontrado');
 
-    const removed = await this.transactionsService.removeAllByImportBatch(userId, batchId);
+    let removed = 0;
+    for (const txId of batch.transactionIds) {
+      try {
+        await this.transactionsService.remove(userId, txId.toString());
+        removed++;
+      } catch {
+        // transaction already deleted manually — conta como faltante
+      }
+    }
+
+    if (removed < batch.transactionCount) {
+      throw new InternalServerErrorException(
+        `Undo incompleto: ${removed}/${batch.transactionCount} transações removidas. Lote preservado para diagnóstico.`,
+      );
+    }
+
     await batch.deleteOne();
     return { removed };
   }

@@ -230,25 +230,6 @@ export class TransactionsService {
     return transaction;
   }
 
-  async setImportBatch(ids: Types.ObjectId[], batchId: Types.ObjectId): Promise<void> {
-    if (ids.length === 0) return;
-    await this.transactionModel
-      .updateMany({ _id: { $in: ids } }, { $set: { importBatchId: batchId } })
-      .exec();
-  }
-
-  async removeAllByImportBatch(userId: string, batchId: string): Promise<number> {
-    const userObjectId = this.toObjectId(userId, 'userId');
-    const batchObjectId = this.toObjectId(batchId, 'batchId');
-    const docs = await this.transactionModel
-      .find({ userId: userObjectId, importBatchId: batchObjectId })
-      .exec();
-    for (const doc of docs) {
-      await this.remove(userId, (doc._id as Types.ObjectId).toString());
-    }
-    return docs.length;
-  }
-
   async checkFitIdExists(userId: string, carteiraId: string, fitId: string): Promise<boolean> {
     const doc = await this.transactionModel.findOne({
       userId: this.toObjectId(userId, 'userId'),

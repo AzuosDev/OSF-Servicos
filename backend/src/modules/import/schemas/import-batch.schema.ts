@@ -16,6 +16,9 @@ export class ImportBatch {
 
   @Prop({ required: true, min: 0 })
   transactionCount!: number;
+
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'Transaction' }], default: [] })
+  transactionIds!: Types.ObjectId[];
 }
 
 export const ImportBatchSchema = SchemaFactory.createForClass(ImportBatch);

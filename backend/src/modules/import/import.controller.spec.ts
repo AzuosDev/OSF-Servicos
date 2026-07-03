@@ -310,6 +310,41 @@ describe('ImportController (e2e)', () => {
     expect(batchCount).toBe(0);
   });
 
+  it('confirm → undo → reimportar: não deve bloquear por duplicata após desfazer lote', async () => {
+    const transactions = [
+      { fitId: 'REIMPORT-001', date: '2026-06-01', value: 50.00, type: TransactionType.EXPENSE, description: 'Reimport despesa' },
+      { fitId: 'REIMPORT-002', date: '2026-06-02', value: 100.00, type: TransactionType.INCOME, description: 'Reimport receita' },
+    ];
+
+    // 1. Confirmar importação inicial
+    const firstConfirm = await request(app.getHttpServer())
+      .post('/api/import/ofx/confirm')
+      .send({ carteiraId: walletId, transactions })
+      .expect(201);
+    const { batchId } = firstConfirm.body as { batchId: string };
+    expect(batchId).toBeDefined();
+
+    // 2. Desfazer
+    const undoRes = await request(app.getHttpServer())
+      .delete(`/api/import/batches/${batchId}`)
+      .expect(200);
+    expect(undoRes.body).toEqual({ removed: 2 });
+
+    // 3. fitIds devem ter sido removidos do banco
+    const remaining = await transactionModel.countDocuments({
+      userId: new Types.ObjectId(FAKE_USER_ID),
+      fitId: { $in: ['REIMPORT-001', 'REIMPORT-002'] },
+    });
+    expect(remaining).toBe(0);
+
+    // 4. Reimportar — deve importar 2 (sem pular por duplicata)
+    const secondConfirm = await request(app.getHttpServer())
+      .post('/api/import/ofx/confirm')
+      .send({ carteiraId: walletId, transactions })
+      .expect(201);
+    expect(secondConfirm.body).toEqual(expect.objectContaining({ imported: 2, skipped: 0 }));
+  });
+
   it('preview: marca alreadyImported=true para fitId já existente no banco', async () => {
     // Cria transação com fitId TEST-001 no banco
     await transactionModel.create({
