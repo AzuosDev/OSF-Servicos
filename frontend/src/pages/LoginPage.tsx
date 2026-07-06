@@ -13,6 +13,7 @@ import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
 import { getApiErrorMessages } from "../lib/errors";
 import { WEBAUTHN_TRIED_KEY } from "../lib/webauthn-suggestion";
+import { useAuth } from "../contexts/AuthContext";
 import type { AuthTokens } from "../types/api";
 import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 
@@ -33,6 +34,7 @@ export function LoginPage() {
   const [biometricError, setBiometricError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { unlock } = useAuth();
   const redirectTo = (location.state as { from?: string } | null)?.from ?? "/dashboard";
   const hasCheckedSupport = useRef(false);
   const hasAutoTriggered = useRef(false);
@@ -81,6 +83,7 @@ export function LoginPage() {
 
       localStorage.setItem(LAST_EMAIL_KEY, values.email.trim().toLowerCase());
       setTokens(data.accessToken, data.refreshToken);
+      unlock();
       navigate(redirectTo, { replace: true });
     } catch (error) {
       setApiErrors(getApiErrorMessages(error, "Nao foi possivel entrar. Verifique suas credenciais."));
@@ -112,6 +115,7 @@ export function LoginPage() {
 
       localStorage.setItem(LAST_EMAIL_KEY, email);
       setTokens(tokens.accessToken, tokens.refreshToken);
+      unlock();
       navigate(redirectTo, { replace: true });
     } catch (err: unknown) {
       const apiMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;

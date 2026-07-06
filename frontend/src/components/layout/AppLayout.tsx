@@ -24,6 +24,8 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 import { useTheme } from "../../hooks/useTheme";
+import { useAuth } from "../../contexts/AuthContext";
+import { useInactivityLock } from "../../hooks/useInactivityLock";
 import { clearTokens, getAccessToken, getRefreshToken } from "../../lib/auth";
 import { api } from "../../lib/api";
 import { cn } from "../../lib/utils";
@@ -366,6 +368,8 @@ export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { lock, isLocked } = useAuth();
+  useInactivityLock(lock, isLocked);
   const [whatsNewOpen, setWhatsNewOpen] = useState(() => !hasSeenWhatsNew());
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [txOpen, setTxOpen] = useState(false);

@@ -4,6 +4,7 @@ import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { AppLayout } from "./components/layout/AppLayout";
 import { ToastProvider } from "./components/ui/Toast";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { getAccessToken, hasRefreshToken, refreshAccessToken } from "./lib/auth";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react"
@@ -33,8 +34,9 @@ function PageLoader() {
 
 function PrivateRoute() {
   const location = useLocation();
+  const { isLocked } = useAuth();
 
-  if (!getAccessToken()) {
+  if (isLocked || !getAccessToken()) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
@@ -42,7 +44,8 @@ function PrivateRoute() {
 }
 
 function RootRedirect() {
-  return <Navigate to={getAccessToken() ? "/dashboard" : "/login"} replace />;
+  const { isLocked } = useAuth();
+  return <Navigate to={!isLocked && getAccessToken() ? "/dashboard" : "/login"} replace />;
 }
 
 function AppBoot({ children }: { children: React.ReactNode }) {
@@ -71,6 +74,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <ToastProvider>
+        <AuthProvider>
         <AppBoot>
           <Suspense fallback={<PageLoader />}>
             <Routes>
@@ -102,6 +106,7 @@ export default function App() {
           <SpeedInsights />
           <Analytics />
         </AppBoot>
+        </AuthProvider>
       </ToastProvider>
     </ThemeProvider>
     
