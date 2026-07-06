@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { ArrowLeftRight, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { Link } from "react-router-dom";
@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
 import { getApiErrorMessages } from "../../lib/errors";
 import { useWallets } from "./TransactionFormFields";
+import { CurrencyInput } from "../ui/CurrencyInput";
 import { ModalShell } from "./ModalShell";
 
 const schema = z
@@ -137,13 +138,17 @@ export function TransferModal({ open, onClose }: { open: boolean; onClose: () =>
         >
           <div>
             <label className={labelCls}>Valor</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              {...form.register("value", { valueAsNumber: true })}
-              className={inputCls}
-              placeholder="0,00"
+            <Controller
+              control={form.control}
+              name="value"
+              render={({ field }) => (
+                <CurrencyInput
+                  value={field.value ?? 0}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  className={inputCls}
+                />
+              )}
             />
             {form.formState.errors.value && (
               <p className="mt-1 text-xs text-accent-red">{form.formState.errors.value.message}</p>

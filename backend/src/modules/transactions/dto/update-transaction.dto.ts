@@ -32,4 +32,8 @@ export class UpdateTransactionDto {
   @IsOptional()
   @IsString()
   carteiraId?: string;
+
+  @IsOptional()
+  @IsString()
+  carteiraDestinoId?: string;
 }
