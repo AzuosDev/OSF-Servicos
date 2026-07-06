@@ -129,7 +129,8 @@ function parseOFXDate(raw: string): string | null {
 }
 
 function extractTag(block: string, name: string): string {
-  const re = new RegExp(`<${name}>([^<]*)<\\/${name}>`, 'i');
+  // Handles both XML (<NAME>value</NAME>) and SGML (<NAME>value\n) — closing tag is optional
+  const re = new RegExp(`<${name}>([^<]*)`, 'i');
   const m = block.match(re);
   return m ? m[1].trim() : '';
 }
@@ -153,18 +154,21 @@ function parseOFXBody(raw: string): Array<{
   if (ofxStart === -1) throw new BadRequestException('Arquivo OFX inválido: nenhum bloco <OFX> encontrado');
 
   const ofxBody = body.slice(ofxStart);
-  const trnRe = /<STMTTRN>([\s\S]*?)<\/STMTTRN>/gi;
+
+  // Split on <STMTTRN> handles both OFX 1.x SGML (no closing tags) and OFX 2.x XML.
+  // slice(1) discards content before the first <STMTTRN>.
+  const stmtBlocks = ofxBody.split(/<STMTTRN>/i).slice(1);
   const result = [];
-  let match: RegExpExecArray | null;
-  while ((match = trnRe.exec(ofxBody)) !== null) {
-    const block = match[1];
+  for (const block of stmtBlocks) {
+    // In XML format, trim at </STMTTRN>; in SGML the entire remaining slice is the block.
+    const content = block.replace(/<\/STMTTRN>[\s\S]*/i, '');
     result.push({
-      trnType: extractTag(block, 'TRNTYPE'),
-      dtPosted: extractTag(block, 'DTPOSTED'),
-      trnAmt: extractTag(block, 'TRNAMT'),
-      fitId: extractTag(block, 'FITID'),
-      name: extractTag(block, 'NAME'),
-      memo: extractTag(block, 'MEMO'),
+      trnType: extractTag(content, 'TRNTYPE'),
+      dtPosted: extractTag(content, 'DTPOSTED'),
+      trnAmt: extractTag(content, 'TRNAMT'),
+      fitId: extractTag(content, 'FITID'),
+      name: extractTag(content, 'NAME'),
+      memo: extractTag(content, 'MEMO'),
     });
   }
   return result;

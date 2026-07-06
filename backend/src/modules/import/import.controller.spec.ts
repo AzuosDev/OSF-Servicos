@@ -99,6 +99,44 @@ NEWFILEUID:NONE
   </BANKMSGSRSV1>
 </OFX>`;
 
+// OFX 1.x SGML — sem tags de fechamento nos campos nem em <STMTTRN> (formato real de bancos BR)
+const SGML_OFX = `OFXHEADER:100
+DATA:OFXSGML
+VERSION:102
+SECURITY:NONE
+ENCODING:UTF-8
+CHARSET:NONE
+COMPRESSION:NONE
+OLDFILEUID:NONE
+NEWFILEUID:NONE
+
+<OFX>
+<BANKMSGSRSV1>
+<STMTTRNRS>
+<STMTRS>
+<BANKTRANLIST>
+<DTSTART>20260601
+<DTEND>20260630
+<STMTTRN>
+<TRNTYPE>DEBIT
+<DTPOSTED>20260610000000[-3:BRT]
+<TRNAMT>-75.50
+<FITID>SGML-001
+<NAME>Uber do Brasil
+<MEMO>UBER *TRIP
+<STMTTRN>
+<TRNTYPE>CREDIT
+<DTPOSTED>20260615000000[-3:BRT]
+<TRNAMT>3000.00
+<FITID>SGML-002
+<NAME>Empresa XYZ Ltda
+<MEMO>SALARIO JUNHO
+</BANKTRANLIST>
+</STMTRS>
+</STMTTRNRS>
+</BANKMSGSRSV1>
+</OFX>`;
+
 describe('ImportController (e2e)', () => {
   let app: INestApplication;
   let mongod: MongoMemoryServer;
@@ -178,6 +216,23 @@ describe('ImportController (e2e)', () => {
 
     expect(debit?.type).toBe(TransactionType.EXPENSE);
     expect(credit?.type).toBe(TransactionType.INCOME);
+  });
+
+  it('preview: OFX 1.x SGML sem tags de fechamento retorna transações corretamente', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/import/ofx/preview')
+      .field('carteiraId', walletId)
+      .attach('file', Buffer.from(SGML_OFX), { filename: 'extrato_sgml.ofx', contentType: 'application/octet-stream' })
+      .expect(201);
+
+    const candidates: Array<{ type: string; value: number; fitId: string }> = res.body;
+    expect(candidates).toHaveLength(2);
+    const expense = candidates.find((c) => c.fitId === 'SGML-001');
+    const income = candidates.find((c) => c.fitId === 'SGML-002');
+    expect(expense?.type).toBe(TransactionType.EXPENSE);
+    expect(expense?.value).toBeCloseTo(75.5);
+    expect(income?.type).toBe(TransactionType.INCOME);
+    expect(income?.value).toBeCloseTo(3000);
   });
 
   it('confirm: importa 2 transações e atualiza saldo da carteira', async () => {
