@@ -607,4 +607,112 @@ describe('PendingController (e2e)', () => {
       (i) => i._id === id || i.templateId === id,
     )).toBe(false);
   });
+
+  it('PATCH paid=true herda categoryId diretamente (caminho principal — contas novas)', async () => {
+    const categoryModel = app.get<Model<Category>>(getModelToken(Category.name));
+    const transactionModel = app.get<Model<Transaction>>(getModelToken(Transaction.name));
+
+    const cat = await categoryModel.create({
+      name: 'Alimentação Teste',
+      slug: 'alimentacao-teste',
+      isIncome: false,
+      isDefault: true,
+    });
+
+    const create = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .send({
+        ...basePayload,
+        title: 'Conta com categoryId',
+        dueDate: '2026-10-01',
+        categoryId: cat._id.toString(),
+        categoria: 'Alimentação Teste',
+      })
+      .expect(201);
+    const id = (create.body as { _id: string })._id;
+
+    await request(app.getHttpServer())
+      .patch(`/api/accounts/${id}`)
+      .send({ paid: true })
+      .expect(200);
+
+    const tx = await transactionModel.findOne({ pendingAccountId: new Types.ObjectId(id) }).exec();
+    expect(tx).not.toBeNull();
+    expect(tx!.categoryId?.toString()).toBe(cat._id.toString());
+  });
+
+  it('PATCH paid=true resolve categoria via fallback de nome quando categoryId é ausente (contas antigas)', async () => {
+    const categoryModel = app.get<Model<Category>>(getModelToken(Category.name));
+    const transactionModel = app.get<Model<Transaction>>(getModelToken(Transaction.name));
+    const pendingModel = app.get<Model<PendingAccount>>(getModelToken(PendingAccount.name));
+
+    const cat = await categoryModel.create({
+      name: 'Transporte Legado',
+      slug: 'transporte-legado',
+      isIncome: false,
+      isDefault: true,
+    });
+
+    // Insere via driver nativo para simular conta antiga (sem categoryId)
+    const legacyId = new Types.ObjectId();
+    await pendingModel.collection.insertOne({
+      _id: legacyId,
+      userId: new Types.ObjectId(FAKE_USER_ID),
+      title: 'Conta legada sem categoryId',
+      value: 50,
+      dueDate: new Date('2026-10-15'),
+      paid: false,
+      isParcelada: false,
+      isRecorrente: false,
+      categoria: 'Transporte Legado',
+      tipo: 'PAGAR',
+      affectsBalance: true,
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/api/accounts/${legacyId.toString()}`)
+      .send({ paid: true })
+      .expect(200);
+
+    const tx = await transactionModel.findOne({ pendingAccountId: legacyId }).exec();
+    expect(tx).not.toBeNull();
+    expect(tx!.categoryId?.toString()).toBe(cat._id.toString());
+  });
+
+  it('PATCH paid=true fallback com nome contendo caracteres especiais de regex não quebra', async () => {
+    const categoryModel = app.get<Model<Category>>(getModelToken(Category.name));
+    const transactionModel = app.get<Model<Transaction>>(getModelToken(Transaction.name));
+    const pendingModel = app.get<Model<PendingAccount>>(getModelToken(PendingAccount.name));
+
+    const cat = await categoryModel.create({
+      name: 'Taxas (IOF+JCP)',
+      slug: 'taxas-iof-jcp',
+      isIncome: false,
+      isDefault: true,
+    });
+
+    const legacyId = new Types.ObjectId();
+    await pendingModel.collection.insertOne({
+      _id: legacyId,
+      userId: new Types.ObjectId(FAKE_USER_ID),
+      title: 'Conta com nome especial',
+      value: 20,
+      dueDate: new Date('2026-10-20'),
+      paid: false,
+      isParcelada: false,
+      isRecorrente: false,
+      categoria: 'Taxas (IOF+JCP)',
+      tipo: 'PAGAR',
+      affectsBalance: true,
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/api/accounts/${legacyId.toString()}`)
+      .send({ paid: true })
+      .expect(200);
+
+    const tx = await transactionModel.findOne({ pendingAccountId: legacyId }).exec();
+    expect(tx).not.toBeNull();
+    expect(tx!.categoryId?.toString()).toBe(cat._id.toString());
+  });
 });

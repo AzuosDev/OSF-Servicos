@@ -119,16 +119,26 @@ export class PendingService {
     return { tipo };
   }
 
+  private escapeRegex(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   private async createSettlementTransaction(pending: PendingAccountDocument) {
     const userId = pending.userId as Types.ObjectId;
     const isReceber = pending.tipo === 'RECEBER';
     let category = null;
 
-    if (pending.categoria && pending.categoria.toLowerCase() !== 'outro') {
-      // 1. Busca exata (case-insensitive)
+    // Caminho preferido: usar categoryId gravado diretamente (contas novas)
+    if (pending.categoryId) {
+      category = await this.categoryModel.findById(pending.categoryId).exec();
+    }
+
+    // Fallback para contas antigas que só têm o nome textual em `categoria`
+    if (!category && pending.categoria && pending.categoria.toLowerCase() !== 'outro') {
+      // 1. Busca exata (case-insensitive, nome escapado para evitar regex injection)
       category = await this.categoryModel
         .findOne({
-          name: { $regex: new RegExp(`^${pending.categoria}$`, 'i') },
+          name: { $regex: new RegExp(`^${this.escapeRegex(pending.categoria)}$`, 'i') },
           isIncome: isReceber,
           $or: [{ userId: null }, { userId: userId }],
         })
@@ -140,7 +150,7 @@ export class PendingService {
         if (mapped) {
           category = await this.categoryModel
             .findOne({
-              name: { $regex: new RegExp(`^${mapped}$`, 'i') },
+              name: { $regex: new RegExp(`^${this.escapeRegex(mapped)}$`, 'i') },
               isIncome: false,
               $or: [{ userId: null }, { userId: userId }],
             })
@@ -211,6 +221,7 @@ export class PendingService {
           tipo: dto.tipo ?? 'PAGAR',
           affectsBalance: this.isRetroactive(dueDate) ? (dto.affectsBalance ?? true) : true,
           carteiraId: dto.carteiraId ? new Types.ObjectId(dto.carteiraId) : undefined,
+          categoryId: dto.categoryId && Types.ObjectId.isValid(dto.categoryId) ? new Types.ObjectId(dto.categoryId) : undefined,
           numeroParcela,
           grupoParceladoId,
           parcelas: {
@@ -245,6 +256,7 @@ export class PendingService {
       tipo: dto.tipo ?? 'PAGAR',
       affectsBalance: dto.affectsBalance ?? true,
       carteiraId: dto.carteiraId ? new Types.ObjectId(dto.carteiraId) : undefined,
+      categoryId: dto.categoryId && Types.ObjectId.isValid(dto.categoryId) ? new Types.ObjectId(dto.categoryId) : undefined,
       recorrencia: dto.recorrencia
         ? {
             periodoRecorrencia: dto.recorrencia.periodoRecorrencia,
@@ -428,6 +440,7 @@ export class PendingService {
       formatoPagamento: template.formatoPagamento,
       tipo: template.tipo,
       carteiraId: carteiraId ? new Types.ObjectId(carteiraId) : template.carteiraId,
+      categoryId: template.categoryId,
       recorrenciaTemplateId: templateId,
       paid: false,
     });
@@ -451,6 +464,7 @@ export class PendingService {
     if (typeof dto.dueDate !== 'undefined') pending.dueDate = new Date(dto.dueDate);
     if (typeof dto.description !== 'undefined') pending.description = dto.description;
     if (typeof dto.carteiraId !== 'undefined') pending.carteiraId = dto.carteiraId ? new Types.ObjectId(dto.carteiraId) : undefined;
+    if (typeof dto.categoryId !== 'undefined') pending.categoryId = dto.categoryId && Types.ObjectId.isValid(dto.categoryId) ? new Types.ObjectId(dto.categoryId) : undefined;
     if (typeof dto.tipo !== 'undefined') pending.tipo = dto.tipo;
 
     if (dto.isRecorrente === true && !dto.recorrencia && !pending.recorrencia) {

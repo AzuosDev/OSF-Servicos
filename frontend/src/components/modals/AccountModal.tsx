@@ -41,6 +41,7 @@ function buildPendingPayload({
   isParcelada,
   isRecorrente,
   categoria,
+  categoryId,
   formatoPagamento,
   carteiraId,
   tipo,
@@ -55,6 +56,7 @@ function buildPendingPayload({
   isParcelada: boolean;
   isRecorrente: boolean;
   categoria: string;
+  categoryId: string;
   formatoPagamento: string;
   carteiraId: string;
   tipo: AccountType;
@@ -74,6 +76,7 @@ function buildPendingPayload({
     isParcelada,
     isRecorrente,
     categoria: categoria || undefined,
+    categoryId: categoryId || undefined,
     formatoPagamento: isPaymentFormat(formatoPagamento) ? formatoPagamento : undefined,
     carteiraId: carteiraId || undefined,
     tipo,
@@ -110,6 +113,7 @@ type AccountModalProps = {
     isParcelada?: boolean;
     isRecorrente?: boolean;
     categoria?: string;
+    categoryId?: string;
     formatoPagamento?: string;
     carteiraId?: string;
     tipo?: AccountType;
@@ -148,6 +152,7 @@ export function AccountModal({
   const [formRecorrenciaTermino, setFormRecorrenciaTermino] = useState<"infinita" | "N_meses">("infinita");
   const [formRecorrenciaNMeses, setFormRecorrenciaNMeses] = useState("");
   const [formCategoria, setFormCategoria] = useState("");
+  const [formCategoryId, setFormCategoryId] = useState("");
   const [categoriaCustom, setCategoriaCustom] = useState("");
   const [formForma, setFormForma] = useState("");
   const [formaCustom, setFormaCustom] = useState("");
@@ -168,6 +173,7 @@ export function AccountModal({
       return;
     }
     setFormCategoria("");
+    setFormCategoryId("");
     setCategoriaCustom("");
   }, [formTipo]);
 
@@ -206,6 +212,7 @@ export function AccountModal({
         setFormRecorrenciaTermino(editAccount.recorrencia?.dataTermino ? "N_meses" : "infinita");
         setFormRecorrenciaNMeses("");
         setFormCategoria(editAccount.categoria ?? "");
+        setFormCategoryId(editAccount.categoryId ?? "");
         setCategoriaCustom(editAccount.categoria ?? "");
         setFormForma(editAccount.formatoPagamento ?? "");
         setFormaCustom(editAccount.formatoPagamento ?? "");
@@ -225,6 +232,7 @@ export function AccountModal({
         setFormRecorrenciaTermino("infinita");
         setFormRecorrenciaNMeses("");
         setFormCategoria("");
+        setFormCategoryId("");
         setCategoriaCustom("");
         setFormForma("");
         setFormaCustom("");
@@ -261,6 +269,7 @@ export function AccountModal({
         isParcelada: formIsParcelada,
         isRecorrente: formIsRecorrente,
         categoria: formCategoria && formCategoria !== "Outro" ? formCategoria : categoriaCustom,
+        categoryId: formCategoryId,
         formatoPagamento: formForma && formForma !== "Outro" ? formForma : formaCustom,
         carteiraId: formCarteiraId,
         tipo: formTipo,
@@ -288,6 +297,7 @@ export function AccountModal({
         isParcelada: formIsParcelada,
         isRecorrente: formIsRecorrente,
         categoria: formCategoria && formCategoria !== "Outro" ? formCategoria : categoriaCustom,
+        categoryId: formCategoryId,
         formatoPagamento: formForma && formForma !== "Outro" ? formForma : formaCustom,
         carteiraId: formCarteiraId,
         tipo: formTipo,
@@ -589,7 +599,7 @@ export function AccountModal({
                       <button
                         key={cat.id}
                         type="button"
-                        onClick={() => { setFormCategoria(cat.name); setCategoriaCustom(""); }}
+                        onClick={() => { setFormCategoria(cat.name); setFormCategoryId(cat.id); setCategoriaCustom(""); }}
                         className={cn(
                           "flex h-16 w-full flex-col items-center justify-center gap-1 rounded-lg border bg-bg-muted px-1.5 py-1.5 text-center text-[11px] font-semibold transition",
                           active
@@ -609,7 +619,7 @@ export function AccountModal({
                   })}
               <button
                 type="button"
-                onClick={() => setFormCategoria("Outro")}
+                onClick={() => { setFormCategoria("Outro"); setFormCategoryId(""); }}
                 className={cn(
                   "flex h-16 w-full flex-col items-center justify-center gap-1 rounded-lg border bg-bg-muted px-1.5 py-1.5 text-center text-[11px] font-semibold transition",
                   formCategoria === "Outro"
