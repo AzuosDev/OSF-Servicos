@@ -82,6 +82,7 @@ export function TransactionsPage() {
   const selectedType: "ALL" | TransactionType =
     type === "EXPENSE" || type === "INCOME" ? type : "ALL";
   const categoryId = searchParams.get("categoryId") ?? "";
+  const semCategoria = searchParams.get("semCategoria") === "true";
   const month = Number(searchParams.get("month") ?? today.getMonth() + 1);
   const year = Number(searchParams.get("year") ?? currentYear);
   const years = useMemo(
@@ -92,7 +93,7 @@ export function TransactionsPage() {
   const categoriesQuery = useCategories();
 
   const transactionsQuery = useInfiniteQuery({
-    queryKey: ["transactions", selectedType, categoryId, month, year],
+    queryKey: ["transactions", selectedType, categoryId, semCategoria, month, year],
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
       const { data } = await api.get<TransactionsResponse>("/api/transactions", {
@@ -100,7 +101,8 @@ export function TransactionsPage() {
           page: pageParam,
           limit: 20,
           type: selectedType === "ALL" ? undefined : selectedType,
-          categoryId: categoryId || undefined,
+          categoryId: semCategoria ? undefined : (categoryId || undefined),
+          semCategoria: semCategoria || undefined,
           month,
           year,
         },
@@ -117,7 +119,9 @@ export function TransactionsPage() {
       .flatMap((page) => page.transactions)
       .filter((transaction) => {
         const date = new Date(transaction.date);
-        const matchesCategory = !categoryId || transaction.categoryId === categoryId;
+        const matchesCategory = semCategoria
+          ? !transaction.categoryId
+          : (!categoryId || transaction.categoryId === categoryId);
         // Usar UTC para evitar deslocamento de ±1 dia em fusos UTC-N (datas ISO são UTC midnight).
         const matchesPeriod =
           !Number.isNaN(date.getTime()) &&

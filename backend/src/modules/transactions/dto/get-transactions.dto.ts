@@ -1,5 +1,5 @@
-import { IsEnum, IsOptional, IsPositive } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsBoolean, IsEnum, IsOptional, IsPositive } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { TransactionType } from '../schemas/transaction.schema';
 
 export class GetTransactionsDto {
@@ -32,4 +32,9 @@ export class GetTransactionsDto {
 
   @IsOptional()
   carteiraId?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  semCategoria?: boolean;
 }

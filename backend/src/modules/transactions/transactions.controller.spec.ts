@@ -154,4 +154,42 @@ describe('TransactionsController (e2e)', () => {
       .send({ transactionIds: [tx._id.toString()], targetWalletId: otherUserWallet._id.toString() })
       .expect(404);
   });
+
+  it('GET ?semCategoria=true retorna apenas transações sem categoryId e não lança erro', async () => {
+    const categoryId = new Types.ObjectId();
+    await transactionModel.create({
+      userId: new Types.ObjectId(FAKE_USER_ID),
+      type: TransactionType.EXPENSE,
+      value: 20,
+      date: new Date('2026-03-01'),
+      description: 'Com categoria',
+      categoryId,
+    });
+    await transactionModel.create({
+      userId: new Types.ObjectId(FAKE_USER_ID),
+      type: TransactionType.EXPENSE,
+      value: 15,
+      date: new Date('2026-03-02'),
+      description: 'Sem categoria A',
+    });
+    await transactionModel.create({
+      userId: new Types.ObjectId(FAKE_USER_ID),
+      type: TransactionType.EXPENSE,
+      value: 25,
+      date: new Date('2026-03-03'),
+      description: 'Sem categoria B',
+    });
+
+    const res = await request(app.getHttpServer())
+      .get('/api/transactions?semCategoria=true')
+      .expect(200);
+
+    const descriptions = (res.body.data as Array<{ description: string; categoryId?: unknown }>).map((t) => t.description);
+    expect(descriptions).toContain('Sem categoria A');
+    expect(descriptions).toContain('Sem categoria B');
+    expect(descriptions).not.toContain('Com categoria');
+    res.body.data.forEach((t: { categoryId?: unknown }) => {
+      expect(t.categoryId == null).toBe(true);
+    });
+  });
 });

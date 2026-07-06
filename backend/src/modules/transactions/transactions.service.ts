@@ -119,13 +119,16 @@ export class TransactionsService {
     month?: number,
     year?: number,
     carteiraId?: string,
+    semCategoria?: boolean,
   ) {
     const filter: FilterQuery<TransactionDocument> = { userId: new Types.ObjectId(userId) };
     if (type) {
       filter.type = type;
     }
 
-    if (categoryId) {
+    if (semCategoria) {
+      filter.categoryId = { $in: [null, undefined] };
+    } else if (categoryId) {
       filter.categoryId = this.toObjectId(categoryId, 'categoryId');
     }
 

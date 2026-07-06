@@ -33,6 +33,7 @@ export class TransactionsController {
       query.month,
       query.year,
       query.carteiraId,
+      query.semCategoria,
     );
   }
 

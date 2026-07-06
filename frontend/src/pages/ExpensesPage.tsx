@@ -212,7 +212,13 @@ export function ExpensesPage() {
                 <CategoryRow
                   key={category.id}
                   category={category}
-                  onClick={() => navigate(`/transactions?type=EXPENSE&categoryId=${category.id}`)}
+                  onClick={() => {
+                    if (!category.id || category.id.startsWith("category-")) {
+                      navigate(`/transactions?type=EXPENSE&semCategoria=true&month=${month}&year=${year}`);
+                      return;
+                    }
+                    navigate(`/transactions?type=EXPENSE&categoryId=${category.id}&month=${month}&year=${year}`);
+                  }}
                 />
               ))}
             </div>
