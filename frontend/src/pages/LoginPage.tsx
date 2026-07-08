@@ -3,6 +3,7 @@ import { Eye, EyeOff, Fingerprint, Lock, Loader2, Mail } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { browserSupportsWebAuthn, startAuthentication } from "@simplewebauthn/browser";
 
@@ -33,6 +34,7 @@ export function LoginPage() {
   const [biometricError, setBiometricError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const redirectTo = (location.state as { from?: string } | null)?.from ?? "/dashboard";
   const hasCheckedSupport = useRef(false);
   const hasAutoTriggered = useRef(false);
@@ -80,6 +82,7 @@ export function LoginPage() {
       }
 
       localStorage.setItem(LAST_EMAIL_KEY, values.email.trim().toLowerCase());
+      queryClient.clear();
       setTokens(data.accessToken, data.refreshToken);
       navigate(redirectTo, { replace: true });
     } catch (error) {
@@ -111,6 +114,7 @@ export function LoginPage() {
       );
 
       localStorage.setItem(LAST_EMAIL_KEY, email);
+      queryClient.clear();
       setTokens(tokens.accessToken, tokens.refreshToken);
       navigate(redirectTo, { replace: true });
     } catch (err: unknown) {
