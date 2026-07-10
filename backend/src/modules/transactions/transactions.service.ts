@@ -202,10 +202,8 @@ export class TransactionsService {
           ? new Types.ObjectId(dto.carteiraId)
           : undefined;
 
-      // Reverse old wallet effect (only if old tx wasn't scheduled — agendado txs never hit the wallet).
-      // TRANSFER nunca toca o campo estático: o saldo exibido para transferências vem só
-      // da agregação em WalletsService (origem/destino), igual em remove() e associateTransactionsToWallet().
-      if (oldCarteiraId && !oldAgendado && oldType !== TransactionType.TRANSFER) {
+      // Reverse old wallet effect (only if old tx wasn't scheduled — agendado txs never hit the wallet)
+      if (oldCarteiraId && !oldAgendado) {
         const reversal = oldType === TransactionType.INCOME ? -oldValue : oldValue;
         await this.walletModel.findOneAndUpdate(
           { _id: oldCarteiraId, userId: userObjectId },
@@ -214,7 +212,7 @@ export class TransactionsService {
       }
 
       // Apply new wallet effect (only if not scheduled)
-      if (newCarteiraId && !newAgendado && transaction.type !== TransactionType.TRANSFER) {
+      if (newCarteiraId && !newAgendado) {
         const inc = transaction.type === TransactionType.INCOME ? transaction.value : -transaction.value;
         await this.walletModel.findOneAndUpdate(
           { _id: newCarteiraId, userId: userObjectId },
@@ -225,9 +223,9 @@ export class TransactionsService {
       transaction.carteiraId = newCarteiraId;
     } else if (oldCarteiraId) {
       // Same wallet — compute net change in balance effect, including agendado flips.
-      // Effect is 0 when scheduled (never hits wallet) ou quando é TRANSFER, otherwise ±value.
-      const oldEffect = (oldAgendado || oldType === TransactionType.TRANSFER) ? 0 : (oldType === TransactionType.INCOME ? oldValue : -oldValue);
-      const newEffect = (newAgendado || transaction.type === TransactionType.TRANSFER) ? 0 : (transaction.type === TransactionType.INCOME ? transaction.value : -transaction.value);
+      // Effect is 0 when scheduled (never hits wallet), otherwise ±value.
+      const oldEffect = oldAgendado ? 0 : (oldType === TransactionType.INCOME ? oldValue : -oldValue);
+      const newEffect = newAgendado ? 0 : (transaction.type === TransactionType.INCOME ? transaction.value : -transaction.value);
       const diff = newEffect - oldEffect;
       if (diff !== 0) {
         await this.walletModel.findOneAndUpdate(
