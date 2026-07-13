@@ -460,7 +460,7 @@ function FinalCTA() {
         to="/register"
         className="mt-8 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-accent-lime px-8 py-4 text-base font-bold text-black transition-all duration-200 hover:scale-105 hover:brightness-110 active:scale-100"
       >
-        Começar teste grátis de 15 dias
+        Começar teste grátis
         <ArrowRight className="h-4 w-4" />
       </Link>
     </section>
@@ -469,8 +469,8 @@ function FinalCTA() {
 
 function Footer() {
   return (
-    <footer className="border-t border-border-default py-8 text-center text-xs text-text-muted">
-      © {new Date().getFullYear()} MeuGasto. Todos os direitos reservados.
+    <footer className="border-t border-border-default py-8 text-center text-xs text-text-secondary">
+      © {new Date().getFullYear()} MeuGasto. Desenvolvido por <a href="https://github.com/Felipe-Souzza/" className="text-accent-lime underline hover:no-underline">uDawgs</a>.
     </footer>
   );
 }
