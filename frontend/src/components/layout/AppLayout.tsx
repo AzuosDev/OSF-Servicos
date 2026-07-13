@@ -15,6 +15,7 @@ import {
   Moon,
   Plus,
   Settings,
+  Sparkles,
   Sun,
   Target,
   TrendingDown,
@@ -52,6 +53,7 @@ type NavItem = {
 
 const navigation: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/insights", label: "Insights", icon: Sparkles },
   { to: "/expenses", label: "Gastos", icon: TrendingDown },
   {
     to: "/transactions?type=INCOME",
@@ -74,6 +76,7 @@ const mobileNavigation = [
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
+  "/insights": "Insights",
   "/expenses": "Gastos",
   "/transactions": "Transações",
   "/carteiras": "Carteiras",
