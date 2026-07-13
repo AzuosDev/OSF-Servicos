@@ -64,7 +64,7 @@ const securityPoints: { icon: LucideIcon; text: string }[] = [
     icon: Fingerprint,
     text: "Login biométrico processado localmente no seu dispositivo — sua senha não precisa trafegar pela rede toda vez que você entra.",
   },
-  { icon: Server, text: "Dados hospedados em infraestrutura MongoDB Atlas." },
+  { icon: Server, text: "Dados hospedados em infraestrutura totalmente segura." },
   {
     icon: UserCheck,
     text: "Você é o único com acesso à sua conta — nunca compartilhamos ou vendemos seus dados.",
@@ -173,17 +173,17 @@ function Nav() {
   const scrolled = useScrolled();
 
   return (
-    <header
-      className={cn(
-        "sticky top-0 z-50 transition-all duration-300",
-        scrolled
-          ? "border-b border-border-default bg-bg-base/70 shadow-lg shadow-black/20 backdrop-blur-md"
-          : "border-b border-transparent bg-transparent",
-      )}
-    >
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-6">
+    <div className="sticky top-4 z-50 flex w-full justify-center px-4 sm:top-6 sm:px-6">
+      <header
+        className={cn(
+          "flex w-full max-w-4xl items-center justify-between rounded-full px-5 py-3 transition-all duration-300 sm:px-6",
+          scrolled
+            ? "border border-white/10 bg-bg-card/45 shadow-xl shadow-black/40 backdrop-blur-xl"
+            : "border border-transparent bg-transparent",
+        )}
+      >
         <div className="flex items-center gap-2">
-          <span className="grid h-9 w-9 place-items-center rounded-icon bg-accent-lime/10">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-icon bg-accent-lime/10">
             <Coins className="h-5 w-5 text-accent-lime" />
           </span>
           <span className="font-sans text-lg font-bold tracking-tight text-text-primary">MeuGasto</span>
@@ -192,10 +192,10 @@ function Nav() {
           to="/login"
           className="cursor-pointer text-sm font-medium text-text-secondary transition-colors duration-200 hover:text-text-primary"
         >
-          Já tenho conta
+          Entrar
         </Link>
-      </div>
-    </header>
+      </header>
+    </div>
   );
 }
 
@@ -215,7 +215,7 @@ function Hero() {
       <h1
         className={cn(base, state, "font-sans text-4xl font-extrabold leading-tight tracking-tight text-text-primary sm:text-5xl")}
       >
-        Suas finanças, organizadas — sem depender de banco nenhum
+        Suas finanças organizadas <br/> sem depender de banco nenhum!
       </h1>
       <p
         className={cn(base, state, "mt-5 max-w-2xl text-lg text-text-secondary")}
