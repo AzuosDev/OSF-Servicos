@@ -44,19 +44,23 @@ function PrivateRoute() {
   return <Outlet />;
 }
 
-function RootRoute() {
-  const { isLocked } = useAuth();
-  const hasToken = getAccessToken();
-
+function resolveAuthRedirect(hasToken: string | null, isLocked: boolean): string | null {
   if (hasToken && isLocked) {
-    return <Navigate to="/login" replace />;
+    return "/login";
   }
 
   if (hasToken) {
-    return <Navigate to="/dashboard" replace />;
+    return "/dashboard";
   }
 
-  return <LandingPage />;
+  return null;
+}
+
+function RootRoute() {
+  const { isLocked } = useAuth();
+  const redirect = resolveAuthRedirect(getAccessToken(), isLocked);
+
+  return <Navigate to={redirect ?? "/landing"} replace />;
 }
 
 function AppBoot({ children }: { children: React.ReactNode }) {
@@ -90,6 +94,7 @@ export default function App() {
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<RootRoute />} />
+              <Route path="/landing" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/verify-email" element={<VerifyEmailPage />} />
