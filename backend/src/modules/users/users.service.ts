@@ -67,6 +67,17 @@ export class UsersService {
     return this.userModel.findOneAndUpdate({ emailVerificationToken: token }, { emailVerified: true, emailVerificationToken: null }, { new: true }).select('-password').exec();
   }
 
+  async regenerateVerificationToken(email: string) {
+    const user = await this.userModel.findOne({ email }).exec();
+    if (!user) throw new NotFoundException('User not found');
+    if (user.emailVerified) throw new BadRequestException('Email já verificado. Faça login.');
+
+    const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+    user.emailVerificationToken = emailVerificationToken;
+    await user.save();
+    return emailVerificationToken;
+  }
+
   async setPasswordResetToken(email: string) {
     const token = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 60 * 60 * 1000);

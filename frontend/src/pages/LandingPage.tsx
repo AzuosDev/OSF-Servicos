@@ -6,9 +6,11 @@ import {
   Check,
   Clock,
   Coins,
+  Copy,
   Fingerprint,
   LayoutDashboard,
   Lock,
+  Mail,
   ShieldCheck,
   Server,
   Tag,
@@ -74,6 +76,8 @@ const pricingBullets = [
   "Sem fidelidade — cancele a qualquer momento direto no app.",
   "Acesso completo a todas as funcionalidades desde o primeiro dia (sem trava de recurso \"premium\").",
 ];
+
+const CONTACT_EMAIL = "udawgs.org@gmail.com";
 
 const faqs: { question: string; answer: string }[] = [
   {
@@ -390,6 +394,56 @@ function FAQSection() {
   );
 }
 
+function ContactSection() {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(CONTACT_EMAIL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard indisponível (ex: contexto não seguro) — link mailto continua funcionando.
+    }
+  };
+
+  return (
+    <section className="mx-auto w-full max-w-3xl px-4 py-16 text-center sm:px-6">
+      <Reveal delay={0}>
+        <div className="rounded-card bg-bg-card p-8 ring-1 ring-border-default transition-shadow duration-300 hover:shadow-lg hover:shadow-accent-lime/10 sm:p-10">
+          <span className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-icon bg-accent-lime/10">
+            <Mail className="h-6 w-6 text-accent-lime" />
+          </span>
+          <h2 className="font-sans text-2xl font-bold text-text-primary sm:text-3xl">Fale conosco</h2>
+          <p className="mt-2 text-sm text-text-secondary">Tem dúvidas ou quer saber mais? Fale com a gente.</p>
+
+          <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <a
+              href={`mailto:${CONTACT_EMAIL}`}
+              className="cursor-pointer break-all text-base font-semibold text-accent-lime underline-offset-4 transition-colors duration-200 hover:underline"
+            >
+              {CONTACT_EMAIL}
+            </a>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className={cn(
+                "flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all duration-200",
+                copied
+                  ? "border-accent-lime/40 bg-accent-lime/10 text-accent-lime"
+                  : "border-border-default text-text-secondary hover:bg-bg-overlay hover:text-text-primary",
+              )}
+            >
+              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {copied ? "Copiado!" : "Copiar email"}
+            </button>
+          </div>
+        </div>
+      </Reveal>
+    </section>
+  );
+}
+
 function FinalCTA() {
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-20 text-center sm:px-6">
@@ -424,6 +478,7 @@ export function LandingPage() {
       <SecuritySection />
       <Pricing />
       <FAQSection />
+      <ContactSection />
       <FinalCTA />
       <Footer />
     </div>

@@ -24,6 +24,12 @@ export class AuthService {
     return safeUser;
   }
 
+  async resendVerification(email: string) {
+    const token = await this.usersService.regenerateVerificationToken(email);
+    await this.emailService.sendVerificationEmail(email, token);
+    return true;
+  }
+
   async sendPasswordReset(email: string) {
     const token = await this.usersService.setPasswordResetToken(email);
     await this.emailService.sendPasswordResetEmail(email, token);
