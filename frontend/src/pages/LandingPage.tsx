@@ -67,7 +67,7 @@ const securityPoints: { icon: LucideIcon; text: string }[] = [
   { icon: Server, text: "Dados hospedados em infraestrutura totalmente segura." },
   {
     icon: UserCheck,
-    text: "Você é o único com acesso à sua conta — nunca compartilhamos ou vendemos seus dados.",
+    text: "Você é o único com acesso à sua conta — nunca compartilhamos ou visualizamos seus dados.",
   },
 ];
 
