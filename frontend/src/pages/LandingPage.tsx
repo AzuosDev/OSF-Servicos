@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -103,19 +103,6 @@ const faqs: { question: string; answer: string }[] = [
 
 // ─── Helpers de animação (sem dependência externa) ─────────────────────────
 
-function useScrolled(threshold = 8) {
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > threshold);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [threshold]);
-
-  return scrolled;
-}
-
 function useInView<T extends HTMLElement>() {
   const ref = useRef<T | null>(null);
   const [inView, setInView] = useState(false);
@@ -169,31 +156,50 @@ function Reveal({
 
 // ─── Seções ─────────────────────────────────────────────────────────────────
 
+const navLinks = [
+  { id: "funcionalidades", label: "Funcionalidades" },
+  { id: "precos", label: "Preço" },
+  { id: "seguranca", label: "Segurança" },
+  { id: "contato", label: "Contato" },
+];
+
 function Nav() {
-  const scrolled = useScrolled();
+  const handleNavClick = (event: MouseEvent<HTMLAnchorElement>, id: string) => {
+    event.preventDefault();
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <div className="sticky top-4 z-50 flex w-full justify-center px-4 sm:top-6 sm:px-6">
-      <header
-        className={cn(
-          "flex w-full max-w-4xl items-center justify-between rounded-full px-5 py-3 transition-all duration-300 sm:px-6",
-          scrolled
-            ? "border border-white/10 bg-bg-card/45 shadow-xl shadow-black/40 backdrop-blur-xl"
-            : "border border-transparent bg-transparent",
-        )}
-      >
-        <div className="flex items-center gap-2">
+      <header className="flex w-full max-w-4xl items-center justify-between rounded-full border border-border-default bg-bg-card px-5 py-3 shadow-lg shadow-black/30 sm:px-6">
+        <div className="flex shrink-0 items-center gap-2">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-icon bg-accent-lime/10">
             <Coins className="h-5 w-5 text-accent-lime" />
           </span>
           <span className="font-sans text-lg font-bold tracking-tight text-text-primary">MeuGasto</span>
         </div>
-        <Link
-          to="/login"
-          className="cursor-pointer text-sm font-medium text-text-secondary transition-colors duration-200 hover:text-text-primary"
-        >
-          Entrar
-        </Link>
+
+        <div className="flex items-center gap-8">
+          <nav className="hidden items-center gap-6 md:flex">
+            {navLinks.map(({ id, label }) => (
+              <a
+                key={id}
+                href={`#${id}`}
+                onClick={(event) => handleNavClick(event, id)}
+                className="cursor-pointer text-sm font-medium text-text-secondary transition-colors duration-200 hover:text-text-primary"
+              >
+                {label}
+              </a>
+            ))}
+          </nav>
+
+          <Link
+            to="/login"
+            className="shrink-0 cursor-pointer rounded-full bg-accent-lime px-4 py-2 text-sm font-bold text-black transition-all duration-200 hover:scale-105 hover:brightness-110 active:scale-100"
+          >
+            Entrar
+          </Link>
+        </div>
       </header>
     </div>
   );
@@ -221,7 +227,7 @@ function Hero() {
         className={cn(base, state, "mt-5 max-w-2xl text-lg text-text-secondary")}
         style={{ transitionDelay: mounted ? "150ms" : "0ms" }}
       >
-        Controle gastos, contas a pagar e carteiras num só lugar. Comece grátis por 15 dias, sem cartão de crédito.
+        Controle gastos, contas a pagar e carteiras num só lugar. <br/> Comece grátis por 15 dias e aproveite.
       </p>
       <div
         className={cn(base, state, "mt-8 flex flex-col items-center gap-3 sm:flex-row")}
@@ -247,7 +253,7 @@ function Hero() {
 
 function Features() {
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
+    <section id="funcionalidades" className="mx-auto w-full max-w-6xl scroll-mt-28 px-4 py-16 sm:px-6">
       <h2 className="text-center font-sans text-3xl font-bold text-text-primary">
         Tudo que você precisa pra organizar sua vida financeira
       </h2>
@@ -270,7 +276,7 @@ function Features() {
 
 function SecuritySection() {
   return (
-    <section className="bg-bg-card py-16">
+    <section id="seguranca" className="scroll-mt-28 bg-bg-card py-16">
       <div className="mx-auto w-full max-w-4xl px-4 sm:px-6">
         <div className="mb-10 flex flex-col items-center text-center">
           <span className="mb-4 grid h-12 w-12 animate-shield-pulse place-items-center rounded-full bg-accent-lime/10">
@@ -297,8 +303,8 @@ function SecuritySection() {
 
 function Pricing() {
   return (
-    <section className="mx-auto w-full max-w-3xl px-4 py-16 text-center sm:px-6">
-      <h2 className="font-sans text-3xl font-bold text-text-primary">Um plano simples, sem pegadinha</h2>
+    <section id="precos" className="mx-auto w-full max-w-3xl scroll-mt-28 px-4 py-16 text-center sm:px-6">
+      <h2 className="font-sans text-3xl font-bold text-text-primary">Comece agora mesmo!</h2>
       <Reveal delay={0} className="mx-auto mt-10 max-w-md">
         <div className="rounded-card bg-bg-card p-8 shadow-[0_0_50px_-15px_rgba(163,230,53,0.4)] ring-1 ring-accent-lime/30 transition-shadow duration-300 hover:shadow-[0_0_60px_-12px_rgba(163,230,53,0.55)]">
           <p className="text-sm font-semibold uppercase tracking-widest text-accent-lime">15 dias grátis</p>
@@ -408,7 +414,7 @@ function ContactSection() {
   };
 
   return (
-    <section className="mx-auto w-full max-w-3xl px-4 py-16 text-center sm:px-6">
+    <section id="contato" className="mx-auto w-full max-w-3xl scroll-mt-28 px-4 py-16 text-center sm:px-6">
       <Reveal delay={0}>
         <div className="rounded-card bg-bg-card p-8 ring-1 ring-border-default transition-shadow duration-300 hover:shadow-lg hover:shadow-accent-lime/10 sm:p-10">
           <span className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-icon bg-accent-lime/10">
