@@ -6,7 +6,6 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { RefreshTokenDocument } from './schemas/refresh-token.schema';
 import * as crypto from 'crypto';
-import * as bcrypt from 'bcrypt';
 import { EmailService } from '../../common/services/email.service';
 
 @Injectable()
@@ -37,47 +36,43 @@ export class AuthService {
     return this.login(user);
   }
 
+  private hashRefreshToken(rawToken: string) {
+    return crypto.createHash('sha256').update(rawToken).digest('hex');
+  }
+
   async login(user: { _id: Types.ObjectId | string; email: string }) {
     const payload = { sub: user._id.toString(), email: user.email };
     const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
     const rawRefresh = crypto.randomBytes(64).toString('hex');
-    const hashed = await bcrypt.hash(rawRefresh, 10);
+    const hashed = this.hashRefreshToken(rawRefresh);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await this.refreshModel.create({ userId: user._id, token: hashed, expiresAt });
     return { accessToken, refreshToken: rawRefresh };
   }
 
   async refresh(rawRefreshToken: string) {
-    const tokens = await this.refreshModel.find({ expiresAt: { $gt: new Date() } }).exec();
-    for (const t of tokens) {
-      const ok = await bcrypt.compare(rawRefreshToken, t.token);
-      if (ok) {
-        const userId = t.userId.toString();
-        const user = await this.usersService.findById(userId);
-        // rotate
-        await this.refreshModel.findByIdAndDelete(t._id).exec();
-        const payload = { sub: userId, email: user.email };
-        const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-        const newRaw = crypto.randomBytes(64).toString('hex');
-        const hashed = await bcrypt.hash(newRaw, 10);
-        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-        await this.refreshModel.create({ userId, token: hashed, expiresAt });
-        return { accessToken, refreshToken: newRaw };
-      }
+    const hashed = this.hashRefreshToken(rawRefreshToken);
+    const t = await this.refreshModel.findOne({ token: hashed, expiresAt: { $gt: new Date() } }).exec();
+    if (!t) {
+      throw new UnauthorizedException('Refresh token inválido');
     }
-    throw new UnauthorizedException('Refresh token inválido');
+    const userId = t.userId.toString();
+    const user = await this.usersService.findById(userId);
+    // rotate
+    await this.refreshModel.findByIdAndDelete(t._id).exec();
+    const payload = { sub: userId, email: user.email };
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const newRaw = crypto.randomBytes(64).toString('hex');
+    const newHashed = this.hashRefreshToken(newRaw);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await this.refreshModel.create({ userId, token: newHashed, expiresAt });
+    return { accessToken, refreshToken: newRaw };
   }
 
   async logout(userId: string, rawRefreshToken: string) {
-    const tokens = await this.refreshModel.find({ userId }).exec();
-    for (const t of tokens) {
-      const ok = await bcrypt.compare(rawRefreshToken, t.token);
-      if (ok) {
-        await this.refreshModel.findByIdAndDelete(t._id).exec();
-        return true;
-      }
-    }
-    return false;
+    const hashed = this.hashRefreshToken(rawRefreshToken);
+    const result = await this.refreshModel.deleteOne({ userId, token: hashed }).exec();
+    return result.deletedCount > 0;
   }
 
   async forgotPassword(email: string) {

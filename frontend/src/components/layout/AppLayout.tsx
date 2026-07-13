@@ -31,7 +31,7 @@ import { api } from "../../lib/api";
 import { cn } from "../../lib/utils";
 import type { User } from "../../types/api";
 import { useToast } from "../ui/Toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UserProfileModal } from "../modals/UserProfileModal";
 import { WebAuthnSuggestionModal } from "../modals/WebAuthnSuggestionModal";
 import { useWebAuthnSuggestion } from "../../hooks/useWebAuthnSuggestion";
@@ -367,6 +367,7 @@ export const TransactionModalContext = createContext<{ open: boolean; setOpen: R
 export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { addToast } = useToast();
   const { lock, isLocked } = useAuth();
   useInactivityLock(lock, isLocked);
@@ -435,6 +436,7 @@ export function AppLayout() {
       // Ignora falha de logout do servidor e segue com o fluxo local.
     } finally {
       clearTokens();
+      queryClient.clear();
       addToast("Sessão encerrada com sucesso.", "success");
       navigate("/login", { replace: true });
     }

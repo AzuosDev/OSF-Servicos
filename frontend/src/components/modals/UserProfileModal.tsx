@@ -333,6 +333,7 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
       await api.post("/api/auth/logout", { refreshToken: getRefreshToken() });
     } catch { /* ignored */ }
     clearTokens();
+    queryClient.clear();
     navigate("/login", { replace: true });
   };
 
