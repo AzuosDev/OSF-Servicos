@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 
 import { AppLayout } from "./components/layout/AppLayout";
+import { LandingPage } from "./pages/LandingPage";
 import { ToastProvider } from "./components/ui/Toast";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -43,9 +44,19 @@ function PrivateRoute() {
   return <Outlet />;
 }
 
-function RootRedirect() {
+function RootRoute() {
   const { isLocked } = useAuth();
-  return <Navigate to={!isLocked && getAccessToken() ? "/dashboard" : "/login"} replace />;
+  const hasToken = getAccessToken();
+
+  if (hasToken && isLocked) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (hasToken) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <LandingPage />;
 }
 
 function AppBoot({ children }: { children: React.ReactNode }) {
@@ -78,7 +89,7 @@ export default function App() {
         <AppBoot>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/" element={<RootRedirect />} />
+              <Route path="/" element={<RootRoute />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/verify-email" element={<VerifyEmailPage />} />

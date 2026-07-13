@@ -1,0 +1,431 @@
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
+import {
+  ArrowRight,
+  Check,
+  Clock,
+  Coins,
+  Fingerprint,
+  LayoutDashboard,
+  Lock,
+  ShieldCheck,
+  Server,
+  Tag,
+  Target,
+  Upload,
+  UserCheck,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { cn } from "../lib/utils";
+
+const features: { icon: LucideIcon; title: string; description: string }[] = [
+  {
+    icon: LayoutDashboard,
+    title: "Dashboard consolidado",
+    description:
+      "Veja o saldo de todas as suas carteiras — banco, dinheiro, cartão — num único lugar, atualizado a cada movimentação.",
+  },
+  {
+    icon: Clock,
+    title: "Contas a pagar e receber",
+    description:
+      "Cadastre parcelamentos e contas recorrentes (aluguel, assinaturas, financiamentos) e nunca perca um vencimento.",
+  },
+  {
+    icon: Upload,
+    title: "Importe seu extrato bancário",
+    description:
+      "Suba o arquivo OFX do seu banco e o MeuGasto lança as transações automaticamente, sem digitar uma por uma.",
+  },
+  {
+    icon: Tag,
+    title: "Categorização de gastos",
+    description: "Entenda pra onde vai seu dinheiro, por categoria e por período.",
+  },
+  {
+    icon: Fingerprint,
+    title: "Login biométrico",
+    description: "Entre com Face ID ou digital, sem precisar digitar senha toda vez.",
+  },
+  {
+    icon: Target,
+    title: "Metas financeiras",
+    description:
+      "Defina um valor e um prazo, vincule a uma categoria e acompanhe seu progresso automaticamente a cada gasto.",
+  },
+];
+
+const securityPoints: { icon: LucideIcon; text: string }[] = [
+  { icon: Lock, text: "Conexão criptografada via HTTPS em toda comunicação com o app." },
+  {
+    icon: Fingerprint,
+    text: "Login biométrico processado localmente no seu dispositivo — sua senha não precisa trafegar pela rede toda vez que você entra.",
+  },
+  { icon: Server, text: "Dados hospedados em infraestrutura MongoDB Atlas." },
+  {
+    icon: UserCheck,
+    text: "Você é o único com acesso à sua conta — nunca compartilhamos ou vendemos seus dados.",
+  },
+];
+
+const pricingBullets = [
+  "Sem taxa de setup.",
+  "Sem fidelidade — cancele a qualquer momento direto no app.",
+  "Acesso completo a todas as funcionalidades desde o primeiro dia (sem trava de recurso \"premium\").",
+];
+
+const faqs: { question: string; answer: string }[] = [
+  {
+    question: "Como funciona o teste grátis de 15 dias?",
+    answer:
+      "Você cria sua conta e usa o app completo por 15 dias sem pagar nada. Só pedimos pagamento se você decidir continuar.",
+  },
+  {
+    question: "Preciso conectar minha conta bancária automaticamente?",
+    answer:
+      "Não. Você cadastra suas transações manualmente ou importa o extrato do seu banco via arquivo OFX — o MeuGasto não acessa sua conta bancária diretamente.",
+  },
+  {
+    question: "Como cancelo?",
+    answer: "A qualquer momento, direto nas configurações da sua conta — sem precisar ligar ou mandar e-mail.",
+  },
+  {
+    question: "Meus dados financeiros estão seguros?",
+    answer:
+      "Toda comunicação é criptografada (HTTPS) e o login biométrico não expõe sua senha na rede. Veja mais na seção de Segurança acima.",
+  },
+];
+
+// ─── Helpers de animação (sem dependência externa) ─────────────────────────
+
+function useScrolled(threshold = 8) {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > threshold);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [threshold]);
+
+  return scrolled;
+}
+
+function useInView<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.15 },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return { ref, inView };
+}
+
+function Reveal({
+  children,
+  delay = 0,
+  className,
+}: {
+  children: ReactNode;
+  delay?: number;
+  className?: string;
+}) {
+  const { ref, inView } = useInView<HTMLDivElement>();
+
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        "transition-all duration-700 ease-out",
+        inView ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
+        className,
+      )}
+      style={{ transitionDelay: inView ? `${delay}ms` : "0ms" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ─── Seções ─────────────────────────────────────────────────────────────────
+
+function Nav() {
+  const scrolled = useScrolled();
+
+  return (
+    <header
+      className={cn(
+        "sticky top-0 z-50 transition-all duration-300",
+        scrolled
+          ? "border-b border-border-default bg-bg-base/70 shadow-lg shadow-black/20 backdrop-blur-md"
+          : "border-b border-transparent bg-transparent",
+      )}
+    >
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-6">
+        <div className="flex items-center gap-2">
+          <span className="grid h-9 w-9 place-items-center rounded-icon bg-accent-lime/10">
+            <Coins className="h-5 w-5 text-accent-lime" />
+          </span>
+          <span className="font-sans text-lg font-bold tracking-tight text-text-primary">MeuGasto</span>
+        </div>
+        <Link
+          to="/login"
+          className="cursor-pointer text-sm font-medium text-text-secondary transition-colors duration-200 hover:text-text-primary"
+        >
+          Já tenho conta
+        </Link>
+      </div>
+    </header>
+  );
+}
+
+function Hero() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const base = "transition-all duration-700 ease-out";
+  const state = mounted ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0";
+
+  return (
+    <section className="relative mx-auto flex w-full max-w-4xl flex-col items-center overflow-hidden px-4 py-16 text-center sm:px-6 sm:py-24">
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 flex justify-center">
+        <div className="h-72 w-72 animate-glow-pulse rounded-full bg-accent-lime/20 blur-3xl sm:h-96 sm:w-96" />
+      </div>
+
+      <h1
+        className={cn(base, state, "font-sans text-4xl font-extrabold leading-tight tracking-tight text-text-primary sm:text-5xl")}
+      >
+        Suas finanças, organizadas — sem depender de banco nenhum
+      </h1>
+      <p
+        className={cn(base, state, "mt-5 max-w-2xl text-lg text-text-secondary")}
+        style={{ transitionDelay: mounted ? "150ms" : "0ms" }}
+      >
+        Controle gastos, contas a pagar e carteiras num só lugar. Comece grátis por 15 dias, sem cartão de crédito.
+      </p>
+      <div
+        className={cn(base, state, "mt-8 flex flex-col items-center gap-3 sm:flex-row")}
+        style={{ transitionDelay: mounted ? "300ms" : "0ms" }}
+      >
+        <Link
+          to="/register"
+          className="flex cursor-pointer items-center gap-2 rounded-xl bg-accent-lime px-6 py-3 text-sm font-bold text-black transition-all duration-200 hover:scale-105 hover:brightness-110 active:scale-100"
+        >
+          Começar teste grátis
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+        <Link
+          to="/login"
+          className="cursor-pointer rounded-xl border border-border-default px-6 py-3 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-overlay"
+        >
+          Já tenho conta
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function Features() {
+  return (
+    <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
+      <h2 className="text-center font-sans text-3xl font-bold text-text-primary">
+        Tudo que você precisa pra organizar sua vida financeira
+      </h2>
+      <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {features.map(({ icon: Icon, title, description }, index) => (
+          <Reveal key={title} delay={index * 80}>
+            <div className="group h-full rounded-card bg-bg-card p-6 ring-1 ring-border-default transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-accent-lime/10 hover:ring-accent-lime/40">
+              <span className="mb-4 grid h-11 w-11 place-items-center rounded-icon bg-accent-lime/10 transition-transform duration-300 group-hover:scale-110">
+                <Icon className="h-5 w-5 text-accent-lime" />
+              </span>
+              <h3 className="font-sans text-lg font-bold text-text-primary">{title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-text-secondary">{description}</p>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SecuritySection() {
+  return (
+    <section className="bg-bg-card py-16">
+      <div className="mx-auto w-full max-w-4xl px-4 sm:px-6">
+        <div className="mb-10 flex flex-col items-center text-center">
+          <span className="mb-4 grid h-12 w-12 animate-shield-pulse place-items-center rounded-full bg-accent-lime/10">
+            <ShieldCheck className="h-6 w-6 text-accent-lime" />
+          </span>
+          <h2 className="font-sans text-3xl font-bold text-text-primary">
+            Seus dados financeiros, tratados com o cuidado que merecem
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {securityPoints.map(({ icon: Icon, text }, index) => (
+            <Reveal key={text} delay={index * 80}>
+              <div className="flex h-full items-start gap-3 rounded-card bg-bg-muted p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-accent-lime/10">
+                <Icon className="mt-0.5 h-5 w-5 shrink-0 text-accent-lime" />
+                <p className="text-sm leading-relaxed text-text-secondary">{text}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Pricing() {
+  return (
+    <section className="mx-auto w-full max-w-3xl px-4 py-16 text-center sm:px-6">
+      <h2 className="font-sans text-3xl font-bold text-text-primary">Um plano simples, sem pegadinha</h2>
+      <Reveal delay={0} className="mx-auto mt-10 max-w-md">
+        <div className="rounded-card bg-bg-card p-8 shadow-[0_0_50px_-15px_rgba(163,230,53,0.4)] ring-1 ring-accent-lime/30 transition-shadow duration-300 hover:shadow-[0_0_60px_-12px_rgba(163,230,53,0.55)]">
+          <p className="text-sm font-semibold uppercase tracking-widest text-accent-lime">15 dias grátis</p>
+          <p className="mt-3 font-sans text-4xl font-extrabold text-text-primary">
+            R$49<span className="text-lg font-medium text-text-secondary">/mês</span>
+          </p>
+          <p className="mt-2 text-sm text-text-secondary">depois do período de teste. Cancele quando quiser.</p>
+
+          <ul className="mt-6 space-y-3 text-left">
+            {pricingBullets.map((bullet) => (
+              <li key={bullet} className="flex items-start gap-2 text-sm text-text-secondary">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent-lime" />
+                {bullet}
+              </li>
+            ))}
+          </ul>
+
+          <Link
+            to="/register"
+            className="mt-8 flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-accent-lime px-6 py-3 text-sm font-bold text-black transition-all duration-200 hover:scale-105 hover:brightness-110 active:scale-100"
+          >
+            Começar teste grátis
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </Reveal>
+    </section>
+  );
+}
+
+function FAQItem({
+  question,
+  answer,
+  isOpen,
+  onToggle,
+}: {
+  question: string;
+  answer: string;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="rounded-card bg-bg-card p-5 ring-1 ring-border-default transition-colors duration-300 hover:ring-accent-lime/30">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className="flex w-full cursor-pointer items-center justify-between text-left font-sans text-base font-semibold text-text-primary"
+      >
+        {question}
+        <span
+          className={cn(
+            "ml-4 shrink-0 text-text-secondary transition-transform duration-300",
+            isOpen && "rotate-45",
+          )}
+        >
+          +
+        </span>
+      </button>
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-300 ease-in-out",
+          isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        )}
+      >
+        <div className="overflow-hidden">
+          <p className="pt-3 text-sm leading-relaxed text-text-secondary">{answer}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FAQSection() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  return (
+    <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
+      <h2 className="text-center font-sans text-3xl font-bold text-text-primary">Perguntas frequentes</h2>
+      <div className="mt-10 space-y-3">
+        {faqs.map((faq, index) => (
+          <Reveal key={faq.question} delay={index * 60}>
+            <FAQItem
+              question={faq.question}
+              answer={faq.answer}
+              isOpen={openIndex === index}
+              onToggle={() => setOpenIndex((current) => (current === index ? null : index))}
+            />
+          </Reveal>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FinalCTA() {
+  return (
+    <section className="mx-auto w-full max-w-3xl px-4 py-20 text-center sm:px-6">
+      <h2 className="font-sans text-3xl font-bold text-text-primary sm:text-4xl">
+        Pare de perder o controle das suas finanças
+      </h2>
+      <Link
+        to="/register"
+        className="mt-8 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-accent-lime px-8 py-4 text-base font-bold text-black transition-all duration-200 hover:scale-105 hover:brightness-110 active:scale-100"
+      >
+        Começar teste grátis de 15 dias
+        <ArrowRight className="h-4 w-4" />
+      </Link>
+    </section>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="border-t border-border-default py-8 text-center text-xs text-text-muted">
+      © {new Date().getFullYear()} MeuGasto. Todos os direitos reservados.
+    </footer>
+  );
+}
+
+export function LandingPage() {
+  return (
+    <div className="min-h-screen bg-bg-base">
+      <Nav />
+      <Hero />
+      <Features />
+      <SecuritySection />
+      <Pricing />
+      <FAQSection />
+      <FinalCTA />
+      <Footer />
+    </div>
+  );
+}
