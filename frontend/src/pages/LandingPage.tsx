@@ -221,13 +221,13 @@ function Hero() {
       <h1
         className={cn(base, state, "font-sans text-4xl font-extrabold leading-tight tracking-tight text-text-primary sm:text-5xl")}
       >
-        Suas finanças organizadas <br/> sem depender de banco nenhum!
+        Suas finanças organizadas <br className="hidden sm:block" /> sem depender de banco nenhum!
       </h1>
       <p
         className={cn(base, state, "mt-5 max-w-2xl text-lg text-text-secondary")}
         style={{ transitionDelay: mounted ? "150ms" : "0ms" }}
       >
-        Controle gastos, contas a pagar e carteiras num só lugar. <br/> Comece grátis por 15 dias e aproveite.
+        Controle gastos, contas a pagar e carteiras num só lugar. <br className="hidden sm:block" /> Comece grátis por 15 dias e aproveite.
       </p>
       <div
         className={cn(base, state, "mt-8 flex flex-col items-center gap-3 sm:flex-row")}
@@ -291,7 +291,7 @@ function SecuritySection() {
             <Reveal key={text} delay={index * 80}>
               <div className="flex h-full items-start gap-3 rounded-card bg-bg-muted p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-accent-lime/10">
                 <Icon className="mt-0.5 h-5 w-5 shrink-0 text-accent-lime" />
-                <p className="text-sm leading-relaxed text-text-secondary">{text}</p>
+                <p className="min-w-0 text-sm leading-relaxed text-text-secondary">{text}</p>
               </div>
             </Reveal>
           ))}
@@ -306,7 +306,7 @@ function Pricing() {
     <section id="precos" className="mx-auto w-full max-w-3xl scroll-mt-28 px-4 py-16 text-center sm:px-6">
       <h2 className="font-sans text-3xl font-bold text-text-primary">Comece agora mesmo!</h2>
       <Reveal delay={0} className="mx-auto mt-10 max-w-md">
-        <div className="rounded-card bg-bg-card p-8 shadow-[0_0_50px_-15px_rgba(163,230,53,0.4)] ring-1 ring-accent-lime/30 transition-shadow duration-300 hover:shadow-[0_0_60px_-12px_rgba(163,230,53,0.55)]">
+        <div className="rounded-card bg-bg-card p-6 shadow-[0_0_50px_-15px_rgba(163,230,53,0.4)] ring-1 ring-accent-lime/30 transition-shadow duration-300 hover:shadow-[0_0_60px_-12px_rgba(163,230,53,0.55)] sm:p-8">
           <p className="text-sm font-semibold uppercase tracking-widest text-accent-lime">15 dias grátis</p>
           <p className="mt-3 font-sans text-4xl font-extrabold text-text-primary">
             R$49<span className="text-lg font-medium text-text-secondary">/mês</span>
@@ -317,7 +317,7 @@ function Pricing() {
             {pricingBullets.map((bullet) => (
               <li key={bullet} className="flex items-start gap-2 text-sm text-text-secondary">
                 <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent-lime" />
-                {bullet}
+                <span className="min-w-0">{bullet}</span>
               </li>
             ))}
           </ul>
@@ -354,7 +354,7 @@ function FAQItem({
         aria-expanded={isOpen}
         className="flex w-full cursor-pointer items-center justify-between text-left font-sans text-base font-semibold text-text-primary"
       >
-        {question}
+        <span className="min-w-0">{question}</span>
         <span
           className={cn(
             "ml-4 shrink-0 text-text-secondary transition-transform duration-300",
