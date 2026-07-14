@@ -10,6 +10,8 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Transaction, TransactionDocument, TransactionType } from '../transactions/schemas/transaction.schema';
 import { Goal, GoalDocument } from '../goals/schemas/goal.schema';
 import { Category, CategoryDocument } from '../categories/schemas/category.schema';
+import { PendingAccount, PendingAccountDocument } from '../pending/schemas/pending-account.schema';
+import { Wallet, WalletDocument } from '../wallets/schemas/wallet.schema';
 
 const FAKE_USER_ID = new Types.ObjectId().toString();
 
@@ -31,6 +33,19 @@ function txn(overrides: Partial<Record<string, unknown>>) {
     type: TransactionType.EXPENSE,
     value: 100,
     date: new Date('2026-01-15'),
+    ...overrides,
+  };
+}
+
+function pendingDoc(overrides: Partial<Record<string, unknown>>) {
+  return {
+    userId: new Types.ObjectId(FAKE_USER_ID),
+    title: 'Conta',
+    value: 100,
+    dueDate: new Date('2026-01-15'),
+    paid: false,
+    isParcelada: false,
+    isRecorrente: false,
     ...overrides,
   };
 }
@@ -492,5 +507,199 @@ describe('InsightsController - income-breakdown (e2e)', () => {
 
     expect(res.body.consistency).toMatchObject({ monthsWithData: 3, avgIncome: 1000, currentMonthTotal: 2000, variationPct: 100 });
     expect(Number.isFinite(res.body.consistency.variationPct)).toBe(true);
+  });
+});
+
+describe('InsightsController - accounts-overview (e2e)', () => {
+  let app: INestApplication;
+  let mongod: MongoMemoryServer;
+  let pendingModel: Model<PendingAccountDocument>;
+
+  beforeAll(async () => {
+    mongod = await MongoMemoryServer.create();
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true }),
+        MongooseModule.forRootAsync({ useFactory: () => ({ uri: mongod.getUri() }) }),
+        InsightsModule,
+      ],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({
+        canActivate: (context: ExecutionContext) => {
+          const req = context.switchToHttp().getRequest();
+          req.user = { _id: new Types.ObjectId(FAKE_USER_ID) };
+          return true;
+        },
+      })
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    await app.init();
+
+    pendingModel = app.get<Model<PendingAccountDocument>>(getModelToken(PendingAccount.name));
+  }, 60000);
+
+  afterAll(async () => {
+    await app.close();
+    await mongod.stop();
+  });
+
+  afterEach(async () => {
+    await pendingModel.deleteMany({});
+  });
+
+  it('separa pago vs. pendente e conta atraso, ignorando moldes recorrentes (isRecorrente:true)', async () => {
+    await pendingModel.insertMany([
+      pendingDoc({ title: 'Paga', value: 100, paid: true, dueDate: monthsAgo(1) }),
+      pendingDoc({ title: 'Pendente futura', value: 200, paid: false, dueDate: daysFromNow(10) }),
+      pendingDoc({ title: 'Atrasada', value: 50, paid: false, dueDate: daysFromNow(-5) }),
+      // Molde recorrente: não é dinheiro real devido, não deve entrar em nenhuma contagem.
+      pendingDoc({ title: 'Molde', value: 9999, paid: false, isRecorrente: true, dueDate: daysFromNow(-100) }),
+    ]);
+
+    const res = await request(app.getHttpServer()).get('/api/insights/accounts-overview').expect(200);
+
+    expect(res.body.paidVsPending).toEqual({ paidCount: 1, paidValue: 100, pendingCount: 2, pendingValue: 250 });
+    expect(res.body.overdue).toEqual({ count: 1, value: 50 });
+  });
+
+  it('lista parcelamentos em andamento com progresso e ignora grupo já totalmente pago', async () => {
+    await pendingModel.insertMany([
+      pendingDoc({
+        title: 'Notebook',
+        value: 100,
+        paid: true,
+        numeroParcela: 1,
+        grupoParceladoId: 'g1',
+        isParcelada: true,
+        dueDate: monthsAgo(1),
+        parcelas: { totalParcelas: 3, valorParcela: 100, qtdParcelasPagas: 1, parcelasPagas: [1], dataInicio: monthsAgo(1), dataFim: daysFromNow(60) },
+      }),
+      pendingDoc({
+        title: 'Notebook',
+        value: 100,
+        paid: false,
+        numeroParcela: 2,
+        grupoParceladoId: 'g1',
+        isParcelada: true,
+        dueDate: daysFromNow(10),
+        parcelas: { totalParcelas: 3, valorParcela: 100, qtdParcelasPagas: 1, parcelasPagas: [1], dataInicio: monthsAgo(1), dataFim: daysFromNow(60) },
+      }),
+      pendingDoc({
+        title: 'Notebook',
+        value: 100,
+        paid: false,
+        numeroParcela: 3,
+        grupoParceladoId: 'g1',
+        isParcelada: true,
+        dueDate: daysFromNow(40),
+        parcelas: { totalParcelas: 3, valorParcela: 100, qtdParcelasPagas: 1, parcelasPagas: [1], dataInicio: monthsAgo(1), dataFim: daysFromNow(60) },
+      }),
+      // Grupo totalmente pago: não deve aparecer como "em andamento".
+      pendingDoc({
+        title: 'TV',
+        value: 200,
+        paid: true,
+        numeroParcela: 1,
+        grupoParceladoId: 'g2',
+        isParcelada: true,
+        parcelas: { totalParcelas: 1, valorParcela: 200, qtdParcelasPagas: 1, parcelasPagas: [1], dataInicio: monthsAgo(2), dataFim: monthsAgo(2) },
+      }),
+    ]);
+
+    const res = await request(app.getHttpServer()).get('/api/insights/accounts-overview').expect(200);
+
+    expect(res.body.installmentsInProgress).toHaveLength(1);
+    expect(res.body.installmentsInProgress[0]).toMatchObject({
+      id: 'g1',
+      title: 'Notebook',
+      totalParcelas: 3,
+      paidParcelas: 1,
+      valorParcela: 100,
+    });
+  });
+
+  it('conta só recorrentes ativas (sem dataTermino ou com dataTermino futura)', async () => {
+    await pendingModel.insertMany([
+      pendingDoc({ title: 'Ativa', isRecorrente: true, recorrencia: { periodoRecorrencia: 'Mensal' } }),
+      pendingDoc({
+        title: 'Encerrada',
+        isRecorrente: true,
+        recorrencia: { periodoRecorrencia: 'Mensal', dataTermino: monthsAgo(1) },
+      }),
+    ]);
+
+    const res = await request(app.getHttpServer()).get('/api/insights/accounts-overview').expect(200);
+
+    expect(res.body.activeRecurringCount).toBe(1);
+  });
+});
+
+describe('InsightsController - wallets-evolution (e2e)', () => {
+  let app: INestApplication;
+  let mongod: MongoMemoryServer;
+  let transactionModel: Model<TransactionDocument>;
+  let walletModel: Model<WalletDocument>;
+
+  beforeAll(async () => {
+    mongod = await MongoMemoryServer.create();
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true }),
+        MongooseModule.forRootAsync({ useFactory: () => ({ uri: mongod.getUri() }) }),
+        InsightsModule,
+      ],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({
+        canActivate: (context: ExecutionContext) => {
+          const req = context.switchToHttp().getRequest();
+          req.user = { _id: new Types.ObjectId(FAKE_USER_ID) };
+          return true;
+        },
+      })
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    await app.init();
+
+    transactionModel = app.get<Model<TransactionDocument>>(getModelToken(Transaction.name));
+    walletModel = app.get<Model<WalletDocument>>(getModelToken(Wallet.name));
+  }, 60000);
+
+  afterAll(async () => {
+    await app.close();
+    await mongod.stop();
+  });
+
+  afterEach(async () => {
+    await transactionModel.deleteMany({});
+    await walletModel.deleteMany({});
+  });
+
+  it('calcula saldo cumulativo por mês reaproveitando a fórmula de wallets.service (saldo + net + créditos de transferência)', async () => {
+    const wallet = await walletModel.create({ userId: new Types.ObjectId(FAKE_USER_ID), nome: 'Carteira A', saldo: 500 });
+    const outraCarteira = await walletModel.create({ userId: new Types.ObjectId(FAKE_USER_ID), nome: 'Carteira B', saldo: 0 });
+
+    await transactionModel.insertMany([
+      txn({ type: TransactionType.INCOME, value: 200, carteiraId: wallet._id, date: monthsAgo(2) }),
+      txn({ type: TransactionType.EXPENSE, value: 100, carteiraId: wallet._id, date: monthsAgo(1) }),
+      txn({
+        type: TransactionType.TRANSFER,
+        value: 50,
+        carteiraId: outraCarteira._id,
+        carteiraDestinoId: wallet._id,
+        date: monthsAgo(0),
+      }),
+    ]);
+
+    const res = await request(app.getHttpServer()).get('/api/insights/wallets-evolution').expect(200);
+
+    const walletResult = res.body.find((w: { id: string }) => w.id === wallet._id.toString());
+    expect(walletResult.points).toHaveLength(12);
+    // 500 (saldo inicial) + 200 (entrada) - 100 (saída) + 50 (crédito de transferência) = 650
+    expect(walletResult.currentBalance).toBe(650);
+    expect(walletResult.points[11].balance).toBe(650);
   });
 });

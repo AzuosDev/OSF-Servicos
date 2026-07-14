@@ -5,6 +5,7 @@ import { Transaction, TransactionDocument, TransactionType } from '../transactio
 import { PendingAccount, PendingAccountDocument } from '../pending/schemas/pending-account.schema';
 import { Goal, GoalDocument } from '../goals/schemas/goal.schema';
 import { Category, CategoryDocument } from '../categories/schemas/category.schema';
+import { Wallet, WalletDocument } from '../wallets/schemas/wallet.schema';
 import { AnthropicService } from '../../common/services/anthropic.service';
 import { GetCashflowDto } from './dto/get-cashflow.dto';
 
@@ -64,6 +65,32 @@ export interface IncomeBreakdownResult {
   bySource: IncomeSourceItem[];
   monthlyConsistency: { month: string; total: number }[];
   consistency: IncomeConsistency | null;
+}
+
+export interface AccountsOverview {
+  paidVsPending: { paidCount: number; paidValue: number; pendingCount: number; pendingValue: number };
+  overdue: { count: number; value: number };
+  installmentsInProgress: {
+    id: string;
+    title: string;
+    totalParcelas: number;
+    paidParcelas: number;
+    valorParcela: number;
+    nextDueDate: string;
+  }[];
+  activeRecurringCount: number;
+}
+
+export interface WalletEvolutionPoint {
+  date: string;
+  balance: number;
+}
+
+export interface WalletEvolution {
+  id: string;
+  nome: string;
+  currentBalance: number;
+  points: WalletEvolutionPoint[];
 }
 
 export interface GoalPace {
@@ -248,6 +275,7 @@ export class InsightsService {
     @InjectModel(PendingAccount.name) private pendingModel: Model<PendingAccountDocument>,
     @InjectModel(Goal.name) private goalModel: Model<GoalDocument>,
     @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
+    @InjectModel(Wallet.name) private walletModel: Model<WalletDocument>,
     private anthropicService: AnthropicService,
   ) {}
 
@@ -922,5 +950,151 @@ export class InsightsService {
       monthlyConsistency: points,
       consistency,
     };
+  }
+
+  // Pago vs. pendente, atraso, parcelamentos em andamento e recorrentes ativas.
+  // isRecorrente:true identifica só o MOLDE de uma série recorrente (não dinheiro real
+  // devido) — instâncias já geradas têm isRecorrente:false (ver pending.service.ts), então
+  // excluir isRecorrente:true de "concreteAccounts" evita contar o molde como uma conta real.
+  async getAccountsOverview(userId: string): Promise<AccountsOverview> {
+    const userObjectId = new Types.ObjectId(userId);
+    const now = new Date();
+
+    const [concreteAccounts, overdueAgg, installmentGroups, activeRecurringCount] = await Promise.all([
+      this.pendingModel
+        .find({ userId: userObjectId, isRecorrente: { $ne: true } })
+        .select('paid value')
+        .lean()
+        .exec(),
+      this.pendingModel.aggregate([
+        {
+          $match: {
+            userId: userObjectId,
+            isRecorrente: { $ne: true },
+            $or: [{ tipo: 'PAGAR' }, { tipo: { $exists: false } }],
+            paid: false,
+            skipped: { $ne: true },
+            dueDate: { $lt: now },
+          },
+        },
+        { $group: { _id: null, count: { $sum: 1 }, value: { $sum: '$value' } } },
+      ]),
+      this.pendingModel.aggregate([
+        { $match: { userId: userObjectId, isParcelada: true, paid: false } },
+        { $sort: { numeroParcela: 1 } },
+        { $group: { _id: '$grupoParceladoId', doc: { $first: '$$ROOT' } } },
+      ]),
+      this.pendingModel.countDocuments({
+        userId: userObjectId,
+        isRecorrente: true,
+        recorrenciaTemplateId: { $exists: false },
+        $or: [
+          { 'recorrencia.dataTermino': { $exists: false } },
+          { 'recorrencia.dataTermino': null },
+          { 'recorrencia.dataTermino': { $gte: now } },
+        ],
+      }),
+    ]);
+
+    const rows = concreteAccounts as unknown as { paid: boolean; value: number }[];
+    const paid = rows.filter((row) => row.paid);
+    const pending = rows.filter((row) => !row.paid);
+
+    const groups = installmentGroups as unknown as {
+      _id: string;
+      doc: {
+        title: string;
+        value: number;
+        dueDate: Date;
+        parcelas?: { totalParcelas: number; valorParcela: number; parcelasPagas: number[] };
+      };
+    }[];
+
+    return {
+      paidVsPending: {
+        paidCount: paid.length,
+        paidValue: paid.reduce((sum, row) => sum + row.value, 0),
+        pendingCount: pending.length,
+        pendingValue: pending.reduce((sum, row) => sum + row.value, 0),
+      },
+      overdue: {
+        count: overdueAgg[0]?.count ?? 0,
+        value: overdueAgg[0]?.value ?? 0,
+      },
+      installmentsInProgress: groups.map((group) => ({
+        id: group._id,
+        title: group.doc.title,
+        totalParcelas: group.doc.parcelas?.totalParcelas ?? 0,
+        paidParcelas: group.doc.parcelas?.parcelasPagas?.length ?? 0,
+        valorParcela: group.doc.parcelas?.valorParcela ?? group.doc.value,
+        nextDueDate: new Date(group.doc.dueDate).toISOString(),
+      })),
+      activeRecurringCount,
+    };
+  }
+
+  // Evolução de saldo cumulativo por carteira, bucketado por mês (não por transação) —
+  // mantém o custo baixo mesmo em carteiras com muitas transações acumuladas. Reaproveita
+  // a MESMA fórmula de saldo de wallets.service.ts (wallet.saldo + net de carteiraId +
+  // créditos de transferência em carteiraDestinoId), aplicada progressivamente no tempo.
+  async getWalletsEvolution(userId: string): Promise<WalletEvolution[]> {
+    const userObjectId = new Types.ObjectId(userId);
+    const wallets = await this.walletModel.find({ userId: userObjectId }).sort({ createdAt: 1 }).exec();
+
+    const now = new Date();
+    const monthsBack = 12;
+    const chartStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (monthsBack - 1), 1));
+    const bucketEnds = Array.from({ length: monthsBack }, (_, index) => {
+      if (index === monthsBack - 1) return now;
+      return new Date(Date.UTC(chartStart.getUTCFullYear(), chartStart.getUTCMonth() + index + 1, 0, 23, 59, 59, 999));
+    });
+
+    return Promise.all(
+      wallets.map(async (wallet) => {
+        const [outRows, inRows] = await Promise.all([
+          this.transactionModel
+            .find({ userId: userObjectId, carteiraId: wallet._id, agendado: { $ne: true } })
+            .select('type value date')
+            .sort({ date: 1 })
+            .lean()
+            .exec(),
+          this.transactionModel
+            .find({ userId: userObjectId, type: TransactionType.TRANSFER, carteiraDestinoId: wallet._id })
+            .select('value date')
+            .sort({ date: 1 })
+            .lean()
+            .exec(),
+        ]);
+
+        const movements = [
+          ...(outRows as unknown as { type: TransactionType; value: number; date: Date }[]).map((row) => ({
+            date: new Date(row.date),
+            delta: row.type === TransactionType.INCOME ? row.value : -row.value,
+          })),
+          ...(inRows as unknown as { value: number; date: Date }[]).map((row) => ({
+            date: new Date(row.date),
+            delta: row.value,
+          })),
+        ].sort((a, b) => a.date.getTime() - b.date.getTime());
+
+        let cursor = 0;
+        let runningBalance = wallet.saldo;
+        const points: WalletEvolutionPoint[] = bucketEnds.map((bucketEnd, index) => {
+          while (cursor < movements.length && movements[cursor].date <= bucketEnd) {
+            runningBalance += movements[cursor].delta;
+            cursor += 1;
+          }
+          const bucketDate = new Date(Date.UTC(chartStart.getUTCFullYear(), chartStart.getUTCMonth() + index, 1));
+          return { date: bucketDate.toISOString(), balance: runningBalance };
+        });
+
+        return {
+          id: (wallet._id as Types.ObjectId).toString(),
+          nome: wallet.nome,
+          currentBalance: runningBalance,
+          points,
+        };
+      }),
+    );
   }
 }

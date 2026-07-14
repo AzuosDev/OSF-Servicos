@@ -42,6 +42,16 @@ export class InsightsController {
     return this.insightsService.getIncomeBreakdown(user._id.toString(), query);
   }
 
+  @Get('accounts-overview')
+  async getAccountsOverview(@CurrentUser() user: ICurrentUser) {
+    return this.insightsService.getAccountsOverview(user._id.toString());
+  }
+
+  @Get('wallets-evolution')
+  async getWalletsEvolution(@CurrentUser() user: ICurrentUser) {
+    return this.insightsService.getWalletsEvolution(user._id.toString());
+  }
+
   @Throttle(5, 60)
   @Get('annual-summary')
   async getAnnualSummary(@CurrentUser() user: ICurrentUser, @Query() query: GetAnnualSummaryDto) {

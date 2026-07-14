@@ -325,6 +325,29 @@ export type IncomeBreakdownResult = {
   consistency: IncomeConsistency | null;
 };
 
+export type AccountsOverview = {
+  paidVsPending: { paidCount: number; paidValue: number; pendingCount: number; pendingValue: number };
+  overdue: { count: number; value: number };
+  installmentsInProgress: {
+    id: string;
+    title: string;
+    totalParcelas: number;
+    paidParcelas: number;
+    valorParcela: number;
+    nextDueDate: string;
+  }[];
+  activeRecurringCount: number;
+};
+
+export type WalletEvolutionPoint = { date: string; balance: number };
+
+export type WalletEvolution = {
+  id: string;
+  nome: string;
+  currentBalance: number;
+  points: WalletEvolutionPoint[];
+};
+
 export type ApiValidationError = {
   statusCode?: number;
   error?: string;

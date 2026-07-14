@@ -7,6 +7,7 @@ import { Transaction, TransactionSchema } from '../transactions/schemas/transact
 import { Category, CategorySchema } from '../categories/schemas/category.schema';
 import { PendingAccount, PendingAccountSchema } from '../pending/schemas/pending-account.schema';
 import { Goal, GoalSchema } from '../goals/schemas/goal.schema';
+import { Wallet, WalletSchema } from '../wallets/schemas/wallet.schema';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { Goal, GoalSchema } from '../goals/schemas/goal.schema';
       { name: Category.name, schema: CategorySchema },
       { name: PendingAccount.name, schema: PendingAccountSchema },
       { name: Goal.name, schema: GoalSchema },
+      { name: Wallet.name, schema: WalletSchema },
     ]),
   ],
   controllers: [InsightsController],

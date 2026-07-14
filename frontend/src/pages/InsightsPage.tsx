@@ -5,7 +5,10 @@ import {
   Activity,
   ArrowLeftRight,
   CalendarClock,
+  Clock,
+  Landmark,
   Loader2,
+  Repeat,
   Tag,
   Target,
 } from "lucide-react";
@@ -15,6 +18,8 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -26,11 +31,13 @@ import { cn } from "../lib/utils";
 import { formatCurrency } from "../lib/finance";
 import { getApiErrorMessages } from "../lib/errors";
 import type {
+  AccountsOverview,
   CashflowResult,
   ExpensesBreakdownResult,
   GoalProgress,
   IncomeBreakdownResult,
   InsightsOverview,
+  WalletEvolution,
 } from "../types/api";
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -800,9 +807,215 @@ function GanhosTab() {
   );
 }
 
+// ─── Aba Contas ─────────────────────────────────────────────────────────────
+
+function InstallmentRow({ item }: { item: AccountsOverview["installmentsInProgress"][number] }) {
+  const percent = item.totalParcelas > 0 ? Math.round((item.paidParcelas / item.totalParcelas) * 100) : 0;
+
+  return (
+    <div className="rounded-xl bg-bg-muted p-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold">{item.title}</p>
+        <span className="text-xs text-text-secondary">
+          {item.paidParcelas}/{item.totalParcelas} parcelas
+        </span>
+      </div>
+      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-bg-overlay">
+        <div className="h-full rounded-full bg-accent-lime transition-all" style={{ width: `${percent}%` }} />
+      </div>
+      <div className="mt-2 flex items-center justify-between text-xs text-text-secondary">
+        <span>{formatCurrency(item.valorParcela)}/parcela</span>
+        <span>Próxima: {new Date(item.nextDueDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}</span>
+      </div>
+    </div>
+  );
+}
+
+function ContasTab() {
+  const query = useQuery<AccountsOverview>({
+    queryKey: ["insights-accounts-overview"],
+    queryFn: async () => {
+      const { data } = await api.get<AccountsOverview>("/api/insights/accounts-overview");
+      return data;
+    },
+  });
+
+  const errorMessages = query.error
+    ? getApiErrorMessages(query.error, "Não foi possível carregar as contas agora.")
+    : [];
+
+  const result = query.data;
+
+  return (
+    <div className="space-y-6">
+      {query.isLoading && (
+        <div className="flex items-center justify-center gap-2 rounded-2xl bg-bg-card p-8 text-sm text-text-secondary">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Carregando contas...
+        </div>
+      )}
+
+      {query.isError && (
+        <div className="rounded-2xl border border-accent-red/40 bg-accent-red/10 p-4 text-sm text-accent-red">
+          {errorMessages.map((message) => (
+            <p key={message}>{message}</p>
+          ))}
+        </div>
+      )}
+
+      {result && (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <OverviewCard
+              icon={Clock}
+              iconClassName="text-accent-lime"
+              label="Pagas"
+              value={formatCurrency(result.paidVsPending.paidValue)}
+              secondary={`${result.paidVsPending.paidCount} conta(s)`}
+            />
+            <OverviewCard
+              icon={Clock}
+              iconClassName="text-accent-yellow"
+              label="Pendentes"
+              value={formatCurrency(result.paidVsPending.pendingValue)}
+              secondary={`${result.paidVsPending.pendingCount} conta(s)`}
+            />
+            <OverviewCard
+              icon={Repeat}
+              iconClassName="text-accent-lime"
+              label="Recorrentes ativas"
+              value={String(result.activeRecurringCount)}
+            />
+          </div>
+
+          {result.overdue.count > 0 && (
+            <p className="rounded-2xl border border-accent-red/40 bg-accent-red/10 p-4 text-sm text-accent-red">
+              {result.overdue.count} conta{result.overdue.count > 1 ? "s" : ""} em atraso somando{" "}
+              {formatCurrency(result.overdue.value)}.
+            </p>
+          )}
+
+          <div className="rounded-2xl bg-bg-card p-5">
+            <h2 className="mb-4 font-sans text-xl font-bold">Parcelamentos em andamento</h2>
+            {result.installmentsInProgress.length === 0 ? (
+              <p className="text-sm text-text-secondary">Nenhum parcelamento em andamento.</p>
+            ) : (
+              <div className="space-y-3">
+                {result.installmentsInProgress.map((item) => (
+                  <InstallmentRow key={item.id} item={item} />
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Aba Carteiras ──────────────────────────────────────────────────────────
+
+function monthKeyFromIso(iso: string) {
+  const date = new Date(iso);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function CarteirasTab() {
+  const query = useQuery<WalletEvolution[]>({
+    queryKey: ["insights-wallets-evolution"],
+    queryFn: async () => {
+      const { data } = await api.get<WalletEvolution[]>("/api/insights/wallets-evolution");
+      return data;
+    },
+  });
+
+  const errorMessages = query.error
+    ? getApiErrorMessages(query.error, "Não foi possível carregar as carteiras agora.")
+    : [];
+
+  const wallets = query.data ?? [];
+  const chartData = wallets[0]?.points.map((_, index) => {
+    const point: Record<string, string | number> = {
+      label: formatMonthKey(monthKeyFromIso(wallets[0].points[index].date)),
+    };
+    wallets.forEach((wallet) => {
+      point[wallet.nome] = wallet.points[index]?.balance ?? 0;
+    });
+    return point;
+  });
+
+  return (
+    <div className="space-y-6">
+      {query.isLoading && (
+        <div className="flex items-center justify-center gap-2 rounded-2xl bg-bg-card p-8 text-sm text-text-secondary">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Carregando carteiras...
+        </div>
+      )}
+
+      {query.isError && (
+        <div className="rounded-2xl border border-accent-red/40 bg-accent-red/10 p-4 text-sm text-accent-red">
+          {errorMessages.map((message) => (
+            <p key={message}>{message}</p>
+          ))}
+        </div>
+      )}
+
+      {query.data && wallets.length === 0 && (
+        <div className="rounded-2xl border border-bg-muted bg-bg-card p-8 text-center">
+          <Landmark className="mx-auto mb-4 h-10 w-10 text-text-secondary" />
+          <h2 className="font-sans text-xl font-bold">Você ainda não tem carteiras</h2>
+          <p className="mt-2 text-sm text-text-secondary">Crie uma carteira para acompanhar a evolução do saldo aqui.</p>
+        </div>
+      )}
+
+      {wallets.length > 0 && chartData && (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {wallets.map((wallet) => (
+              <OverviewCard
+                key={wallet.id}
+                icon={Landmark}
+                iconClassName="text-accent-lime"
+                label={wallet.nome}
+                value={formatCurrency(wallet.currentBalance)}
+              />
+            ))}
+          </div>
+
+          <div className="rounded-2xl bg-bg-card p-5">
+            <h2 className="mb-4 font-sans text-xl font-bold">Evolução de saldo</h2>
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" vertical={false} />
+                  <XAxis dataKey="label" stroke="#9CA3AF" tickLine={false} axisLine={false} />
+                  <YAxis stroke="#9CA3AF" tickLine={false} axisLine={false} tickFormatter={formatCompact} />
+                  <Tooltip content={<ChartTooltip />} />
+                  {wallets.map((wallet, index) => (
+                    <Line
+                      key={wallet.id}
+                      type="monotone"
+                      name={wallet.nome}
+                      dataKey={wallet.nome}
+                      stroke={seriesColor(wallet.nome, index)}
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Shell com abas ─────────────────────────────────────────────────────────
 
-type InsightsTab = "overview" | "cashflow" | "goals" | "gastos" | "ganhos";
+type InsightsTab = "overview" | "cashflow" | "goals" | "gastos" | "ganhos" | "contas" | "carteiras";
 
 const TABS: { id: InsightsTab; label: string }[] = [
   { id: "overview", label: "Visão Geral" },
@@ -810,6 +1023,8 @@ const TABS: { id: InsightsTab; label: string }[] = [
   { id: "goals", label: "Metas" },
   { id: "gastos", label: "Gastos" },
   { id: "ganhos", label: "Ganhos" },
+  { id: "contas", label: "Contas" },
+  { id: "carteiras", label: "Carteiras" },
 ];
 
 export function InsightsPage() {
@@ -846,6 +1061,8 @@ export function InsightsPage() {
       {activeTab === "goals" && <GoalsTab />}
       {activeTab === "gastos" && <GastosTab />}
       {activeTab === "ganhos" && <GanhosTab />}
+      {activeTab === "contas" && <ContasTab />}
+      {activeTab === "carteiras" && <CarteirasTab />}
     </section>
   );
 }
