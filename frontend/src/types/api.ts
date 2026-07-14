@@ -328,6 +328,7 @@ export type IncomeBreakdownResult = {
 export type AccountsOverview = {
   paidVsPending: { paidCount: number; paidValue: number; pendingCount: number; pendingValue: number };
   overdue: { count: number; value: number };
+  dueThisWeek: { count: number; value: number };
   installmentsInProgress: {
     id: string;
     title: string;

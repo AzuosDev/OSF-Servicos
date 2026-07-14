@@ -70,6 +70,7 @@ export interface IncomeBreakdownResult {
 export interface AccountsOverview {
   paidVsPending: { paidCount: number; paidValue: number; pendingCount: number; pendingValue: number };
   overdue: { count: number; value: number };
+  dueThisWeek: { count: number; value: number };
   installmentsInProgress: {
     id: string;
     title: string;
@@ -960,7 +961,9 @@ export class InsightsService {
     const userObjectId = new Types.ObjectId(userId);
     const now = new Date();
 
-    const [concreteAccounts, overdueAgg, installmentGroups, activeRecurringCount] = await Promise.all([
+    const weekEnd = new Date(now.getTime() + 7 * 86400000);
+
+    const [concreteAccounts, overdueAgg, dueThisWeekAgg, installmentGroups, activeRecurringCount] = await Promise.all([
       this.pendingModel
         .find({ userId: userObjectId, isRecorrente: { $ne: true } })
         .select('paid value')
@@ -975,6 +978,19 @@ export class InsightsService {
             paid: false,
             skipped: { $ne: true },
             dueDate: { $lt: now },
+          },
+        },
+        { $group: { _id: null, count: { $sum: 1 }, value: { $sum: '$value' } } },
+      ]),
+      this.pendingModel.aggregate([
+        {
+          $match: {
+            userId: userObjectId,
+            isRecorrente: { $ne: true },
+            $or: [{ tipo: 'PAGAR' }, { tipo: { $exists: false } }],
+            paid: false,
+            skipped: { $ne: true },
+            dueDate: { $gte: now, $lte: weekEnd },
           },
         },
         { $group: { _id: null, count: { $sum: 1 }, value: { $sum: '$value' } } },
@@ -1020,6 +1036,10 @@ export class InsightsService {
       overdue: {
         count: overdueAgg[0]?.count ?? 0,
         value: overdueAgg[0]?.value ?? 0,
+      },
+      dueThisWeek: {
+        count: dueThisWeekAgg[0]?.count ?? 0,
+        value: dueThisWeekAgg[0]?.value ?? 0,
       },
       installmentsInProgress: groups.map((group) => ({
         id: group._id,

@@ -117,7 +117,161 @@ function OverviewCard({
   );
 }
 
-function OverviewTab() {
+function CashflowPreview({ onNavigate }: { onNavigate: () => void }) {
+  const query = useQuery<CashflowResult>({
+    queryKey: ["insights-cashflow-preview"],
+    queryFn: async () => {
+      const { data } = await api.get<CashflowResult>("/api/insights/cashflow", { params: { period: "year" } });
+      return data;
+    },
+  });
+
+  const result = query.data;
+  const recentPoints = result ? result.points.slice(-6) : [];
+  const chartData = result
+    ? recentPoints.map((point) => ({
+        label: formatPointLabel(point.date, result.granularity),
+        income: point.income,
+        expense: point.expense,
+      }))
+    : [];
+  const recentTotals = recentPoints.reduce(
+    (acc, point) => ({ income: acc.income + point.income, expense: acc.expense + point.expense }),
+    { income: 0, expense: 0 },
+  );
+
+  return (
+    <div className="rounded-2xl bg-bg-card p-5">
+      <h2 className="mb-3 font-sans text-lg font-bold">Fluxo de Caixa</h2>
+
+      {query.isLoading && (
+        <div className="flex h-40 items-center justify-center text-sm text-text-secondary">
+          <Loader2 className="h-4 w-4 animate-spin" />
+        </div>
+      )}
+
+      {result && (
+        <>
+          <div className="h-40 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <Area type="monotone" dataKey="income" stroke="#A3E635" fill="#A3E635" fillOpacity={0.15} strokeWidth={2} />
+                <Area type="monotone" dataKey="expense" stroke="#F97316" fill="#F97316" fillOpacity={0.15} strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="mt-2 text-xs text-text-secondary">
+            Entradas {formatCurrency(recentTotals.income)} · Saídas {formatCurrency(recentTotals.expense)}
+          </p>
+        </>
+      )}
+
+      <button type="button" onClick={onNavigate} className="mt-3 text-sm font-semibold text-accent-lime hover:underline">
+        Ver mais →
+      </button>
+    </div>
+  );
+}
+
+function GoalsPreview({ onNavigate }: { onNavigate: () => void }) {
+  const query = useQuery<GoalProgress[]>({
+    queryKey: ["insights-goals-progress"],
+    queryFn: async () => {
+      const { data } = await api.get<GoalProgress[]>("/api/insights/goals-progress");
+      return data;
+    },
+  });
+
+  const goals = query.data ?? [];
+  const onTrackCount = goals.filter((goal) => goal.completed || goal.pace.onTrack !== false).length;
+  const featured = [...goals]
+    .filter((goal) => !goal.completed)
+    .sort((a, b) => {
+      if (a.deadline && b.deadline) return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      if (a.deadline) return -1;
+      if (b.deadline) return 1;
+      return a.percentComplete - b.percentComplete;
+    })[0];
+
+  return (
+    <div className="rounded-2xl bg-bg-card p-5">
+      <h2 className="mb-3 font-sans text-lg font-bold">Metas</h2>
+
+      {query.isLoading && (
+        <div className="flex h-40 items-center justify-center text-sm text-text-secondary">
+          <Loader2 className="h-4 w-4 animate-spin" />
+        </div>
+      )}
+
+      {query.data && goals.length === 0 && <p className="text-sm text-text-secondary">Você ainda não tem metas.</p>}
+
+      {query.data && goals.length > 0 && (
+        <>
+          <p className="text-sm text-text-secondary">
+            {onTrackCount} de {goals.length} meta{goals.length > 1 ? "s" : ""} no ritmo certo
+          </p>
+
+          {featured && (
+            <div className="mt-3">
+              <div className="mb-1 flex items-center justify-between text-xs text-text-secondary">
+                <span className="truncate">{featured.name}</span>
+                <span>{featured.percentComplete}%</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-bg-muted">
+                <div
+                  className="h-full rounded-full bg-accent-lime transition-all"
+                  style={{ width: `${Math.max(0, Math.min(100, featured.percentComplete))}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      <button type="button" onClick={onNavigate} className="mt-3 text-sm font-semibold text-accent-lime hover:underline">
+        Ver mais →
+      </button>
+    </div>
+  );
+}
+
+function ContasPreview({ onNavigate }: { onNavigate: () => void }) {
+  const query = useQuery<AccountsOverview>({
+    queryKey: ["insights-accounts-overview"],
+    queryFn: async () => {
+      const { data } = await api.get<AccountsOverview>("/api/insights/accounts-overview");
+      return data;
+    },
+  });
+
+  const result = query.data;
+
+  return (
+    <div className="rounded-2xl bg-bg-card p-5">
+      <h2 className="mb-3 font-sans text-lg font-bold">Contas — vencendo essa semana</h2>
+
+      {query.isLoading && (
+        <div className="flex h-10 items-center gap-2 text-sm text-text-secondary">
+          <Loader2 className="h-4 w-4 animate-spin" />
+        </div>
+      )}
+
+      {result && (
+        <p className="text-sm text-text-secondary">
+          {result.dueThisWeek.count === 0
+            ? "Nenhuma conta vencendo essa semana."
+            : `${result.dueThisWeek.count} conta${result.dueThisWeek.count > 1 ? "s" : ""} somando ${formatCurrency(result.dueThisWeek.value)}.`}
+        </p>
+      )}
+
+      <button type="button" onClick={onNavigate} className="mt-3 text-sm font-semibold text-accent-lime hover:underline">
+        Ver mais →
+      </button>
+    </div>
+  );
+}
+
+function OverviewTab({ onNavigateTab }: { onNavigateTab: (tab: InsightsTab) => void }) {
   const [year, setYear] = useState(CURRENT_YEAR);
 
   const overviewQuery = useQuery<InsightsOverview>({
@@ -207,6 +361,17 @@ function OverviewTab() {
             secondary={overview.healthScore.label}
           />
         </div>
+      )}
+
+      {overview && (
+        <>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <CashflowPreview onNavigate={() => onNavigateTab("cashflow")} />
+            <GoalsPreview onNavigate={() => onNavigateTab("goals")} />
+          </div>
+
+          <ContasPreview onNavigate={() => onNavigateTab("contas")} />
+        </>
       )}
     </div>
   );
@@ -1056,7 +1221,7 @@ export function InsightsPage() {
         ))}
       </div>
 
-      {activeTab === "overview" && <OverviewTab />}
+      {activeTab === "overview" && <OverviewTab onNavigateTab={setActiveTab} />}
       {activeTab === "cashflow" && <CashflowTab />}
       {activeTab === "goals" && <GoalsTab />}
       {activeTab === "gastos" && <GastosTab />}

@@ -549,19 +549,21 @@ describe('InsightsController - accounts-overview (e2e)', () => {
     await pendingModel.deleteMany({});
   });
 
-  it('separa pago vs. pendente e conta atraso, ignorando moldes recorrentes (isRecorrente:true)', async () => {
+  it('separa pago vs. pendente, conta atraso e vencendo essa semana, ignorando moldes recorrentes (isRecorrente:true)', async () => {
     await pendingModel.insertMany([
       pendingDoc({ title: 'Paga', value: 100, paid: true, dueDate: monthsAgo(1) }),
       pendingDoc({ title: 'Pendente futura', value: 200, paid: false, dueDate: daysFromNow(10) }),
       pendingDoc({ title: 'Atrasada', value: 50, paid: false, dueDate: daysFromNow(-5) }),
+      pendingDoc({ title: 'Vencendo essa semana', value: 30, paid: false, dueDate: daysFromNow(3) }),
       // Molde recorrente: não é dinheiro real devido, não deve entrar em nenhuma contagem.
       pendingDoc({ title: 'Molde', value: 9999, paid: false, isRecorrente: true, dueDate: daysFromNow(-100) }),
     ]);
 
     const res = await request(app.getHttpServer()).get('/api/insights/accounts-overview').expect(200);
 
-    expect(res.body.paidVsPending).toEqual({ paidCount: 1, paidValue: 100, pendingCount: 2, pendingValue: 250 });
+    expect(res.body.paidVsPending).toEqual({ paidCount: 1, paidValue: 100, pendingCount: 3, pendingValue: 280 });
     expect(res.body.overdue).toEqual({ count: 1, value: 50 });
+    expect(res.body.dueThisWeek).toEqual({ count: 1, value: 30 });
   });
 
   it('lista parcelamentos em andamento com progresso e ignora grupo já totalmente pago', async () => {
