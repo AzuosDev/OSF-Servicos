@@ -1,15 +1,18 @@
 {
-  "name": "MeuGasto",
-  "short_name": "MeuGasto",
-  "description": "MeuGasto ajuda você a controlar gastos, orçamentos e metas financeiras.",
+  "name": "AK LavaJato",
+  "short_name": "AK LavaJato",
+  "description": "AK LavaJato ajuda você a controlar gastos, orçamentos e metas financeiras e serviços de forma simples e intuitiva.",
   "lang": "pt-BR",
-  "theme_color": "#0a0a0a",
-  "background_color": "#111827",
+  "theme_color": "#000000",
+  "background_color": "#000000",
   "display": "standalone",
   "start_url": "/",
   "scope": "/",
   "orientation": "portrait-primary",
-  "categories": ["finance", "utilities"],
+  "categories": [
+    "finance",
+    "utilities"
+  ],
   "icons": [
     {
       "src": "pwa-64x64.png",

@@ -13,10 +13,16 @@ export default {
           overlay: "var(--bg-overlay)",
         },
         accent: {
-          lime: "#A3E635",
+          // AK Lava Jato — azul primário (contornos, espuma, destaque)
+          lime: "#11B7EA",
+          // AK Lava Jato — azul secundário (hover, sombras suaves, detalhes)
+          limeHover: "#008FD1",
           orange: "#F97316",
           red: "#EF4444",
-          yellow: "#EAB308",
+          // AK Lava Jato — amarelo primário (carro e "A.K")
+          yellow: "#F9D33E",
+          // AK Lava Jato — amarelo secundário (gradientes e detalhes)
+          yellowHover: "#E8B81A",
         },
         semantic: {
           income: "var(--color-income)",
@@ -53,8 +59,8 @@ export default {
           "50%": { opacity: "0.85", transform: "scale(1.08)" },
         },
         "shield-pulse": {
-          "0%, 100%": { boxShadow: "0 0 0 0 rgba(163, 230, 53, 0.35)" },
-          "50%": { boxShadow: "0 0 0 8px rgba(163, 230, 53, 0)" },
+          "0%, 100%": { boxShadow: "0 0 0 0 rgba(17, 183, 234, 0.35)" },
+          "50%": { boxShadow: "0 0 0 8px rgba(17, 183, 234, 0)" },
         },
       },
       animation: {

@@ -13,7 +13,8 @@
   --color-income: #22c55e;
   --color-expense: #ef4444;
   --color-pending: #eab308;
-  --accent-lime: #a3e635;
+  --accent-lime: #11b7ea;
+  --accent-lime-hover: #008fd1;
 }
 
 /* ── Tema escuro ── */
@@ -31,7 +32,8 @@ html.dark {
   --color-income: #22c55e;
   --color-expense: #ef4444;
   --color-pending: #eab308;
-  --accent-lime: #a3e635;
+  --accent-lime: #11b7ea;
+  --accent-lime-hover: #008fd1;
 }
 
 @tailwind base;
@@ -62,8 +64,9 @@ html.dark {
     --color-expense: #b94545; /* gastos  — AA  5.8:1 */
     --color-pending: #c97a2a; /* pendente — AA  4.6:1 */
 
-    /* accent (inalterado) */
-    --accent-lime: #A3E635; /* CTA principal */
+    /* accent — AK Lava Jato */
+    --accent-lime: #11b7ea; /* CTA principal — azul primário */
+    --accent-lime-hover: #008fd1; /* hover — azul secundário */
   }
 
   html.light .bg-bg-card.text-white,

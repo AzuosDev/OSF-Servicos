@@ -110,7 +110,7 @@ export function normalizeTransaction(
         ? {
             id: "income",
             name: "Ganho",
-            color: "#A3E635",
+            color: "#11B7EA",
             icon: "TrendingUp",
           }
         : undefined),

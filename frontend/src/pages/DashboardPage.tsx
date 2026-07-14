@@ -251,7 +251,7 @@ function normalizeDashboard(data: DashboardApiResponse): DashboardData {
             "Movimentação",
           categoryColor:
             readString(item.categoryColor, category.color) ||
-            (type === "INCOME" ? "#A3E635" : "#EF4444"),
+            (type === "INCOME" ? "#11B7EA" : "#EF4444"),
           description: readString(item.description, item.notes),
           date: readString(
             item.date,
@@ -348,10 +348,10 @@ function EmptyWallet() {
         stroke="#4B5563"
         strokeWidth="4"
       />
-      <circle cx="104" cy="78" r="5" fill="#A3E635" />
+      <circle cx="104" cy="78" r="5" fill="#11B7EA" />
       <path
         d="M42 28 88 16c8-2 15 3 17 10l2 8H42v-6Z"
-        fill="#A3E635"
+        fill="#11B7EA"
         opacity="0.3"
       />
     </svg>
@@ -542,8 +542,8 @@ export function DashboardPage() {
             <AreaChart data={dashboard.monthlyEvolution}>
               <defs>
                 <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#A3E635" stopOpacity={0.18} />
-                  <stop offset="95%" stopColor="#A3E635" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#11B7EA" stopOpacity={0.18} />
+                  <stop offset="95%" stopColor="#11B7EA" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#F97316" stopOpacity={0.18} />
@@ -553,7 +553,7 @@ export function DashboardPage() {
               <XAxis dataKey="month" stroke="#9CA3AF" tickLine={false} axisLine={false} />
               <YAxis stroke="#9CA3AF" tickLine={false} axisLine={false} tickFormatter={formatCompact} />
               <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" name="Entradas" dataKey="income" stroke="#A3E635" fill="url(#incomeGradient)" strokeWidth={2} />
+              <Area type="monotone" name="Entradas" dataKey="income" stroke="#11B7EA" fill="url(#incomeGradient)" strokeWidth={2} />
               <Area type="monotone" name="Saídas" dataKey="expense" stroke="#F97316" fill="url(#expenseGradient)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>

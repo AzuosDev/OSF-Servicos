@@ -115,7 +115,7 @@ function getProgressColor(goal: GoalItem) {
   if (goal.completed || percent >= 100) {
     return {
       percent,
-      stroke: "#A3E635",
+      stroke: "#11B7EA",
       badgeClass: "bg-accent-lime/10 text-accent-lime",
       borderClass: "border-accent-lime/30",
       label: "Concluída",
