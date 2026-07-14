@@ -1,7 +1,8 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 
 import { AppLayout } from "./components/layout/AppLayout";
+import { LandingPage } from "./pages/LandingPage";
 import { ToastProvider } from "./components/ui/Toast";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -13,6 +14,7 @@ const BudgetPage = lazy(() => import("./pages/BudgetPage").then((m) => ({ defaul
 const DashboardPage = lazy(() => import("./pages/DashboardPage").then((m) => ({ default: m.DashboardPage })));
 const ExpensesPage = lazy(() => import("./pages/ExpensesPage").then((m) => ({ default: m.ExpensesPage })));
 const GoalsPage = lazy(() => import("./pages/GoalsPage").then((m) => ({ default: m.GoalsPage })));
+const InsightsPage = lazy(() => import("./pages/InsightsPage").then((m) => ({ default: m.InsightsPage })));
 const ContasPage = lazy(() => import("./pages/ContasPage").then((m) => ({ default: m.ContasPage })));
 const TransactionsPage = lazy(() => import("./pages/TransactionsPage").then((m) => ({ default: m.TransactionsPage })));
 const LoginPage = lazy(() => import("./pages/LoginPage").then((m) => ({ default: m.LoginPage })));
@@ -43,26 +45,72 @@ function PrivateRoute() {
   return <Outlet />;
 }
 
-function RootRedirect() {
-  const { isLocked } = useAuth();
-  return <Navigate to={!isLocked && getAccessToken() ? "/dashboard" : "/login"} replace />;
+function resolveAuthRedirect(hasToken: string | null, isLocked: boolean): string | null {
+  if (hasToken && isLocked) {
+    return "/login";
+  }
+
+  if (hasToken) {
+    return "/dashboard";
+  }
+
+  return null;
 }
 
+function RootRoute() {
+  const { isLocked } = useAuth();
+  const redirect = resolveAuthRedirect(getAccessToken(), isLocked);
+
+  return <Navigate to={redirect ?? "/landing"} replace />;
+}
+
+type BootStatus = 'booting' | 'ready' | 'offline';
+
 function AppBoot({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = useState(!hasRefreshToken());
+  const [status, setStatus] = useState<BootStatus>(
+    hasRefreshToken() ? 'booting' : 'ready',
+  );
+  const { unlock } = useAuth();
+
+  const tryRefresh = useCallback(async () => {
+    setStatus('booting');
+    await refreshAccessToken();
+    if (getAccessToken()) {
+      // Refresh successful: unlock so PrivateRoute renders the protected page.
+      unlock();
+      setStatus('ready');
+    } else if (!hasRefreshToken()) {
+      // Refresh token was rejected (401) — let PrivateRoute redirect to login.
+      setStatus('ready');
+    } else {
+      // Network error: refresh token still exists but got no access token.
+      setStatus('offline');
+    }
+  }, [unlock]);
 
   useEffect(() => {
-    if (!hasRefreshToken()) {
-      return;
-    }
+    if (!hasRefreshToken()) return;
+    tryRefresh();
+  }, [tryRefresh]);
 
-    refreshAccessToken().finally(() => setReady(true));
-  }, []);
-
-  if (!ready) {
+  if (status === 'booting') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-base">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-bg-overlay border-t-accent-lime" />
+      </div>
+    );
+  }
+
+  if (status === 'offline') {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg-base">
+        <p className="text-sm text-text-muted">Sem conexão com o servidor.</p>
+        <button
+          onClick={tryRefresh}
+          className="rounded-lg bg-accent-lime px-4 py-2 text-sm font-medium text-bg-base"
+        >
+          Tentar novamente
+        </button>
       </div>
     );
   }
@@ -78,7 +126,8 @@ export default function App() {
         <AppBoot>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/" element={<RootRedirect />} />
+              <Route path="/" element={<RootRoute />} />
+              <Route path="/landing" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/verify-email" element={<VerifyEmailPage />} />
@@ -88,6 +137,7 @@ export default function App() {
               <Route element={<PrivateRoute />}>
                 <Route element={<AppLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/insights" element={<InsightsPage />} />
                   <Route path="/expenses" element={<ExpensesPage />} />
                   <Route path="/transactions" element={<TransactionsPage />} />
                   <Route path="/budget" element={<BudgetPage />} />

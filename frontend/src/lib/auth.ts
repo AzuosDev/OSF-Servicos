@@ -31,7 +31,21 @@ export function hasRefreshToken(): boolean {
   return Boolean(getRefreshToken());
 }
 
-export async function refreshAccessToken(): Promise<string | null> {
+// Singleton: garante que no máximo UMA requisição de refresh viaja por vez.
+// Resolve o bug de double-invoke do React StrictMode + tokens rotativos:
+// sem isso, duas chamadas paralelas enviam o mesmo token ao backend; a segunda
+// chega com o token já rotacionado → 401 → clearTokens() → logout indevido.
+let _refreshPromise: Promise<string | null> | null = null;
+
+export function refreshAccessToken(): Promise<string | null> {
+  if (_refreshPromise) return _refreshPromise;
+  _refreshPromise = _doRefresh().finally(() => {
+    _refreshPromise = null;
+  });
+  return _refreshPromise;
+}
+
+async function _doRefresh(): Promise<string | null> {
   const refreshToken = getRefreshToken();
 
   if (!refreshToken) {
@@ -52,8 +66,12 @@ export async function refreshAccessToken(): Promise<string | null> {
 
     setTokens(data.accessToken, data.refreshToken ?? refreshToken);
     return data.accessToken;
-  } catch {
-    clearTokens();
+  } catch (err) {
+    // Só limpa tokens quando o servidor explicitamente rejeita (401).
+    // Erros de rede ou servidor offline não devem apagar uma sessão ainda válida.
+    if (axios.isAxiosError(err) && err.response?.status === 401) {
+      clearTokens();
+    }
     return null;
   }
 }

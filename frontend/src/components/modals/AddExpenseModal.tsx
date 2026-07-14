@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { api } from "../../lib/api";
 import { getApiErrorMessages, setFieldErrorsFromApi } from "../../lib/errors";
-import { buildTransactionPayload } from "../../lib/finance";
+import { buildTransactionPayload, localDateString } from "../../lib/finance";
 import {
   AmountField,
   CategoryField,
@@ -30,7 +30,7 @@ const schema = z.object({
 
 
 function todayInputValue() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateString();
 }
 
 export function AddExpenseModal({

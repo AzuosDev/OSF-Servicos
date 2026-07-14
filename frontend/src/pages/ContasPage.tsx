@@ -5,7 +5,7 @@ import { Check, Clock, Inbox, Loader2, Plus, RotateCcw, Trash2 } from "lucide-re
 
 import { api } from "../lib/api";
 
-import { formatCurrency } from "../lib/finance";
+import { formatCurrency, formatDisplayDate, localDateString, utcDateStr } from "../lib/finance";
 import { cn } from "../lib/utils";
 import { useToast } from "../components/ui/Toast";
 import { ConfirmDeleteModal } from "../components/modals/ConfirmDeleteModal";
@@ -86,20 +86,16 @@ function normalizeAccounts(data: unknown): PendingItem[] {
 }
 
 function statusLabel(item: PendingItem) {
-  const dueDate = new Date(item.dueDate);
-  const today = new Date();
-  const sameDay = dueDate.toDateString() === today.toDateString();
+  const due = utcDateStr(item.dueDate);
+  const today = localDateString();
   const paidLabel = item.tipo === "RECEBER" ? "Recebido" : "Pago";
 
   if (item.paid)
     return { label: paidLabel, className: "bg-accent-lime/10 text-accent-lime" };
-  if (dueDate < today)
+  if (due < today)
     return { label: "Vencida", className: "bg-accent-red/10 text-accent-red" };
-  if (sameDay)
-    return {
-      label: "Vence hoje",
-      className: "bg-accent-yellow/10 text-accent-yellow",
-    };
+  if (due === today)
+    return { label: "Vence hoje", className: "bg-accent-yellow/10 text-accent-yellow" };
 
   return { label: "Pendente", className: "bg-bg-muted text-text-secondary" };
 }
@@ -352,7 +348,8 @@ export function ContasPage() {
 
   function renderAccountCard(item: PendingDisplayItem) {
     const status = statusLabel(item);
-    const dueDate = new Date(item.dueDate);
+    const dueDateStr = utcDateStr(item.dueDate);
+    const todayStr = localDateString();
     const installmentLabel = item.installmentLabel ?? (item.numeroParcela && item.parcelas?.totalParcelas ? `parcela ${item.numeroParcela}/${item.parcelas.totalParcelas}` : undefined);
 
     return (
@@ -361,8 +358,8 @@ export function ContasPage() {
         className={cn(
           "rounded-2xl border bg-bg-card p-4 transition",
           item.paid && "opacity-60",
-          dueDate < new Date() && !item.paid ? "border-accent-red/50" : "border-bg-muted",
-          dueDate.toDateString() === new Date().toDateString() && !item.paid ? "border-accent-yellow/50" : "",
+          dueDateStr < todayStr && !item.paid ? "border-accent-red/50" : "border-bg-muted",
+          dueDateStr === todayStr && !item.paid ? "border-accent-yellow/50" : "",
         )}
       >
         <div className="flex items-start gap-3">
@@ -381,7 +378,7 @@ export function ContasPage() {
               <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold", status.className)}>{status.label}</span>
             </div>
             <p className="mt-1 text-sm text-text-secondary">{item.description ?? "Conta"}</p>
-            <p className="mt-2 text-xs text-text-muted">Vence em {dueDate.toLocaleDateString("pt-BR")}</p>
+            <p className="mt-2 text-xs text-text-muted">Vence em {formatDisplayDate(item.dueDate)}</p>
           </div>
           <div className="text-right">
             <p className="text-sm font-semibold text-white">{formatCurrency(item.value)}</p>
@@ -674,7 +671,7 @@ export function ContasPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-text-secondary">Vencimento</span>
-                  <span className="text-white font-medium">{new Date(liveItem.dueDate).toLocaleDateString("pt-BR")}</span>
+                  <span className="text-white font-medium">{formatDisplayDate(liveItem.dueDate)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-text-secondary">Status</span>

@@ -185,11 +185,37 @@ export function isPastMonth(dateStr: string): boolean {
   );
 }
 
+// Returns today's date as YYYY-MM-DD using the user's LOCAL calendar day,
+// not UTC — avoids showing "yesterday" for users in UTC-3 after midnight.
+export function localDateString(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+// Formats a date stored as UTC midnight (the format we persist) for pt-BR display.
+// Always renders in UTC so the calendar day never shifts due to timezone offset.
+export function formatDisplayDate(
+  value: string,
+  opts: Intl.DateTimeFormatOptions = { day: "2-digit", month: "2-digit", year: "numeric" },
+): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--/--/----";
+  return new Intl.DateTimeFormat("pt-BR", { ...opts, timeZone: "UTC" }).format(date);
+}
+
+// Extracts YYYY-MM-DD from a UTC-midnight ISO string without timezone conversion.
+export function utcDateStr(value: string | Date): string {
+  return new Date(value).toISOString().slice(0, 10);
+}
+
 export function dateInputValue(value: string) {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return new Date().toISOString().slice(0, 10);
+    return localDateString();
   }
 
   return date.toISOString().slice(0, 10);

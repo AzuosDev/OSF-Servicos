@@ -8,7 +8,7 @@ import { Link } from "react-router-dom";
 
 import { api } from "../../lib/api";
 import { getApiErrorMessages, setFieldErrorsFromApi } from "../../lib/errors";
-import { buildTransactionPayload, dateInputValue } from "../../lib/finance";
+import { buildTransactionPayload, dateInputValue, localDateString } from "../../lib/finance";
 import type { Transaction } from "../../types/finance";
 import {
   AmountField,
@@ -25,7 +25,7 @@ import { cn } from "../../lib/utils";
 type Tab = "INCOME" | "EXPENSE" | "TRANSFER";
 
 function todayInputValue() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateString();
 }
 
 const defaultValues = {

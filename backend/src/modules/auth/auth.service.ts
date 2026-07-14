@@ -24,6 +24,12 @@ export class AuthService {
     return safeUser;
   }
 
+  async resendVerification(email: string) {
+    const token = await this.usersService.regenerateVerificationToken(email);
+    await this.emailService.sendVerificationEmail(email, token);
+    return true;
+  }
+
   async sendPasswordReset(email: string) {
     const token = await this.usersService.setPasswordResetToken(email);
     await this.emailService.sendPasswordResetEmail(email, token);
@@ -45,7 +51,7 @@ export class AuthService {
     const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
     const rawRefresh = crypto.randomBytes(64).toString('hex');
     const hashed = this.hashRefreshToken(rawRefresh);
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await this.refreshModel.create({ userId: user._id, token: hashed, expiresAt });
     return { accessToken, refreshToken: rawRefresh };
   }
@@ -64,7 +70,7 @@ export class AuthService {
     const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
     const newRaw = crypto.randomBytes(64).toString('hex');
     const newHashed = this.hashRefreshToken(newRaw);
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await this.refreshModel.create({ userId, token: newHashed, expiresAt });
     return { accessToken, refreshToken: newRaw };
   }

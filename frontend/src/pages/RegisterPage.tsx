@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, Eye, EyeOff, Lock, Mail } from "lucide-react";
-import { useState } from "react";
+import { CheckCircle2, Eye, EyeOff, Loader2, Lock, Mail, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
 import { z } from "zod";
@@ -33,6 +33,35 @@ export function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [apiErrors, setApiErrors] = useState<string[]>([]);
   const [success, setSuccess] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [resendError, setResendError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((seconds) => seconds - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
+
+  async function handleResend() {
+    if (resendCooldown > 0 || resendLoading) return;
+
+    setResendLoading(true);
+    setResendError(null);
+    setResendMessage(null);
+
+    try {
+      await api.post("/api/auth/resend-verification", { email: registeredEmail });
+      setResendMessage("Email reenviado! Confira sua caixa de entrada.");
+      setResendCooldown(60);
+    } catch (error) {
+      setResendError(getApiErrorMessages(error, "Não foi possível reenviar o email. Tente novamente em instantes.").join(" "));
+    } finally {
+      setResendLoading(false);
+    }
+  }
 
   const {
     register,
@@ -52,6 +81,7 @@ export function RegisterPage() {
         email: values.email,
         password: values.password,
       });
+      setRegisteredEmail(values.email);
       setSuccess(true);
     } catch (error) {
       const messages = setFieldErrorsFromApi(error, setError, ["email", "password"]);
@@ -74,6 +104,25 @@ export function RegisterPage() {
           <p className="text-sm text-text-secondary">
             Verifique seu email para confirmar o cadastro
           </p>
+
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={resendCooldown > 0 || resendLoading}
+            className="mt-2 flex items-center gap-2 rounded-xl border border-border-default px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-bg-overlay disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {resendLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            {resendCooldown > 0
+              ? `Reenviar em ${resendCooldown}s`
+              : "Reenviar email de verificação"}
+          </button>
+
+          {resendMessage && <p className="text-xs text-accent-lime">{resendMessage}</p>}
+          {resendError && <p className="text-xs text-accent-red">{resendError}</p>}
         </div>
       </AuthCard>
     );

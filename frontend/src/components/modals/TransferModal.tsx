@@ -8,6 +8,7 @@ import { Link } from "react-router-dom";
 
 import { api } from "../../lib/api";
 import { getApiErrorMessages } from "../../lib/errors";
+import { localDateString } from "../../lib/finance";
 import { useWallets } from "./TransactionFormFields";
 import { CurrencyInput } from "../ui/CurrencyInput";
 import { ModalShell } from "./ModalShell";
@@ -28,7 +29,7 @@ const schema = z
 type FormValues = z.infer<typeof schema>;
 
 function todayInputValue() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateString();
 }
 
 const inputCls =
