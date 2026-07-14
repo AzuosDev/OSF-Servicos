@@ -1,24 +1,11 @@
 import { memo } from "react";
 import { Calendar, Edit2, Trash2 } from "lucide-react";
 
-import { formatCurrency } from "../lib/finance";
+import { formatCurrency, formatDisplayDate } from "../lib/finance";
 import { cn } from "../lib/utils";
 import type { Transaction, Category } from "../types/finance";
 import { DynamicIcon } from "./DynamicIcon";
 
-function formatDate(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "--/--/----";
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(date);
-}
 
 export const TransactionRow = memo(function TransactionRow({
   transaction,
@@ -69,7 +56,7 @@ export const TransactionRow = memo(function TransactionRow({
         {transaction.description && (
           <p className="truncate text-xs text-text-secondary">{transaction.description}</p>
         )}
-        <p className="text-xs text-text-muted">{formatDate(transaction.date)}</p>
+        <p className="text-xs text-text-muted">{formatDisplayDate(transaction.date)}</p>
       </div>
 
       <strong

@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { api } from "../../lib/api";
 import { getApiErrorMessages, setFieldErrorsFromApi } from "../../lib/errors";
-import { buildTransactionPayload, dateInputValue } from "../../lib/finance";
+import { buildTransactionPayload, dateInputValue, localDateString } from "../../lib/finance";
 import type { Transaction } from "../../types/finance";
 import type { Transaction as ApiTransaction } from "../../types/api";
 import {
@@ -50,7 +50,7 @@ export function EditTransactionModal({
       amount: 0,
       categoryId: "",
       carteiraId: "",
-      date: new Date().toISOString().slice(0, 10),
+      date: localDateString(),
       description: "",
     },
   });

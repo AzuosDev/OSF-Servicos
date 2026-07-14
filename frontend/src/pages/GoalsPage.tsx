@@ -19,7 +19,7 @@ import { ModalShell } from "../components/modals/ModalShell";
 import { useToast } from "../components/ui/Toast";
 import { ConfirmDeleteModal } from "../components/modals/ConfirmDeleteModal";
 import { api } from "../lib/api";
-import { formatCurrency } from "../lib/finance";
+import { formatCurrency, formatDisplayDate } from "../lib/finance";
 import { getApiErrorMessages, setFieldErrorsFromApi } from "../lib/errors";
 
 type GoalItem = {
@@ -106,12 +106,7 @@ function formatDeadline(value?: string) {
     return "Sem prazo";
   }
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "Sem prazo";
-  }
-
-  return `Meta: ${date.toLocaleDateString("pt-BR")}`;
+  return `Meta: ${formatDisplayDate(value)}`;
 }
 
 function getProgressColor(goal: GoalItem) {

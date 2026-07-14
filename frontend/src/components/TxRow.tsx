@@ -1,14 +1,12 @@
 import { ArrowLeftRight, Calendar, Edit2, Trash2 } from "lucide-react";
 
 import { cn } from "../lib/utils";
+import { formatDisplayDate } from "../lib/finance";
 import type { Transaction } from "../types/finance";
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 function fmtDate(iso: string) {
-  const d = new Date(iso);
-  return !iso || isNaN(d.getTime())
-    ? "--/--/--"
-    : new Intl.DateTimeFormat("pt-BR").format(d);
+  return !iso ? "--/--/--" : formatDisplayDate(iso);
 }
 
 export function TxRow({
