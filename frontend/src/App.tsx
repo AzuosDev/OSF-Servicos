@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 
 import { AppLayout } from "./components/layout/AppLayout";
@@ -64,21 +64,50 @@ function RootRoute() {
   return <Navigate to={redirect ?? "/landing"} replace />;
 }
 
+type BootStatus = 'booting' | 'ready' | 'offline';
+
 function AppBoot({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = useState(!hasRefreshToken());
+  const [status, setStatus] = useState<BootStatus>(
+    hasRefreshToken() ? 'booting' : 'ready',
+  );
 
-  useEffect(() => {
-    if (!hasRefreshToken()) {
-      return;
+  const tryRefresh = useCallback(async () => {
+    setStatus('booting');
+    await refreshAccessToken();
+    // After attempt: if we have an access token → success.
+    // If refresh token was wiped (401 from server) → no token either, go ready
+    // so PrivateRoute can redirect to login normally.
+    // If refresh token still exists but no access token → network error, stay offline.
+    if (getAccessToken() || !hasRefreshToken()) {
+      setStatus('ready');
+    } else {
+      setStatus('offline');
     }
-
-    refreshAccessToken().finally(() => setReady(true));
   }, []);
 
-  if (!ready) {
+  useEffect(() => {
+    if (!hasRefreshToken()) return;
+    tryRefresh();
+  }, [tryRefresh]);
+
+  if (status === 'booting') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-base">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-bg-overlay border-t-accent-lime" />
+      </div>
+    );
+  }
+
+  if (status === 'offline') {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg-base">
+        <p className="text-sm text-text-muted">Sem conexão com o servidor.</p>
+        <button
+          onClick={tryRefresh}
+          className="rounded-lg bg-accent-lime px-4 py-2 text-sm font-medium text-bg-base"
+        >
+          Tentar novamente
+        </button>
       </div>
     );
   }

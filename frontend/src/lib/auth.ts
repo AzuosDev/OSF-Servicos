@@ -52,8 +52,12 @@ export async function refreshAccessToken(): Promise<string | null> {
 
     setTokens(data.accessToken, data.refreshToken ?? refreshToken);
     return data.accessToken;
-  } catch {
-    clearTokens();
+  } catch (err) {
+    // Only clear tokens when the server explicitly rejects the refresh token.
+    // Network errors or server failures should not wipe a still-valid session.
+    if (axios.isAxiosError(err) && err.response?.status === 401) {
+      clearTokens();
+    }
     return null;
   }
 }
