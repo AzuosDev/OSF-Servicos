@@ -26,6 +26,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { useTheme } from "../../hooks/useTheme";
 import { useAuth } from "../../contexts/AuthContext";
+import { NotificationBell } from "../NotificationBell";
 import { useInactivityLock } from "../../hooks/useInactivityLock";
 import { clearTokens, getAccessToken, getRefreshToken } from "../../lib/auth";
 import { api } from "../../lib/api";
@@ -280,6 +281,10 @@ function SidebarContent({
         })}
       </nav>
 
+      <div className={cn("px-4 pb-1", collapsed && "px-3")}>
+        <NotificationBell collapsed={collapsed} />
+      </div>
+
       <div
         className={cn(
           "border-t border-border-default p-4",
@@ -361,6 +366,10 @@ function SidebarContent({
 }
 
 import { createContext, useContext } from "react";
+
+function MobileNotificationBell() {
+  return <NotificationBell openDirection="down" iconOnly />;
+}
 
 export const TransactionModalContext = createContext<{ open: boolean; setOpen: React.Dispatch<React.SetStateAction<boolean>> }>({
   open: false,
@@ -519,13 +528,16 @@ export function AppLayout() {
             {title}
           </h1>
         </div>
-        <button
-          onClick={() => setUserProfileOpen(true)}
-          className="rounded-full transition hover:ring-2 hover:ring-accent-lime/50 focus:outline-none"
-          aria-label="Abrir perfil do usuário"
-        >
-          <Avatar email={email} name={name} avatarUrl={avatarUrl} />
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <MobileNotificationBell />
+          <button
+            onClick={() => setUserProfileOpen(true)}
+            className="rounded-full transition hover:ring-2 hover:ring-accent-lime/50 focus:outline-none"
+            aria-label="Abrir perfil do usuário"
+          >
+            <Avatar email={email} name={name} avatarUrl={avatarUrl} />
+          </button>
+        </div>
       </header>
 
       <main

@@ -70,20 +70,23 @@ function AppBoot({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<BootStatus>(
     hasRefreshToken() ? 'booting' : 'ready',
   );
+  const { unlock } = useAuth();
 
   const tryRefresh = useCallback(async () => {
     setStatus('booting');
     await refreshAccessToken();
-    // After attempt: if we have an access token → success.
-    // If refresh token was wiped (401 from server) → no token either, go ready
-    // so PrivateRoute can redirect to login normally.
-    // If refresh token still exists but no access token → network error, stay offline.
-    if (getAccessToken() || !hasRefreshToken()) {
+    if (getAccessToken()) {
+      // Refresh successful: unlock so PrivateRoute renders the protected page.
+      unlock();
+      setStatus('ready');
+    } else if (!hasRefreshToken()) {
+      // Refresh token was rejected (401) — let PrivateRoute redirect to login.
       setStatus('ready');
     } else {
+      // Network error: refresh token still exists but got no access token.
       setStatus('offline');
     }
-  }, []);
+  }, [unlock]);
 
   useEffect(() => {
     if (!hasRefreshToken()) return;
