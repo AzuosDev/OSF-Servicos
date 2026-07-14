@@ -215,6 +215,80 @@ export type InsightsAnnualSummary = {
   noData: boolean;
 };
 
+export type InsightsOverview = {
+  topCategoryThisMonth: {
+    categoryId: string | null;
+    name: string;
+    total: number;
+    percentOfExpenses: number;
+  } | null;
+  yoyComparison: {
+    year: number;
+    previousYear: number;
+    currentAvgMonthlyIncome: number;
+    currentAvgMonthlyExpense: number;
+    currentAvgMonthlyBalance: number;
+    previousAvgMonthlyIncome: number;
+    previousAvgMonthlyExpense: number;
+    previousAvgMonthlyBalance: number;
+    incomePct: number | null;
+    expensePct: number | null;
+    balancePct: number | null;
+  };
+  monthEndProjection: {
+    daysElapsed: number;
+    daysInMonth: number;
+    actualIncome: number;
+    actualExpense: number;
+    projectedIncome: number;
+    projectedExpense: number;
+    projectedBalance: number;
+  };
+  healthScore: {
+    score: number;
+    label: "Excelente" | "Boa" | "Atenção" | "Crítica";
+    breakdown: {
+      savingsRateSub: number;
+      overdueAccountsSub: number;
+      spendingTrendSub: number;
+    };
+  };
+};
+
+export type CashflowPoint = {
+  date: string;
+  income: number;
+  expense: number;
+};
+
+export type CashflowResult = {
+  period: "month" | "quarter" | "year" | "custom";
+  granularity: "day" | "week" | "month";
+  from: string;
+  to: string;
+  points: CashflowPoint[];
+  totals: { income: number; expense: number; balance: number };
+};
+
+export type GoalPace = {
+  avgMonthlyContribution: number;
+  monthsRemaining: number | null;
+  requiredMonthlyContribution: number | null;
+  onTrack: boolean | null;
+};
+
+export type GoalProgress = {
+  id: string;
+  name: string;
+  targetValue: number;
+  currentValue: number;
+  percentComplete: number;
+  deadline: string | null;
+  completed: boolean;
+  monthlyContributions: { month: string; amount: number }[];
+  pace: GoalPace;
+};
+
 export type ApiValidationError = {
   statusCode?: number;
   error?: string;

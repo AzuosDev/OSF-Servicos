@@ -6,6 +6,8 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ICurrentUser } from '../../common/types/current-user.type';
 import { InsightsService } from './insights.service';
 import { GetAnnualSummaryDto } from './dto/get-annual-summary.dto';
+import { GetOverviewDto } from './dto/get-overview.dto';
+import { GetCashflowDto } from './dto/get-cashflow.dto';
 
 @ApiTags('Insights')
 @ApiBearerAuth()
@@ -13,6 +15,22 @@ import { GetAnnualSummaryDto } from './dto/get-annual-summary.dto';
 @Controller('api/insights')
 export class InsightsController {
   constructor(private insightsService: InsightsService) {}
+
+  @Get('overview')
+  async getOverview(@CurrentUser() user: ICurrentUser, @Query() query: GetOverviewDto) {
+    const year = query.year ?? new Date().getFullYear();
+    return this.insightsService.getOverview(user._id.toString(), year);
+  }
+
+  @Get('cashflow')
+  async getCashflow(@CurrentUser() user: ICurrentUser, @Query() query: GetCashflowDto) {
+    return this.insightsService.getCashflow(user._id.toString(), query);
+  }
+
+  @Get('goals-progress')
+  async getGoalsProgress(@CurrentUser() user: ICurrentUser) {
+    return this.insightsService.getGoalsProgress(user._id.toString());
+  }
 
   @Throttle(5, 60)
   @Get('annual-summary')
