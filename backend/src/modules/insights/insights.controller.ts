@@ -6,7 +6,6 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ICurrentUser } from '../../common/types/current-user.type';
 import { InsightsService } from './insights.service';
 import { GetAnnualSummaryDto } from './dto/get-annual-summary.dto';
-import { GetOverviewDto } from './dto/get-overview.dto';
 import { GetCashflowDto } from './dto/get-cashflow.dto';
 
 @ApiTags('Insights')
@@ -17,9 +16,8 @@ export class InsightsController {
   constructor(private insightsService: InsightsService) {}
 
   @Get('overview')
-  async getOverview(@CurrentUser() user: ICurrentUser, @Query() query: GetOverviewDto) {
-    const year = query.year ?? new Date().getFullYear();
-    return this.insightsService.getOverview(user._id.toString(), year);
+  async getOverview(@CurrentUser() user: ICurrentUser) {
+    return this.insightsService.getOverview(user._id.toString());
   }
 
   @Get('cashflow')

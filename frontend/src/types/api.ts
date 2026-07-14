@@ -224,18 +224,18 @@ export type InsightsOverview = {
     total: number;
     percentOfExpenses: number;
   } | null;
-  yoyComparison: {
-    year: number;
+  monthComparison: {
+    currentMonth: number;
+    currentYear: number;
+    previousMonth: number;
     previousYear: number;
-    currentAvgMonthlyIncome: number;
-    currentAvgMonthlyExpense: number;
-    currentAvgMonthlyBalance: number;
-    previousAvgMonthlyIncome: number;
-    previousAvgMonthlyExpense: number;
-    previousAvgMonthlyBalance: number;
+    currentIncome: number;
+    currentExpense: number;
+    previousIncome: number;
+    previousExpense: number;
     incomePct: number | null;
     expensePct: number | null;
-    balancePct: number | null;
+    hasPreviousMonthData: boolean;
   };
   monthEndProjection: {
     daysElapsed: number;

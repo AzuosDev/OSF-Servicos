@@ -225,18 +225,18 @@ export interface InsightsOverview {
     total: number;
     percentOfExpenses: number;
   } | null;
-  yoyComparison: {
-    year: number;
+  monthComparison: {
+    currentMonth: number;
+    currentYear: number;
+    previousMonth: number;
     previousYear: number;
-    currentAvgMonthlyIncome: number;
-    currentAvgMonthlyExpense: number;
-    currentAvgMonthlyBalance: number;
-    previousAvgMonthlyIncome: number;
-    previousAvgMonthlyExpense: number;
-    previousAvgMonthlyBalance: number;
+    currentIncome: number;
+    currentExpense: number;
+    previousIncome: number;
+    previousExpense: number;
     incomePct: number | null;
     expensePct: number | null;
-    balancePct: number | null;
+    hasPreviousMonthData: boolean;
   };
   monthEndProjection: {
     daysElapsed: number;
@@ -409,7 +409,7 @@ export class InsightsService {
   }
 
   // Cards locais/instantâneos (sem custo de API): sempre calculados na hora, sem IA.
-  async getOverview(userId: string, year: number): Promise<InsightsOverview> {
+  async getOverview(userId: string): Promise<InsightsOverview> {
     const userObjectId = new Types.ObjectId(userId);
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
@@ -423,14 +423,10 @@ export class InsightsService {
     // Date.UTC aceita mês negativo e rola pro ano anterior automaticamente (ex: mês 0 = dezembro do ano - 1).
     const prevMonthStart = new Date(Date.UTC(currentYear, currentMonth - 2, 1, 0, 0, 0));
     const prevMonthEnd = new Date(Date.UTC(currentYear, currentMonth - 1, 0, 23, 59, 59, 999));
+    const previousMonth = prevMonthStart.getUTCMonth() + 1;
+    const previousMonthYear = prevMonthStart.getUTCFullYear();
 
-    const [
-      annual,
-      categoryRows,
-      [monthTotalsFacet],
-      overdueCount,
-    ] = await Promise.all([
-      this.getAnnualAggregates(userId, year),
+    const [categoryRows, [monthTotalsFacet], overdueCount] = await Promise.all([
       this.transactionModel.aggregate([
         {
           $match: {
@@ -461,9 +457,13 @@ export class InsightsService {
               { $match: { date: { $gte: monthStart, $lte: now } } },
               { $group: { _id: '$type', total: { $sum: '$value' } } },
             ],
-            previousMonthExpense: [
-              { $match: { type: TransactionType.EXPENSE, date: { $gte: prevMonthStart, $lte: prevMonthEnd } } },
-              { $group: { _id: null, total: { $sum: '$value' } } },
+            previousMonthTotals: [
+              { $match: { date: { $gte: prevMonthStart, $lte: prevMonthEnd } } },
+              { $group: { _id: '$type', total: { $sum: '$value' } } },
+            ],
+            previousMonthCount: [
+              { $match: { date: { $gte: prevMonthStart, $lte: prevMonthEnd } } },
+              { $count: 'count' },
             ],
           },
         },
@@ -490,26 +490,32 @@ export class InsightsService {
         }
       : null;
 
-    // 2. Comparação ano a ano (reaproveita a mesma agregação anual já usada no resumo com IA).
-    const yoyComparison = {
-      year: annual.year,
-      previousYear: annual.previousYear,
-      currentAvgMonthlyIncome: annual.current.avgMonthlyIncome,
-      currentAvgMonthlyExpense: annual.current.avgMonthlyExpense,
-      currentAvgMonthlyBalance: annual.current.avgMonthlyBalance,
-      previousAvgMonthlyIncome: annual.previous.avgMonthlyIncome,
-      previousAvgMonthlyExpense: annual.previous.avgMonthlyExpense,
-      previousAvgMonthlyBalance: annual.previous.avgMonthlyBalance,
-      incomePct: annual.yoyChange.incomePct,
-      expensePct: annual.yoyChange.expensePct,
-      balancePct: annual.yoyChange.balancePct,
-    };
-
-    // 3. Projeção de fim de mês (extrapolação linear pelo ritmo de gasto/ganho até hoje).
     const findMonthTotal = (rows: { _id: TransactionType; total: number }[], type: TransactionType) =>
       rows.find((row) => row._id === type)?.total ?? 0;
     const actualIncome = findMonthTotal(monthTotalsFacet.actualThisMonth, TransactionType.INCOME);
     const actualExpense = findMonthTotal(monthTotalsFacet.actualThisMonth, TransactionType.EXPENSE);
+    const previousMonthIncome = findMonthTotal(monthTotalsFacet.previousMonthTotals, TransactionType.INCOME);
+    const previousMonthExpense = findMonthTotal(monthTotalsFacet.previousMonthTotals, TransactionType.EXPENSE);
+    const hasPreviousMonthData = (monthTotalsFacet.previousMonthCount[0]?.count ?? 0) > 0;
+
+    // 2. Comparação mensal (mês atual vs. mês anterior) — card de curto prazo, útil já no 2º mês
+    // de uso. A comparação ano a ano continua existindo na aba Fluxo de Caixa e na Média Anual
+    // do Relatório Personalizado, só não faz mais parte deste card.
+    const monthComparison = {
+      currentMonth,
+      currentYear,
+      previousMonth,
+      previousYear: previousMonthYear,
+      currentIncome: actualIncome,
+      currentExpense: actualExpense,
+      previousIncome: previousMonthIncome,
+      previousExpense: previousMonthExpense,
+      incomePct: percentChange(actualIncome, previousMonthIncome),
+      expensePct: percentChange(actualExpense, previousMonthExpense),
+      hasPreviousMonthData,
+    };
+
+    // 3. Projeção de fim de mês (extrapolação linear pelo ritmo de gasto/ganho até hoje).
     const projectedIncome = (actualIncome / daysElapsed) * daysInMonth;
     const projectedExpense = (actualExpense / daysElapsed) * daysInMonth;
 
@@ -534,7 +540,6 @@ export class InsightsService {
 
     const overdueAccountsSub = clamp(100 - overdueCount * 20, 0, 100);
 
-    const previousMonthExpense = monthTotalsFacet.previousMonthExpense[0]?.total ?? 0;
     const spendingTrendSub =
       previousMonthExpense > 0
         ? clamp(70 - ((projectedExpense - previousMonthExpense) / previousMonthExpense) * 100, 0, 100)
@@ -554,7 +559,7 @@ export class InsightsService {
 
     return {
       topCategoryThisMonth,
-      yoyComparison,
+      monthComparison,
       monthEndProjection,
       healthScore,
     };

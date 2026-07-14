@@ -45,6 +45,10 @@ import type {
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: 5 }, (_, index) => CURRENT_YEAR - index);
 
+function monthYearLabel(month: number, year: number) {
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
+}
+
 function formatPct(pct: number | null) {
   if (pct === null) {
     return "—";
@@ -274,14 +278,10 @@ function ContasPreview({ onNavigate }: { onNavigate: () => void }) {
 }
 
 function OverviewTab({ onNavigateTab }: { onNavigateTab: (tab: InsightsTab) => void }) {
-  const [year, setYear] = useState(CURRENT_YEAR);
-
   const overviewQuery = useQuery<InsightsOverview>({
-    queryKey: ["insights-overview", year],
+    queryKey: ["insights-overview"],
     queryFn: async () => {
-      const { data } = await api.get<InsightsOverview>("/api/insights/overview", {
-        params: { year },
-      });
+      const { data } = await api.get<InsightsOverview>("/api/insights/overview");
       return data;
     },
   });
@@ -294,21 +294,6 @@ function OverviewTab({ onNavigateTab }: { onNavigateTab: (tab: InsightsTab) => v
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <select
-          value={year}
-          onChange={(event) => setYear(Number(event.target.value))}
-          className="rounded-xl border border-border-default bg-bg-muted px-3 py-3 text-sm text-text-primary outline-none transition focus:border-accent-lime"
-          aria-label="Ano para comparação anual"
-        >
-          {YEAR_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </div>
-
       {overviewQuery.isLoading && (
         <div className="flex items-center justify-center gap-2 rounded-2xl bg-bg-card p-8 text-sm text-text-secondary">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -341,9 +326,17 @@ function OverviewTab({ onNavigateTab }: { onNavigateTab: (tab: InsightsTab) => v
           <OverviewCard
             icon={ArrowLeftRight}
             iconClassName="text-accent-lime"
-            label={`Comparação com ${overview.yoyComparison.previousYear}`}
-            value={formatPct(overview.yoyComparison.balancePct)}
-            secondary={`Renda ${formatPct(overview.yoyComparison.incomePct)} · Gasto ${formatPct(overview.yoyComparison.expensePct)}`}
+            label="Comparação mensal"
+            value={
+              overview.monthComparison.hasPreviousMonthData
+                ? `Renda ${formatPct(overview.monthComparison.incomePct)} · Gasto ${formatPct(overview.monthComparison.expensePct)}`
+                : "—"
+            }
+            secondary={
+              overview.monthComparison.hasPreviousMonthData
+                ? `${monthYearLabel(overview.monthComparison.currentMonth, overview.monthComparison.currentYear)} vs. ${monthYearLabel(overview.monthComparison.previousMonth, overview.monthComparison.previousYear)}`
+                : "Ainda sem dados do mês anterior para comparar"
+            }
           />
 
           <OverviewCard
@@ -761,8 +754,41 @@ function GoalsTab() {
 const CATEGORY_COLORS = ["#A3E635", "#F97316", "#38BDF8", "#C084FC", "#FB7185"];
 const OUTROS_COLOR = "#6B7280";
 
-function seriesColor(name: string, index: number) {
-  return name === "Outros" ? OUTROS_COLOR : CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+// Hash determinístico (djb2) só pra escolher um slot de cor preferido por NOME — não depende de
+// posição/ranking, então a mesma categoria mantém a mesma cor mesmo trocando de posição no
+// ranking de gasto entre períodos (bug anterior: cor vinha de `index`, então a cor de uma
+// categoria mudava sempre que ela subia/descia no ranking de um mês pro outro).
+function hashString(value: string): number {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 33 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+// Resolve colisões (duas categorias com o mesmo slot preferido) de forma determinística:
+// ordena por nome e sonda o próximo slot livre. Garante que categorias exibidas juntas no mesmo
+// gráfico nunca dividem a mesma cor — o máximo de séries reais simultâneas é 5 (top 5 + Outros
+// à parte), igual ao tamanho da paleta, então sempre existe um slot livre pra sondar.
+function assignCategoryColors(names: string[]): Map<string, string> {
+  const colorByName = new Map<string, string>();
+  const realNames = [...names].filter((name) => name !== "Outros").sort();
+  const usedSlots = new Set<number>();
+
+  for (const name of realNames) {
+    let slot = hashString(name) % CATEGORY_COLORS.length;
+    while (usedSlots.has(slot)) {
+      slot = (slot + 1) % CATEGORY_COLORS.length;
+    }
+    usedSlots.add(slot);
+    colorByName.set(name, CATEGORY_COLORS[slot]);
+  }
+
+  if (names.includes("Outros")) {
+    colorByName.set("Outros", OUTROS_COLOR);
+  }
+
+  return colorByName;
 }
 
 function CategoryBarChart({ data, color }: { data: { name: string; total: number }[]; color: string }) {
@@ -781,6 +807,8 @@ function CategoryBarChart({ data, color }: { data: { name: string; total: number
 }
 
 function CategoryEvolutionChart({ data, series }: { data: Record<string, string | number>[]; series: string[] }) {
+  const colorByName = useMemo(() => assignCategoryColors(series), [series]);
+
   return (
     <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -789,15 +817,15 @@ function CategoryEvolutionChart({ data, series }: { data: Record<string, string 
           <XAxis dataKey="label" stroke="#9CA3AF" tickLine={false} axisLine={false} />
           <YAxis stroke="#9CA3AF" tickLine={false} axisLine={false} tickFormatter={formatCompact} />
           <Tooltip content={<ChartTooltip />} />
-          {series.map((name, index) => (
+          {series.map((name) => (
             <Area
               key={name}
               type="monotone"
               name={name}
               dataKey={name}
               stackId="1"
-              stroke={seriesColor(name, index)}
-              fill={seriesColor(name, index)}
+              stroke={colorByName.get(name)}
+              fill={colorByName.get(name)}
               fillOpacity={0.5}
             />
           ))}
@@ -1108,6 +1136,8 @@ function WalletsChart({
   wallets: WalletEvolution[];
   data: Record<string, string | number>[];
 }) {
+  const colorByName = useMemo(() => assignCategoryColors(wallets.map((wallet) => wallet.nome)), [wallets]);
+
   return (
     <div className="rounded-2xl bg-bg-card p-5">
       <h2 className="mb-4 font-sans text-xl font-bold">Evolução de saldo</h2>
@@ -1118,13 +1148,13 @@ function WalletsChart({
             <XAxis dataKey="label" stroke="#9CA3AF" tickLine={false} axisLine={false} />
             <YAxis stroke="#9CA3AF" tickLine={false} axisLine={false} tickFormatter={formatCompact} />
             <Tooltip content={<ChartTooltip />} />
-            {wallets.map((wallet, index) => (
+            {wallets.map((wallet) => (
               <Line
                 key={wallet.id}
                 type="monotone"
                 name={wallet.nome}
                 dataKey={wallet.nome}
-                stroke={seriesColor(wallet.nome, index)}
+                stroke={colorByName.get(wallet.nome)}
                 strokeWidth={2}
                 dot={false}
               />
