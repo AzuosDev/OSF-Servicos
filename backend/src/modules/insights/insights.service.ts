@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { Transaction, TransactionDocument, TransactionType } from '../transactions/schemas/transaction.schema';
 import { PendingAccount, PendingAccountDocument } from '../pending/schemas/pending-account.schema';
 import { Goal, GoalDocument } from '../goals/schemas/goal.schema';
+import { Category, CategoryDocument } from '../categories/schemas/category.schema';
 import { AnthropicService } from '../../common/services/anthropic.service';
 import { GetCashflowDto } from './dto/get-cashflow.dto';
 
@@ -22,6 +23,47 @@ export interface CashflowResult {
   to: string;
   points: CashflowPoint[];
   totals: { income: number; expense: number; balance: number };
+}
+
+export interface CategoryBreakdownItem {
+  categoryId: string | null;
+  name: string;
+  total: number;
+}
+
+export interface ExpenseCategoryItem extends CategoryBreakdownItem {
+  percentOfExpenses: number;
+}
+
+export interface IncomeSourceItem extends CategoryBreakdownItem {
+  percentOfIncome: number;
+}
+
+export interface ExpensesBreakdownResult {
+  period: 'month' | 'quarter' | 'year' | 'custom';
+  granularity: CashflowGranularity;
+  from: string;
+  to: string;
+  byCategory: ExpenseCategoryItem[];
+  evolutionSeries: string[];
+  evolution: { date: string; values: Record<string, number> }[];
+  topCategoryTrend: { name: string; currentMonthTotal: number; previousMonthTotal: number; momPct: number | null } | null;
+}
+
+export interface IncomeConsistency {
+  monthsWithData: number;
+  avgIncome: number;
+  currentMonthTotal: number;
+  variationPct: number | null;
+}
+
+export interface IncomeBreakdownResult {
+  period: 'month' | 'quarter' | 'year' | 'custom';
+  from: string;
+  to: string;
+  bySource: IncomeSourceItem[];
+  monthlyConsistency: { month: string; total: number }[];
+  consistency: IncomeConsistency | null;
 }
 
 export interface GoalPace {
@@ -205,6 +247,7 @@ export class InsightsService {
     @InjectModel(Transaction.name) private transactionModel: Model<TransactionDocument>,
     @InjectModel(PendingAccount.name) private pendingModel: Model<PendingAccountDocument>,
     @InjectModel(Goal.name) private goalModel: Model<GoalDocument>,
+    @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
     private anthropicService: AnthropicService,
   ) {}
 
@@ -488,7 +531,7 @@ export class InsightsService {
     };
   }
 
-  private resolveCashflowRange(dto: GetCashflowDto): { from: Date; to: Date; granularity: CashflowGranularity } {
+  private resolvePeriodRange(dto: GetCashflowDto): { from: Date; to: Date; granularity: CashflowGranularity } {
     const now = new Date();
     const period = dto.period ?? 'year';
 
@@ -546,7 +589,7 @@ export class InsightsService {
   // agrupamento (o volume de transações de um único usuário é pequeno o bastante pra isso
   // não pesar, mesmo período a período).
   async getCashflow(userId: string, dto: GetCashflowDto): Promise<CashflowResult> {
-    const { from, to, granularity } = this.resolveCashflowRange(dto);
+    const { from, to, granularity } = this.resolvePeriodRange(dto);
     const userObjectId = new Types.ObjectId(userId);
 
     const rows = await this.transactionModel
@@ -670,5 +713,214 @@ export class InsightsService {
         };
       }),
     );
+  }
+
+  // Soma por categoria num intervalo, pra um tipo de transação — reaproveitado por Gastos
+  // (EXPENSE) e Ganhos (INCOME). Nomes vêm de uma única consulta por lote (sem $lookup em loop).
+  private async computeCategoryBreakdown(
+    userObjectId: Types.ObjectId,
+    type: TransactionType,
+    from: Date,
+    to: Date,
+  ): Promise<CategoryBreakdownItem[]> {
+    const rows = await this.transactionModel
+      .find({ userId: userObjectId, agendado: { $ne: true }, type, date: { $gte: from, $lte: to } })
+      .select('categoryId value')
+      .lean()
+      .exec();
+
+    const totalsByKey = new Map<string, number>();
+    for (const row of rows as unknown as { categoryId?: Types.ObjectId; value: number }[]) {
+      const key = row.categoryId ? row.categoryId.toString() : 'none';
+      totalsByKey.set(key, (totalsByKey.get(key) ?? 0) + row.value);
+    }
+
+    const categoryIds = [...totalsByKey.keys()].filter((key) => key !== 'none').map((key) => new Types.ObjectId(key));
+    const categories = categoryIds.length
+      ? await this.categoryModel.find({ _id: { $in: categoryIds } }).select('name').lean().exec()
+      : [];
+    const nameByKey = new Map(categories.map((category) => [(category._id as Types.ObjectId).toString(), category.name]));
+
+    return [...totalsByKey.entries()]
+      .map(([key, total]) => ({
+        categoryId: key === 'none' ? null : key,
+        name: key === 'none' ? 'Sem categoria' : (nameByKey.get(key) ?? 'Sem categoria'),
+        total,
+      }))
+      .sort((a, b) => b.total - a.total);
+  }
+
+  private async computeTopCategoryTrend(
+    userObjectId: Types.ObjectId,
+  ): Promise<ExpensesBreakdownResult['topCategoryTrend']> {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+    const monthStart = new Date(Date.UTC(year, month - 1, 1));
+    const monthEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+    const prevMonthStart = new Date(Date.UTC(year, month - 2, 1));
+    const prevMonthEnd = new Date(Date.UTC(year, month - 1, 0, 23, 59, 59, 999));
+
+    const currentBreakdown = await this.computeCategoryBreakdown(userObjectId, TransactionType.EXPENSE, monthStart, monthEnd);
+    if (currentBreakdown.length === 0) {
+      return null;
+    }
+
+    const top = currentBreakdown[0];
+    const previousBreakdown = await this.computeCategoryBreakdown(
+      userObjectId,
+      TransactionType.EXPENSE,
+      prevMonthStart,
+      prevMonthEnd,
+    );
+    const previousTotal = previousBreakdown.find((category) => category.categoryId === top.categoryId)?.total ?? 0;
+
+    return {
+      name: top.name,
+      currentMonthTotal: top.total,
+      previousMonthTotal: previousTotal,
+      momPct: percentChange(top.total, previousTotal),
+    };
+  }
+
+  // Distribuição de gastos por categoria no período + evolução (top 5 categorias + "Outros")
+  // bucketada na mesma granularidade do período, mais a tendência do mês atual vs. anterior
+  // (sempre mês corrente, independente do período selecionado — mesma convenção da Visão Geral).
+  async getExpensesBreakdown(userId: string, dto: GetCashflowDto): Promise<ExpensesBreakdownResult> {
+    const { from, to, granularity } = this.resolvePeriodRange(dto);
+    const userObjectId = new Types.ObjectId(userId);
+
+    const byCategory = await this.computeCategoryBreakdown(userObjectId, TransactionType.EXPENSE, from, to);
+    const grandTotal = byCategory.reduce((sum, item) => sum + item.total, 0);
+
+    const topItems = byCategory.slice(0, 5);
+    const topKeys = topItems.map((item) => item.categoryId ?? 'none');
+    const hasOutros = byCategory.length > topItems.length;
+    const evolutionSeries = [...topItems.map((item) => item.name), ...(hasOutros ? ['Outros'] : [])];
+
+    const rows = await this.transactionModel
+      .find({ userId: userObjectId, agendado: { $ne: true }, type: TransactionType.EXPENSE, date: { $gte: from, $lte: to } })
+      .select('categoryId value date')
+      .lean()
+      .exec();
+
+    const buckets = buildBucketRange(from, to, granularity);
+    const bucketSeries = new Map<number, Map<string, number>>();
+    for (const bucket of buckets) {
+      bucketSeries.set(bucket.getTime(), new Map());
+    }
+
+    for (const row of rows as unknown as { categoryId?: Types.ObjectId; value: number; date: Date }[]) {
+      const bucketKey = truncateToBucket(new Date(row.date), granularity).getTime();
+      const seriesMap = bucketSeries.get(bucketKey);
+      if (!seriesMap) continue;
+      const rawKey = row.categoryId ? row.categoryId.toString() : 'none';
+      const seriesKey = topKeys.includes(rawKey) ? rawKey : 'outros';
+      seriesMap.set(seriesKey, (seriesMap.get(seriesKey) ?? 0) + row.value);
+    }
+
+    const evolution = buckets.map((bucket) => {
+      const seriesMap = bucketSeries.get(bucket.getTime())!;
+      const values: Record<string, number> = {};
+      topItems.forEach((item, index) => {
+        values[item.name] = seriesMap.get(topKeys[index]) ?? 0;
+      });
+      if (hasOutros) {
+        values['Outros'] = seriesMap.get('outros') ?? 0;
+      }
+      return { date: bucket.toISOString(), values };
+    });
+
+    const topCategoryTrend = await this.computeTopCategoryTrend(userObjectId);
+
+    return {
+      period: dto.period ?? 'year',
+      granularity,
+      from: from.toISOString(),
+      to: to.toISOString(),
+      byCategory: byCategory.map((item) => ({
+        ...item,
+        percentOfExpenses: grandTotal > 0 ? round1((item.total / grandTotal) * 100) : 0,
+      })),
+      evolutionSeries,
+      evolution,
+      topCategoryTrend,
+    };
+  }
+
+  private async computeMonthlyIncomeConsistency(userObjectId: Types.ObjectId): Promise<{
+    points: { month: string; total: number }[];
+    consistency: IncomeConsistency | null;
+  }> {
+    const now = new Date();
+    const lookbackMonths = 12;
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (lookbackMonths - 1), 1));
+
+    const rows = await this.transactionModel
+      .find({ userId: userObjectId, agendado: { $ne: true }, type: TransactionType.INCOME, date: { $gte: start } })
+      .select('value date')
+      .lean()
+      .exec();
+
+    const monthlyMap = new Map<string, number>();
+    for (let i = 0; i < lookbackMonths; i++) {
+      const bucketDate = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + i, 1));
+      monthlyMap.set(monthKey(bucketDate), 0);
+    }
+    for (const row of rows as unknown as { value: number; date: Date }[]) {
+      const key = monthKey(new Date(row.date));
+      if (monthlyMap.has(key)) {
+        monthlyMap.set(key, (monthlyMap.get(key) ?? 0) + row.value);
+      }
+    }
+
+    const points = Array.from(monthlyMap.entries()).map(([month, total]) => ({ month, total }));
+
+    const currentKey = monthKey(now);
+    const currentMonthTotal = monthlyMap.get(currentKey) ?? 0;
+    const otherMonthsWithData = points.filter((point) => point.month !== currentKey && point.total > 0);
+    const monthsWithData = otherMonthsWithData.length + (currentMonthTotal > 0 ? 1 : 0);
+
+    // Só faz sentido falar de "consistência" com pelo menos 3 meses de histórico real.
+    if (monthsWithData < 3) {
+      return { points, consistency: null };
+    }
+
+    const avgIncome = otherMonthsWithData.reduce((sum, point) => sum + point.total, 0) / otherMonthsWithData.length;
+
+    return {
+      points,
+      consistency: {
+        monthsWithData,
+        avgIncome,
+        currentMonthTotal,
+        variationPct: percentChange(currentMonthTotal, avgIncome),
+      },
+    };
+  }
+
+  // Fontes de renda (categoria como proxy) no período + consistência mês a mês (últimos 12
+  // meses fixos, independente do período selecionado — reflete a régua de tempo, não o filtro).
+  async getIncomeBreakdown(userId: string, dto: GetCashflowDto): Promise<IncomeBreakdownResult> {
+    const { from, to } = this.resolvePeriodRange(dto);
+    const userObjectId = new Types.ObjectId(userId);
+
+    const breakdown = await this.computeCategoryBreakdown(userObjectId, TransactionType.INCOME, from, to);
+    const grandTotal = breakdown.reduce((sum, item) => sum + item.total, 0);
+    const bySource = breakdown.map((item) => ({
+      ...item,
+      percentOfIncome: grandTotal > 0 ? round1((item.total / grandTotal) * 100) : 0,
+    }));
+
+    const { points, consistency } = await this.computeMonthlyIncomeConsistency(userObjectId);
+
+    return {
+      period: dto.period ?? 'year',
+      from: from.toISOString(),
+      to: to.toISOString(),
+      bySource,
+      monthlyConsistency: points,
+      consistency,
+    };
   }
 }

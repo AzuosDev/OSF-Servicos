@@ -32,6 +32,16 @@ export class InsightsController {
     return this.insightsService.getGoalsProgress(user._id.toString());
   }
 
+  @Get('expenses-breakdown')
+  async getExpensesBreakdown(@CurrentUser() user: ICurrentUser, @Query() query: GetCashflowDto) {
+    return this.insightsService.getExpensesBreakdown(user._id.toString(), query);
+  }
+
+  @Get('income-breakdown')
+  async getIncomeBreakdown(@CurrentUser() user: ICurrentUser, @Query() query: GetCashflowDto) {
+    return this.insightsService.getIncomeBreakdown(user._id.toString(), query);
+  }
+
   @Throttle(5, 60)
   @Get('annual-summary')
   async getAnnualSummary(@CurrentUser() user: ICurrentUser, @Query() query: GetAnnualSummaryDto) {

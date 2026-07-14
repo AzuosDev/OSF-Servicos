@@ -25,7 +25,13 @@ import { api } from "../lib/api";
 import { cn } from "../lib/utils";
 import { formatCurrency } from "../lib/finance";
 import { getApiErrorMessages } from "../lib/errors";
-import type { CashflowResult, GoalProgress, InsightsOverview } from "../types/api";
+import type {
+  CashflowResult,
+  ExpensesBreakdownResult,
+  GoalProgress,
+  IncomeBreakdownResult,
+  InsightsOverview,
+} from "../types/api";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: 5 }, (_, index) => CURRENT_YEAR - index);
@@ -199,11 +205,11 @@ function OverviewTab() {
   );
 }
 
-// ─── Aba Fluxo de Caixa ─────────────────────────────────────────────────────
+// ─── Filtro de período compartilhado (Fluxo de Caixa, Gastos, Ganhos) ──────
 
-type CashflowPeriod = "month" | "quarter" | "year" | "custom";
+type FilterPeriod = "month" | "quarter" | "year" | "custom";
 
-const CASHFLOW_PERIOD_LABELS: Record<CashflowPeriod, string> = {
+const PERIOD_LABELS: Record<FilterPeriod, string> = {
   month: "Mês",
   quarter: "Trimestre",
   year: "Ano",
@@ -223,8 +229,8 @@ function formatPointLabel(dateIso: string, granularity: CashflowResult["granular
   return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
 }
 
-function CashflowTab() {
-  const [period, setPeriod] = useState<CashflowPeriod>("year");
+function usePeriodFilter() {
+  const [period, setPeriod] = useState<FilterPeriod>("year");
   const [monthValue, setMonthValue] = useState(currentYYYYMM());
   const [quarter, setQuarter] = useState(Math.floor(new Date().getMonth() / 3) + 1);
   const [quarterYear, setQuarterYear] = useState(CURRENT_YEAR);
@@ -248,13 +254,130 @@ function CashflowTab() {
 
   const enabled = period !== "custom" || (customFrom.length > 0 && customTo.length > 0);
 
+  return {
+    period,
+    setPeriod,
+    monthValue,
+    setMonthValue,
+    quarter,
+    setQuarter,
+    quarterYear,
+    setQuarterYear,
+    year,
+    setYear,
+    customFrom,
+    setCustomFrom,
+    customTo,
+    setCustomTo,
+    params,
+    enabled,
+  };
+}
+
+type PeriodFilterState = ReturnType<typeof usePeriodFilter>;
+
+function PeriodFilterControls(filter: PeriodFilterState) {
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="flex w-fit gap-1 rounded-xl bg-bg-muted p-1">
+        {(Object.keys(PERIOD_LABELS) as FilterPeriod[]).map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => filter.setPeriod(option)}
+            className={cn(
+              "rounded-lg px-4 py-2 text-sm font-semibold transition",
+              filter.period === option ? "bg-accent-lime text-black" : "text-text-primary hover:bg-bg-overlay",
+            )}
+          >
+            {PERIOD_LABELS[option]}
+          </button>
+        ))}
+      </div>
+
+      {filter.period === "month" && (
+        <input
+          type="month"
+          value={filter.monthValue}
+          onChange={(event) => filter.setMonthValue(event.target.value)}
+          className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
+        />
+      )}
+
+      {filter.period === "quarter" && (
+        <>
+          <select
+            value={filter.quarter}
+            onChange={(event) => filter.setQuarter(Number(event.target.value))}
+            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
+          >
+            {[1, 2, 3, 4].map((q) => (
+              <option key={q} value={q}>
+                T{q}
+              </option>
+            ))}
+          </select>
+          <select
+            value={filter.quarterYear}
+            onChange={(event) => filter.setQuarterYear(Number(event.target.value))}
+            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
+          >
+            {YEAR_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+
+      {filter.period === "year" && (
+        <select
+          value={filter.year}
+          onChange={(event) => filter.setYear(Number(event.target.value))}
+          className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
+        >
+          {YEAR_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {filter.period === "custom" && (
+        <>
+          <input
+            type="date"
+            value={filter.customFrom}
+            onChange={(event) => filter.setCustomFrom(event.target.value)}
+            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
+          />
+          <span className="text-sm text-text-secondary">até</span>
+          <input
+            type="date"
+            value={filter.customTo}
+            onChange={(event) => filter.setCustomTo(event.target.value)}
+            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Aba Fluxo de Caixa ─────────────────────────────────────────────────────
+
+function CashflowTab() {
+  const filter = usePeriodFilter();
+
   const cashflowQuery = useQuery<CashflowResult>({
-    queryKey: ["insights-cashflow", params],
+    queryKey: ["insights-cashflow", filter.params],
     queryFn: async () => {
-      const { data } = await api.get<CashflowResult>("/api/insights/cashflow", { params });
+      const { data } = await api.get<CashflowResult>("/api/insights/cashflow", { params: filter.params });
       return data;
     },
-    enabled,
+    enabled: filter.enabled,
   });
 
   const errorMessages = cashflowQuery.error
@@ -270,93 +393,9 @@ function CashflowTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex w-fit gap-1 rounded-xl bg-bg-muted p-1">
-          {(Object.keys(CASHFLOW_PERIOD_LABELS) as CashflowPeriod[]).map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setPeriod(option)}
-              className={cn(
-                "rounded-lg px-4 py-2 text-sm font-semibold transition",
-                period === option ? "bg-accent-lime text-black" : "text-text-primary hover:bg-bg-overlay",
-              )}
-            >
-              {CASHFLOW_PERIOD_LABELS[option]}
-            </button>
-          ))}
-        </div>
+      <PeriodFilterControls {...filter} />
 
-        {period === "month" && (
-          <input
-            type="month"
-            value={monthValue}
-            onChange={(event) => setMonthValue(event.target.value)}
-            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
-          />
-        )}
-
-        {period === "quarter" && (
-          <>
-            <select
-              value={quarter}
-              onChange={(event) => setQuarter(Number(event.target.value))}
-              className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
-            >
-              {[1, 2, 3, 4].map((q) => (
-                <option key={q} value={q}>
-                  T{q}
-                </option>
-              ))}
-            </select>
-            <select
-              value={quarterYear}
-              onChange={(event) => setQuarterYear(Number(event.target.value))}
-              className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
-            >
-              {YEAR_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </>
-        )}
-
-        {period === "year" && (
-          <select
-            value={year}
-            onChange={(event) => setYear(Number(event.target.value))}
-            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
-          >
-            {YEAR_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        )}
-
-        {period === "custom" && (
-          <>
-            <input
-              type="date"
-              value={customFrom}
-              onChange={(event) => setCustomFrom(event.target.value)}
-              className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
-            />
-            <span className="text-sm text-text-secondary">até</span>
-            <input
-              type="date"
-              value={customTo}
-              onChange={(event) => setCustomTo(event.target.value)}
-              className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
-            />
-          </>
-        )}
-      </div>
-
-      {period === "custom" && !enabled && (
+      {filter.period === "custom" && !filter.enabled && (
         <p className="text-sm text-text-secondary">Escolha as duas datas para ver o fluxo de caixa.</p>
       )}
 
@@ -535,14 +574,242 @@ function GoalsTab() {
   );
 }
 
+// ─── Gráficos de categoria compartilhados (Gastos, Ganhos) ─────────────────
+
+const CATEGORY_COLORS = ["#A3E635", "#F97316", "#38BDF8", "#C084FC", "#FB7185"];
+const OUTROS_COLOR = "#6B7280";
+
+function seriesColor(name: string, index: number) {
+  return name === "Outros" ? OUTROS_COLOR : CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+}
+
+function CategoryBarChart({ data, color }: { data: { name: string; total: number }[]; color: string }) {
+  return (
+    <div className="h-72 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} layout="vertical" margin={{ left: 16, right: 16 }}>
+          <XAxis type="number" stroke="#9CA3AF" tickLine={false} axisLine={false} tickFormatter={formatCompact} />
+          <YAxis type="category" dataKey="name" stroke="#9CA3AF" tickLine={false} axisLine={false} width={100} tick={{ fontSize: 12 }} />
+          <Tooltip content={<ChartTooltip />} />
+          <Bar name="Total" dataKey="total" fill={color} radius={[0, 4, 4, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function CategoryEvolutionChart({ data, series }: { data: Record<string, string | number>[]; series: string[] }) {
+  return (
+    <div className="h-72 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" vertical={false} />
+          <XAxis dataKey="label" stroke="#9CA3AF" tickLine={false} axisLine={false} />
+          <YAxis stroke="#9CA3AF" tickLine={false} axisLine={false} tickFormatter={formatCompact} />
+          <Tooltip content={<ChartTooltip />} />
+          {series.map((name, index) => (
+            <Area
+              key={name}
+              type="monotone"
+              name={name}
+              dataKey={name}
+              stackId="1"
+              stroke={seriesColor(name, index)}
+              fill={seriesColor(name, index)}
+              fillOpacity={0.5}
+            />
+          ))}
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// ─── Aba Gastos ─────────────────────────────────────────────────────────────
+
+function GastosTab() {
+  const filter = usePeriodFilter();
+
+  const query = useQuery<ExpensesBreakdownResult>({
+    queryKey: ["insights-expenses-breakdown", filter.params],
+    queryFn: async () => {
+      const { data } = await api.get<ExpensesBreakdownResult>("/api/insights/expenses-breakdown", {
+        params: filter.params,
+      });
+      return data;
+    },
+    enabled: filter.enabled,
+  });
+
+  const errorMessages = query.error
+    ? getApiErrorMessages(query.error, "Não foi possível carregar os gastos agora.")
+    : [];
+
+  const result = query.data;
+  const distributionData = result?.byCategory.map((item) => ({ name: item.name, total: item.total }));
+  const evolutionData = result?.evolution.map((point) => ({
+    label: formatPointLabel(point.date, result.granularity),
+    ...point.values,
+  }));
+
+  const trend = result?.topCategoryTrend;
+  const showTrend = Boolean(trend && trend.momPct !== null && trend.momPct > 0);
+
+  return (
+    <div className="space-y-6">
+      <PeriodFilterControls {...filter} />
+
+      {filter.period === "custom" && !filter.enabled && (
+        <p className="text-sm text-text-secondary">Escolha as duas datas para ver os gastos.</p>
+      )}
+
+      {query.isLoading && (
+        <div className="flex items-center justify-center gap-2 rounded-2xl bg-bg-card p-8 text-sm text-text-secondary">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Carregando gastos...
+        </div>
+      )}
+
+      {query.isError && (
+        <div className="rounded-2xl border border-accent-red/40 bg-accent-red/10 p-4 text-sm text-accent-red">
+          {errorMessages.map((message) => (
+            <p key={message}>{message}</p>
+          ))}
+        </div>
+      )}
+
+      {result && distributionData && evolutionData && (
+        <>
+          {distributionData.length === 0 ? (
+            <div className="rounded-2xl border border-bg-muted bg-bg-card p-8 text-center text-sm text-text-secondary">
+              Nenhum gasto categorizado nesse período.
+            </div>
+          ) : (
+            <>
+              <div className="rounded-2xl bg-bg-card p-5">
+                <h2 className="mb-4 font-sans text-xl font-bold">Distribuição por categoria</h2>
+                <CategoryBarChart data={distributionData} color="#F97316" />
+              </div>
+
+              <div className="rounded-2xl bg-bg-card p-5">
+                <h2 className="mb-4 font-sans text-xl font-bold">Evolução por categoria</h2>
+                <CategoryEvolutionChart data={evolutionData} series={result.evolutionSeries} />
+              </div>
+            </>
+          )}
+
+          {showTrend && trend && (
+            <p className="rounded-2xl bg-bg-card p-4 text-sm text-text-secondary">
+              Categoria <strong className="text-text-primary">{trend.name}</strong> cresceu{" "}
+              {trend.momPct?.toFixed(1)}% em relação ao mês anterior.
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Aba Ganhos ─────────────────────────────────────────────────────────────
+
+function GanhosTab() {
+  const filter = usePeriodFilter();
+
+  const query = useQuery<IncomeBreakdownResult>({
+    queryKey: ["insights-income-breakdown", filter.params],
+    queryFn: async () => {
+      const { data } = await api.get<IncomeBreakdownResult>("/api/insights/income-breakdown", {
+        params: filter.params,
+      });
+      return data;
+    },
+    enabled: filter.enabled,
+  });
+
+  const errorMessages = query.error
+    ? getApiErrorMessages(query.error, "Não foi possível carregar os ganhos agora.")
+    : [];
+
+  const result = query.data;
+  const sourceData = result?.bySource.map((item) => ({ name: item.name, total: item.total }));
+  const consistencyData = result?.monthlyConsistency.map((point) => ({
+    label: formatMonthKey(point.month),
+    total: point.total,
+  }));
+
+  return (
+    <div className="space-y-6">
+      <PeriodFilterControls {...filter} />
+
+      {filter.period === "custom" && !filter.enabled && (
+        <p className="text-sm text-text-secondary">Escolha as duas datas para ver os ganhos.</p>
+      )}
+
+      {query.isLoading && (
+        <div className="flex items-center justify-center gap-2 rounded-2xl bg-bg-card p-8 text-sm text-text-secondary">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Carregando ganhos...
+        </div>
+      )}
+
+      {query.isError && (
+        <div className="rounded-2xl border border-accent-red/40 bg-accent-red/10 p-4 text-sm text-accent-red">
+          {errorMessages.map((message) => (
+            <p key={message}>{message}</p>
+          ))}
+        </div>
+      )}
+
+      {result && sourceData && consistencyData && (
+        <>
+          {sourceData.length === 0 ? (
+            <div className="rounded-2xl border border-bg-muted bg-bg-card p-8 text-center text-sm text-text-secondary">
+              Nenhuma renda categorizada nesse período.
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-bg-card p-5">
+              <h2 className="mb-4 font-sans text-xl font-bold">Fontes de renda</h2>
+              <CategoryBarChart data={sourceData} color="#A3E635" />
+            </div>
+          )}
+
+          <div className="rounded-2xl bg-bg-card p-5">
+            <h2 className="mb-4 font-sans text-xl font-bold">Consistência mês a mês</h2>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={consistencyData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" vertical={false} />
+                  <XAxis dataKey="label" stroke="#9CA3AF" tickLine={false} axisLine={false} />
+                  <YAxis stroke="#9CA3AF" tickLine={false} axisLine={false} tickFormatter={formatCompact} />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Bar name="Renda" dataKey="total" fill="#A3E635" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {result.consistency && (
+            <p className="rounded-2xl bg-bg-card p-4 text-sm text-text-secondary">
+              Sua renda variou {formatPct(result.consistency.variationPct)} em relação à média dos últimos{" "}
+              {result.consistency.monthsWithData} meses.
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Shell com abas ─────────────────────────────────────────────────────────
 
-type InsightsTab = "overview" | "cashflow" | "goals";
+type InsightsTab = "overview" | "cashflow" | "goals" | "gastos" | "ganhos";
 
 const TABS: { id: InsightsTab; label: string }[] = [
   { id: "overview", label: "Visão Geral" },
   { id: "cashflow", label: "Fluxo de Caixa" },
   { id: "goals", label: "Metas" },
+  { id: "gastos", label: "Gastos" },
+  { id: "ganhos", label: "Ganhos" },
 ];
 
 export function InsightsPage() {
@@ -577,6 +844,8 @@ export function InsightsPage() {
       {activeTab === "overview" && <OverviewTab />}
       {activeTab === "cashflow" && <CashflowTab />}
       {activeTab === "goals" && <GoalsTab />}
+      {activeTab === "gastos" && <GastosTab />}
+      {activeTab === "ganhos" && <GanhosTab />}
     </section>
   );
 }

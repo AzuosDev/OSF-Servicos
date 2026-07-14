@@ -9,6 +9,7 @@ import { InsightsModule } from './insights.module';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Transaction, TransactionDocument, TransactionType } from '../transactions/schemas/transaction.schema';
 import { Goal, GoalDocument } from '../goals/schemas/goal.schema';
+import { Category, CategoryDocument } from '../categories/schemas/category.schema';
 
 const FAKE_USER_ID = new Types.ObjectId().toString();
 
@@ -315,5 +316,181 @@ describe('InsightsController - goals-progress (e2e)', () => {
     expect(goal.pace.requiredMonthlyContribution).toBeNull();
     expect(goal.pace.onTrack).toBeNull();
     expect(Number.isFinite(goal.pace.avgMonthlyContribution)).toBe(true);
+  });
+});
+
+describe('InsightsController - expenses-breakdown (e2e)', () => {
+  let app: INestApplication;
+  let mongod: MongoMemoryServer;
+  let transactionModel: Model<TransactionDocument>;
+  let categoryModel: Model<CategoryDocument>;
+
+  beforeAll(async () => {
+    mongod = await MongoMemoryServer.create();
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true }),
+        MongooseModule.forRootAsync({ useFactory: () => ({ uri: mongod.getUri() }) }),
+        InsightsModule,
+      ],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({
+        canActivate: (context: ExecutionContext) => {
+          const req = context.switchToHttp().getRequest();
+          req.user = { _id: new Types.ObjectId(FAKE_USER_ID) };
+          return true;
+        },
+      })
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    await app.init();
+
+    transactionModel = app.get<Model<TransactionDocument>>(getModelToken(Transaction.name));
+    categoryModel = app.get<Model<CategoryDocument>>(getModelToken(Category.name));
+  }, 60000);
+
+  afterAll(async () => {
+    await app.close();
+    await mongod.stop();
+  });
+
+  afterEach(async () => {
+    await transactionModel.deleteMany({});
+    await categoryModel.deleteMany({});
+  });
+
+  it('agrupa por categoria e joga o restante em "Outros" quando há mais de 5 categorias', async () => {
+    const names = ['Alimentação', 'Transporte', 'Lazer', 'Saúde', 'Educação', 'Compras'];
+    const categories = await categoryModel.create(
+      names.map((name) => ({ name, slug: name.toLowerCase(), isDefault: false, isIncome: false })),
+    );
+    const totals = [600, 500, 400, 300, 200, 100];
+
+    await transactionModel.insertMany(
+      categories.map((category, index) =>
+        txn({ categoryId: category._id, value: totals[index], date: new Date('2026-03-10') }),
+      ),
+    );
+
+    const res = await request(app.getHttpServer())
+      .get('/api/insights/expenses-breakdown')
+      .query({ period: 'year', year: 2026 })
+      .expect(200);
+
+    expect(res.body.byCategory).toHaveLength(6);
+    expect(res.body.byCategory[0]).toMatchObject({ name: 'Alimentação', total: 600 });
+    expect(res.body.byCategory[0].percentOfExpenses).toBeCloseTo((600 / 2100) * 100, 1);
+
+    // Top 5 nomeadas + "Outros" pra Compras (a 6ª, menor categoria).
+    expect(res.body.evolutionSeries).toHaveLength(6);
+    expect(res.body.evolutionSeries).toContain('Outros');
+    expect(res.body.evolution).toHaveLength(12);
+
+    const marchBucket = res.body.evolution[2];
+    expect(marchBucket.values['Outros']).toBe(100);
+    expect(marchBucket.values['Alimentação']).toBe(600);
+  });
+
+  it('topCategoryTrend compara a maior categoria de gasto do mês atual com o mês anterior', async () => {
+    const category = await categoryModel.create({ name: 'Mercado', slug: 'mercado', isDefault: false, isIncome: false });
+    const smallCategory = await categoryModel.create({ name: 'Lazer', slug: 'lazer-2', isDefault: false, isIncome: false });
+
+    await transactionModel.insertMany([
+      txn({ categoryId: category._id, value: 300, date: monthsAgo(0) }),
+      txn({ categoryId: category._id, value: 200, date: monthsAgo(1) }),
+      txn({ categoryId: smallCategory._id, value: 10, date: monthsAgo(0) }),
+    ]);
+
+    const res = await request(app.getHttpServer()).get('/api/insights/expenses-breakdown').expect(200);
+
+    expect(res.body.topCategoryTrend).toMatchObject({ name: 'Mercado', currentMonthTotal: 300, previousMonthTotal: 200, momPct: 50 });
+  });
+});
+
+describe('InsightsController - income-breakdown (e2e)', () => {
+  let app: INestApplication;
+  let mongod: MongoMemoryServer;
+  let transactionModel: Model<TransactionDocument>;
+  let categoryModel: Model<CategoryDocument>;
+
+  beforeAll(async () => {
+    mongod = await MongoMemoryServer.create();
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true }),
+        MongooseModule.forRootAsync({ useFactory: () => ({ uri: mongod.getUri() }) }),
+        InsightsModule,
+      ],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({
+        canActivate: (context: ExecutionContext) => {
+          const req = context.switchToHttp().getRequest();
+          req.user = { _id: new Types.ObjectId(FAKE_USER_ID) };
+          return true;
+        },
+      })
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    await app.init();
+
+    transactionModel = app.get<Model<TransactionDocument>>(getModelToken(Transaction.name));
+    categoryModel = app.get<Model<CategoryDocument>>(getModelToken(Category.name));
+  }, 60000);
+
+  afterAll(async () => {
+    await app.close();
+    await mongod.stop();
+  });
+
+  afterEach(async () => {
+    await transactionModel.deleteMany({});
+    await categoryModel.deleteMany({});
+  });
+
+  it('bySource agrupa renda por categoria e calcula percentOfIncome', async () => {
+    const salario = await categoryModel.create({ name: 'Salário', slug: 'salario', isDefault: false, isIncome: true });
+    const freela = await categoryModel.create({ name: 'Freelance', slug: 'freelance', isDefault: false, isIncome: true });
+
+    await transactionModel.insertMany([
+      txn({ type: TransactionType.INCOME, categoryId: salario._id, value: 3000, date: new Date('2026-05-05') }),
+      txn({ type: TransactionType.INCOME, categoryId: freela._id, value: 1000, date: new Date('2026-05-10') }),
+    ]);
+
+    const res = await request(app.getHttpServer())
+      .get('/api/insights/income-breakdown')
+      .query({ period: 'year', year: 2026 })
+      .expect(200);
+
+    expect(res.body.bySource).toHaveLength(2);
+    expect(res.body.bySource[0]).toMatchObject({ name: 'Salário', total: 3000, percentOfIncome: 75 });
+    expect(res.body.bySource[1]).toMatchObject({ name: 'Freelance', total: 1000, percentOfIncome: 25 });
+  });
+
+  it('consistency vem null com menos de 3 meses de histórico de renda', async () => {
+    await transactionModel.insertMany([
+      txn({ type: TransactionType.INCOME, value: 2000, date: monthsAgo(0) }),
+    ]);
+
+    const res = await request(app.getHttpServer()).get('/api/insights/income-breakdown').expect(200);
+
+    expect(res.body.monthlyConsistency).toHaveLength(12);
+    expect(res.body.consistency).toBeNull();
+  });
+
+  it('consistency calcula variação sem NaN/Infinity com 3+ meses de histórico', async () => {
+    await transactionModel.insertMany([
+      txn({ type: TransactionType.INCOME, value: 2000, date: monthsAgo(0) }),
+      txn({ type: TransactionType.INCOME, value: 1000, date: monthsAgo(1) }),
+      txn({ type: TransactionType.INCOME, value: 1000, date: monthsAgo(2) }),
+    ]);
+
+    const res = await request(app.getHttpServer()).get('/api/insights/income-breakdown').expect(200);
+
+    expect(res.body.consistency).toMatchObject({ monthsWithData: 3, avgIncome: 1000, currentMonthTotal: 2000, variationPct: 100 });
+    expect(Number.isFinite(res.body.consistency.variationPct)).toBe(true);
   });
 });

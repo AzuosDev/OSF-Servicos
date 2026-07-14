@@ -289,6 +289,42 @@ export type GoalProgress = {
   pace: GoalPace;
 };
 
+export type CategoryBreakdownItem = {
+  categoryId: string | null;
+  name: string;
+  total: number;
+};
+
+export type ExpenseCategoryItem = CategoryBreakdownItem & { percentOfExpenses: number };
+export type IncomeSourceItem = CategoryBreakdownItem & { percentOfIncome: number };
+
+export type ExpensesBreakdownResult = {
+  period: "month" | "quarter" | "year" | "custom";
+  granularity: "day" | "week" | "month";
+  from: string;
+  to: string;
+  byCategory: ExpenseCategoryItem[];
+  evolutionSeries: string[];
+  evolution: { date: string; values: Record<string, number> }[];
+  topCategoryTrend: { name: string; currentMonthTotal: number; previousMonthTotal: number; momPct: number | null } | null;
+};
+
+export type IncomeConsistency = {
+  monthsWithData: number;
+  avgIncome: number;
+  currentMonthTotal: number;
+  variationPct: number | null;
+};
+
+export type IncomeBreakdownResult = {
+  period: "month" | "quarter" | "year" | "custom";
+  from: string;
+  to: string;
+  bySource: IncomeSourceItem[];
+  monthlyConsistency: { month: string; total: number }[];
+  consistency: IncomeConsistency | null;
+};
+
 export type ApiValidationError = {
   statusCode?: number;
   error?: string;
