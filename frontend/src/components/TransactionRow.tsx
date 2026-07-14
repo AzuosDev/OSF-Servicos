@@ -25,7 +25,7 @@ export const TransactionRow = memo(function TransactionRow({
   const category = resolvedCategory ?? {
     id: "uncategorized",
     name: transaction.type === "INCOME" ? "Ganho" : "Despesa",
-    color: transaction.type === "INCOME" ? "#A3E635" : "#6B7280",
+    color: transaction.type === "INCOME" ? "#11B7EA" : "#6B7280",
     icon: transaction.type === "INCOME" ? "TrendingUp" : "Receipt",
   };
   const isIncome = transaction.type === "INCOME";
