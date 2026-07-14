@@ -215,6 +215,8 @@ export type InsightsAnnualSummary = {
   noData: boolean;
 };
 
+export type InsightsAnnualAggregates = Omit<InsightsAnnualSummary, "narrative" | "narrativeUnavailable" | "noData">;
+
 export type InsightsOverview = {
   topCategoryThisMonth: {
     categoryId: string | null;

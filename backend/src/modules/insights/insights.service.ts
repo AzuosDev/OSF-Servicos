@@ -612,6 +612,15 @@ export class InsightsService {
     };
   }
 
+  // Ponto-no-tempo usado por seções sem filtro de período próprio (Metas, Carteiras) quando
+  // chamadas a partir do Relatório Personalizado: rebaseia as janelas fixas (12/6 meses) pro
+  // FIM do período escolhido, em vez de sempre "agora" — sem período (uso normal das abas),
+  // continua ancorado em "agora", igual antes.
+  private resolveReportAnchor(dto?: GetCashflowDto): { anchor: Date; bounded: boolean } {
+    const hasPeriod = Boolean(dto && (dto.period || dto.from || dto.to || dto.month || dto.quarter || dto.year));
+    return { anchor: hasPeriod ? this.resolvePeriodRange(dto!).to : new Date(), bounded: hasPeriod };
+  }
+
   // Entradas e saídas separadas ao longo do tempo. Busca as transações do período e faz o
   // bucketing em JS (não em $group no Mongo) pra reaproveitar a MESMA função de truncamento
   // tanto pros buckets quanto pras datas reais — evita divergência entre o range gerado e o
@@ -668,15 +677,16 @@ export class InsightsService {
 
   // Progresso de metas reconstruído a partir do histórico real de contribuições (transações
   // na categoria vinculada à meta), não só um snapshot estático de currentValue/targetValue.
-  async getGoalsProgress(userId: string): Promise<GoalProgress[]> {
+  async getGoalsProgress(userId: string, dto?: GetCashflowDto): Promise<GoalProgress[]> {
     const userObjectId = new Types.ObjectId(userId);
     const goals = await this.goalModel.find({ userId: userObjectId }).exec();
 
-    const now = new Date();
+    const { anchor, bounded } = this.resolveReportAnchor(dto);
     const chartMonths = 12;
-    const chartStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (chartMonths - 1), 1));
+    const chartStart = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() - (chartMonths - 1), 1));
     const paceMonths = 6;
-    const paceStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (paceMonths - 1), 1));
+    const paceStart = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() - (paceMonths - 1), 1));
+    const contributionsDateFilter = bounded ? { $gte: chartStart, $lte: anchor } : { $gte: chartStart };
 
     return Promise.all(
       goals.map(async (goal) => {
@@ -687,7 +697,7 @@ export class InsightsService {
               // Só EXPENSE conta como contribuição — mesmo filtro usado por incrementLinkedGoal/
               // decrementLinkedGoal em transactions.service.ts (só gasto na categoria vinculada
               // move o currentValue da meta).
-              .find({ userId: userObjectId, categoryId, type: TransactionType.EXPENSE, date: { $gte: chartStart } })
+              .find({ userId: userObjectId, categoryId, type: TransactionType.EXPENSE, date: contributionsDateFilter })
               .select('value date')
               .lean()
               .exec()) as unknown as { value: number; date: Date }[])
@@ -717,7 +727,7 @@ export class InsightsService {
           pace = { avgMonthlyContribution, monthsRemaining: null, requiredMonthlyContribution: null, onTrack: true };
         } else if (goal.deadline) {
           const remainingValue = Math.max(0, goal.targetValue - goal.currentValue);
-          const monthsRemaining = monthsBetween(now, goal.deadline);
+          const monthsRemaining = monthsBetween(anchor, goal.deadline);
           const requiredMonthlyContribution = monthsRemaining > 0 ? remainingValue / monthsRemaining : remainingValue;
           pace = {
             avgMonthlyContribution,
@@ -1057,15 +1067,15 @@ export class InsightsService {
   // mantém o custo baixo mesmo em carteiras com muitas transações acumuladas. Reaproveita
   // a MESMA fórmula de saldo de wallets.service.ts (wallet.saldo + net de carteiraId +
   // créditos de transferência em carteiraDestinoId), aplicada progressivamente no tempo.
-  async getWalletsEvolution(userId: string): Promise<WalletEvolution[]> {
+  async getWalletsEvolution(userId: string, dto?: GetCashflowDto): Promise<WalletEvolution[]> {
     const userObjectId = new Types.ObjectId(userId);
     const wallets = await this.walletModel.find({ userId: userObjectId }).sort({ createdAt: 1 }).exec();
 
-    const now = new Date();
+    const { anchor } = this.resolveReportAnchor(dto);
     const monthsBack = 12;
-    const chartStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (monthsBack - 1), 1));
+    const chartStart = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() - (monthsBack - 1), 1));
     const bucketEnds = Array.from({ length: monthsBack }, (_, index) => {
-      if (index === monthsBack - 1) return now;
+      if (index === monthsBack - 1) return anchor;
       return new Date(Date.UTC(chartStart.getUTCFullYear(), chartStart.getUTCMonth() + index + 1, 0, 23, 59, 59, 999));
     });
 

@@ -6,6 +6,7 @@ import {
   ArrowLeftRight,
   CalendarClock,
   Clock,
+  FileText,
   Landmark,
   Loader2,
   Repeat,
@@ -36,6 +37,7 @@ import type {
   ExpensesBreakdownResult,
   GoalProgress,
   IncomeBreakdownResult,
+  InsightsAnnualAggregates,
   InsightsOverview,
   WalletEvolution,
 } from "../types/api";
@@ -373,6 +375,8 @@ function OverviewTab({ onNavigateTab }: { onNavigateTab: (tab: InsightsTab) => v
           <ContasPreview onNavigate={() => onNavigateTab("contas")} />
         </>
       )}
+
+      <PersonalizedReportSection />
     </div>
   );
 }
@@ -540,6 +544,36 @@ function PeriodFilterControls(filter: PeriodFilterState) {
 
 // ─── Aba Fluxo de Caixa ─────────────────────────────────────────────────────
 
+function CashflowChart({ data }: { data: { label: string; income: number; expense: number }[] }) {
+  return (
+    <div className="rounded-2xl bg-bg-card p-5">
+      <h2 className="mb-4 font-sans text-xl font-bold">Entradas e saídas</h2>
+      <div className="h-72 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data}>
+            <defs>
+              <linearGradient id="cashflowIncomeGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#A3E635" stopOpacity={0.18} />
+                <stop offset="95%" stopColor="#A3E635" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="cashflowExpenseGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#F97316" stopOpacity={0.18} />
+                <stop offset="95%" stopColor="#F97316" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" vertical={false} />
+            <XAxis dataKey="label" stroke="#9CA3AF" tickLine={false} axisLine={false} />
+            <YAxis stroke="#9CA3AF" tickLine={false} axisLine={false} tickFormatter={formatCompact} />
+            <Tooltip content={<ChartTooltip />} />
+            <Area type="monotone" name="Entradas" dataKey="income" stroke="#A3E635" fill="url(#cashflowIncomeGradient)" strokeWidth={2} />
+            <Area type="monotone" name="Saídas" dataKey="expense" stroke="#F97316" fill="url(#cashflowExpenseGradient)" strokeWidth={2} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 function CashflowTab() {
   const filter = usePeriodFilter();
 
@@ -594,31 +628,7 @@ function CashflowTab() {
             <OverviewCard icon={ArrowLeftRight} iconClassName="text-accent-lime" label="Saldo do período" value={formatCurrency(result.totals.balance)} />
           </div>
 
-          <div className="rounded-2xl bg-bg-card p-5">
-            <h2 className="mb-4 font-sans text-xl font-bold">Entradas e saídas</h2>
-            <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="cashflowIncomeGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#A3E635" stopOpacity={0.18} />
-                      <stop offset="95%" stopColor="#A3E635" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="cashflowExpenseGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#F97316" stopOpacity={0.18} />
-                      <stop offset="95%" stopColor="#F97316" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" vertical={false} />
-                  <XAxis dataKey="label" stroke="#9CA3AF" tickLine={false} axisLine={false} />
-                  <YAxis stroke="#9CA3AF" tickLine={false} axisLine={false} tickFormatter={formatCompact} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Area type="monotone" name="Entradas" dataKey="income" stroke="#A3E635" fill="url(#cashflowIncomeGradient)" strokeWidth={2} />
-                  <Area type="monotone" name="Saídas" dataKey="expense" stroke="#F97316" fill="url(#cashflowExpenseGradient)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          <CashflowChart data={chartData} />
         </>
       )}
     </div>
@@ -884,6 +894,25 @@ function GastosTab() {
 
 // ─── Aba Ganhos ─────────────────────────────────────────────────────────────
 
+function IncomeConsistencyChart({ data }: { data: { label: string; total: number }[] }) {
+  return (
+    <div className="rounded-2xl bg-bg-card p-5">
+      <h2 className="mb-4 font-sans text-xl font-bold">Consistência mês a mês</h2>
+      <div className="h-64 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" vertical={false} />
+            <XAxis dataKey="label" stroke="#9CA3AF" tickLine={false} axisLine={false} />
+            <YAxis stroke="#9CA3AF" tickLine={false} axisLine={false} tickFormatter={formatCompact} />
+            <Tooltip content={<ChartTooltip />} />
+            <Bar name="Renda" dataKey="total" fill="#A3E635" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 function GanhosTab() {
   const filter = usePeriodFilter();
 
@@ -945,20 +974,7 @@ function GanhosTab() {
             </div>
           )}
 
-          <div className="rounded-2xl bg-bg-card p-5">
-            <h2 className="mb-4 font-sans text-xl font-bold">Consistência mês a mês</h2>
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={consistencyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" vertical={false} />
-                  <XAxis dataKey="label" stroke="#9CA3AF" tickLine={false} axisLine={false} />
-                  <YAxis stroke="#9CA3AF" tickLine={false} axisLine={false} tickFormatter={formatCompact} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Bar name="Renda" dataKey="total" fill="#A3E635" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          <IncomeConsistencyChart data={consistencyData} />
 
           {result.consistency && (
             <p className="rounded-2xl bg-bg-card p-4 text-sm text-text-secondary">
@@ -1085,6 +1101,41 @@ function monthKeyFromIso(iso: string) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+function WalletsChart({
+  wallets,
+  data,
+}: {
+  wallets: WalletEvolution[];
+  data: Record<string, string | number>[];
+}) {
+  return (
+    <div className="rounded-2xl bg-bg-card p-5">
+      <h2 className="mb-4 font-sans text-xl font-bold">Evolução de saldo</h2>
+      <div className="h-72 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" vertical={false} />
+            <XAxis dataKey="label" stroke="#9CA3AF" tickLine={false} axisLine={false} />
+            <YAxis stroke="#9CA3AF" tickLine={false} axisLine={false} tickFormatter={formatCompact} />
+            <Tooltip content={<ChartTooltip />} />
+            {wallets.map((wallet, index) => (
+              <Line
+                key={wallet.id}
+                type="monotone"
+                name={wallet.nome}
+                dataKey={wallet.nome}
+                stroke={seriesColor(wallet.nome, index)}
+                strokeWidth={2}
+                dot={false}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 function CarteirasTab() {
   const query = useQuery<WalletEvolution[]>({
     queryKey: ["insights-wallets-evolution"],
@@ -1148,32 +1199,571 @@ function CarteirasTab() {
             ))}
           </div>
 
-          <div className="rounded-2xl bg-bg-card p-5">
-            <h2 className="mb-4 font-sans text-xl font-bold">Evolução de saldo</h2>
-            <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" vertical={false} />
-                  <XAxis dataKey="label" stroke="#9CA3AF" tickLine={false} axisLine={false} />
-                  <YAxis stroke="#9CA3AF" tickLine={false} axisLine={false} tickFormatter={formatCompact} />
-                  <Tooltip content={<ChartTooltip />} />
-                  {wallets.map((wallet, index) => (
-                    <Line
-                      key={wallet.id}
-                      type="monotone"
-                      name={wallet.nome}
-                      dataKey={wallet.nome}
-                      stroke={seriesColor(wallet.nome, index)}
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          <WalletsChart wallets={wallets} data={chartData} />
         </>
       )}
+    </div>
+  );
+}
+
+// ─── Relatório Personalizado (aba Visão Geral) ─────────────────────────────
+
+type ReportSectionId = "cashflow" | "goals" | "gastos" | "ganhos" | "contas" | "carteiras" | "annual";
+
+const REPORT_SECTIONS: { id: ReportSectionId; label: string }[] = [
+  { id: "cashflow", label: "Fluxo de Caixa" },
+  { id: "goals", label: "Metas" },
+  { id: "gastos", label: "Gastos" },
+  { id: "ganhos", label: "Ganhos" },
+  { id: "contas", label: "Contas" },
+  { id: "carteiras", label: "Carteiras" },
+  { id: "annual", label: "Média Anual" },
+];
+
+type GeneratedReportConfig = {
+  sections: ReportSectionId[];
+  params: PeriodFilterState["params"];
+  year: number;
+};
+
+function ReportSectionCard({
+  title,
+  isLoading,
+  isError,
+  errorMessages,
+  loadingLabel,
+  children,
+}: {
+  title: string;
+  isLoading: boolean;
+  isError: boolean;
+  errorMessages: string[];
+  loadingLabel: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-4 rounded-2xl border border-border-default bg-bg-card p-5">
+      <h3 className="font-sans text-lg font-bold">{title}</h3>
+
+      {isLoading && (
+        <div className="flex items-center justify-center gap-2 rounded-xl bg-bg-muted p-6 text-sm text-text-secondary">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {loadingLabel}
+        </div>
+      )}
+
+      {isError && (
+        <div className="rounded-xl border border-accent-red/40 bg-accent-red/10 p-4 text-sm text-accent-red">
+          {errorMessages.map((message) => (
+            <p key={message}>{message}</p>
+          ))}
+        </div>
+      )}
+
+      {!isLoading && !isError && children}
+    </div>
+  );
+}
+
+function ReportCashflowSection({ params }: { params: PeriodFilterState["params"] }) {
+  const query = useQuery<CashflowResult>({
+    queryKey: ["report-cashflow", params],
+    queryFn: async () => {
+      const { data } = await api.get<CashflowResult>("/api/insights/cashflow", { params });
+      return data;
+    },
+  });
+
+  const errorMessages = query.error
+    ? getApiErrorMessages(query.error, "Não foi possível carregar o fluxo de caixa.")
+    : [];
+  const result = query.data;
+  const chartData = result?.points.map((point) => ({
+    label: formatPointLabel(point.date, result.granularity),
+    income: point.income,
+    expense: point.expense,
+  }));
+
+  return (
+    <ReportSectionCard
+      title="Fluxo de Caixa"
+      isLoading={query.isLoading}
+      isError={query.isError}
+      errorMessages={errorMessages}
+      loadingLabel="Carregando fluxo de caixa..."
+    >
+      {result && chartData && (
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <OverviewCard icon={ArrowLeftRight} iconClassName="text-accent-lime" label="Entradas" value={formatCurrency(result.totals.income)} />
+            <OverviewCard icon={ArrowLeftRight} iconClassName="text-accent-red" label="Saídas" value={formatCurrency(result.totals.expense)} />
+            <OverviewCard icon={ArrowLeftRight} iconClassName="text-accent-lime" label="Saldo" value={formatCurrency(result.totals.balance)} />
+          </div>
+          <CashflowChart data={chartData} />
+        </>
+      )}
+    </ReportSectionCard>
+  );
+}
+
+function ReportGoalsSection({ params }: { params: PeriodFilterState["params"] }) {
+  const query = useQuery<GoalProgress[]>({
+    queryKey: ["report-goals-progress", params],
+    queryFn: async () => {
+      const { data } = await api.get<GoalProgress[]>("/api/insights/goals-progress", { params });
+      return data;
+    },
+  });
+
+  const errorMessages = query.error
+    ? getApiErrorMessages(query.error, "Não foi possível carregar as metas.")
+    : [];
+  const goals = query.data ?? [];
+
+  return (
+    <ReportSectionCard
+      title="Metas"
+      isLoading={query.isLoading}
+      isError={query.isError}
+      errorMessages={errorMessages}
+      loadingLabel="Carregando metas..."
+    >
+      {goals.length === 0 ? (
+        <p className="text-sm text-text-secondary">Nenhuma meta cadastrada.</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {goals.map((goal) => (
+            <GoalCard key={goal.id} goal={goal} />
+          ))}
+        </div>
+      )}
+    </ReportSectionCard>
+  );
+}
+
+function ReportGastosSection({ params }: { params: PeriodFilterState["params"] }) {
+  const query = useQuery<ExpensesBreakdownResult>({
+    queryKey: ["report-expenses-breakdown", params],
+    queryFn: async () => {
+      const { data } = await api.get<ExpensesBreakdownResult>("/api/insights/expenses-breakdown", { params });
+      return data;
+    },
+  });
+
+  const errorMessages = query.error
+    ? getApiErrorMessages(query.error, "Não foi possível carregar os gastos.")
+    : [];
+  const result = query.data;
+  const distributionData = result?.byCategory.map((item) => ({ name: item.name, total: item.total }));
+  const evolutionData = result?.evolution.map((point) => ({
+    label: formatPointLabel(point.date, result.granularity),
+    ...point.values,
+  }));
+
+  return (
+    <ReportSectionCard
+      title="Gastos"
+      isLoading={query.isLoading}
+      isError={query.isError}
+      errorMessages={errorMessages}
+      loadingLabel="Carregando gastos..."
+    >
+      {result && distributionData && evolutionData && (
+        distributionData.length === 0 ? (
+          <p className="text-sm text-text-secondary">Nenhum gasto categorizado nesse período.</p>
+        ) : (
+          <>
+            <CategoryBarChart data={distributionData} color="#F97316" />
+            <CategoryEvolutionChart data={evolutionData} series={result.evolutionSeries} />
+          </>
+        )
+      )}
+    </ReportSectionCard>
+  );
+}
+
+function ReportGanhosSection({ params }: { params: PeriodFilterState["params"] }) {
+  const query = useQuery<IncomeBreakdownResult>({
+    queryKey: ["report-income-breakdown", params],
+    queryFn: async () => {
+      const { data } = await api.get<IncomeBreakdownResult>("/api/insights/income-breakdown", { params });
+      return data;
+    },
+  });
+
+  const errorMessages = query.error
+    ? getApiErrorMessages(query.error, "Não foi possível carregar os ganhos.")
+    : [];
+  const result = query.data;
+  const sourceData = result?.bySource.map((item) => ({ name: item.name, total: item.total }));
+  const consistencyData = result?.monthlyConsistency.map((point) => ({
+    label: formatMonthKey(point.month),
+    total: point.total,
+  }));
+
+  return (
+    <ReportSectionCard
+      title="Ganhos"
+      isLoading={query.isLoading}
+      isError={query.isError}
+      errorMessages={errorMessages}
+      loadingLabel="Carregando ganhos..."
+    >
+      {result && sourceData && consistencyData && (
+        <>
+          {sourceData.length === 0 ? (
+            <p className="text-sm text-text-secondary">Nenhuma renda categorizada nesse período.</p>
+          ) : (
+            <CategoryBarChart data={sourceData} color="#A3E635" />
+          )}
+          <IncomeConsistencyChart data={consistencyData} />
+          {result.consistency && (
+            <p className="text-sm text-text-secondary">
+              Renda variou {formatPct(result.consistency.variationPct)} em relação à média dos últimos{" "}
+              {result.consistency.monthsWithData} meses.
+            </p>
+          )}
+        </>
+      )}
+    </ReportSectionCard>
+  );
+}
+
+function ReportContasSection() {
+  const query = useQuery<AccountsOverview>({
+    queryKey: ["report-accounts-overview"],
+    queryFn: async () => {
+      const { data } = await api.get<AccountsOverview>("/api/insights/accounts-overview");
+      return data;
+    },
+  });
+
+  const errorMessages = query.error
+    ? getApiErrorMessages(query.error, "Não foi possível carregar as contas.")
+    : [];
+  const result = query.data;
+
+  return (
+    <ReportSectionCard
+      title="Contas"
+      isLoading={query.isLoading}
+      isError={query.isError}
+      errorMessages={errorMessages}
+      loadingLabel="Carregando contas..."
+    >
+      {result && (
+        <>
+          <p className="text-xs text-text-secondary">
+            Dados de hoje — esta seção não respeita o período escolhido no relatório.
+          </p>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <OverviewCard
+              icon={Clock}
+              iconClassName="text-accent-lime"
+              label="Pagas"
+              value={formatCurrency(result.paidVsPending.paidValue)}
+              secondary={`${result.paidVsPending.paidCount} conta(s)`}
+            />
+            <OverviewCard
+              icon={Clock}
+              iconClassName="text-accent-yellow"
+              label="Pendentes"
+              value={formatCurrency(result.paidVsPending.pendingValue)}
+              secondary={`${result.paidVsPending.pendingCount} conta(s)`}
+            />
+            <OverviewCard icon={Repeat} iconClassName="text-accent-lime" label="Recorrentes ativas" value={String(result.activeRecurringCount)} />
+          </div>
+
+          {result.overdue.count > 0 && (
+            <p className="rounded-xl border border-accent-red/40 bg-accent-red/10 p-3 text-sm text-accent-red">
+              {result.overdue.count} conta{result.overdue.count > 1 ? "s" : ""} em atraso somando{" "}
+              {formatCurrency(result.overdue.value)}.
+            </p>
+          )}
+
+          {result.installmentsInProgress.length > 0 && (
+            <div className="space-y-3">
+              {result.installmentsInProgress.map((item) => (
+                <InstallmentRow key={item.id} item={item} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </ReportSectionCard>
+  );
+}
+
+function ReportCarteirasSection({ params }: { params: PeriodFilterState["params"] }) {
+  const query = useQuery<WalletEvolution[]>({
+    queryKey: ["report-wallets-evolution", params],
+    queryFn: async () => {
+      const { data } = await api.get<WalletEvolution[]>("/api/insights/wallets-evolution", { params });
+      return data;
+    },
+  });
+
+  const errorMessages = query.error
+    ? getApiErrorMessages(query.error, "Não foi possível carregar as carteiras.")
+    : [];
+  const wallets = query.data ?? [];
+  const chartData = wallets[0]?.points.map((_, index) => {
+    const point: Record<string, string | number> = {
+      label: formatMonthKey(monthKeyFromIso(wallets[0].points[index].date)),
+    };
+    wallets.forEach((wallet) => {
+      point[wallet.nome] = wallet.points[index]?.balance ?? 0;
+    });
+    return point;
+  });
+
+  return (
+    <ReportSectionCard
+      title="Carteiras"
+      isLoading={query.isLoading}
+      isError={query.isError}
+      errorMessages={errorMessages}
+      loadingLabel="Carregando carteiras..."
+    >
+      {wallets.length === 0 ? (
+        <p className="text-sm text-text-secondary">Nenhuma carteira cadastrada.</p>
+      ) : (
+        chartData && (
+          <>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {wallets.map((wallet) => (
+                <OverviewCard key={wallet.id} icon={Landmark} iconClassName="text-accent-lime" label={wallet.nome} value={formatCurrency(wallet.currentBalance)} />
+              ))}
+            </div>
+            <WalletsChart wallets={wallets} data={chartData} />
+          </>
+        )
+      )}
+    </ReportSectionCard>
+  );
+}
+
+function ReportAnnualSection({ year }: { year: number }) {
+  const query = useQuery<InsightsAnnualAggregates>({
+    queryKey: ["report-annual-aggregates", year],
+    queryFn: async () => {
+      const { data } = await api.get<InsightsAnnualAggregates>("/api/insights/annual-aggregates", { params: { year } });
+      return data;
+    },
+  });
+
+  const errorMessages = query.error
+    ? getApiErrorMessages(query.error, "Não foi possível carregar a média anual.")
+    : [];
+  const result = query.data;
+
+  return (
+    <ReportSectionCard
+      title="Média Anual"
+      isLoading={query.isLoading}
+      isError={query.isError}
+      errorMessages={errorMessages}
+      loadingLabel="Carregando média anual..."
+    >
+      {result && (
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <OverviewCard
+              icon={ArrowLeftRight}
+              iconClassName="text-accent-lime"
+              label={`Renda média/mês (${result.year})`}
+              value={formatCurrency(result.current.avgMonthlyIncome)}
+              secondary={`${formatPct(result.yoyChange.incomePct)} vs ${result.previousYear}`}
+            />
+            <OverviewCard
+              icon={ArrowLeftRight}
+              iconClassName="text-accent-red"
+              label={`Gasto médio/mês (${result.year})`}
+              value={formatCurrency(result.current.avgMonthlyExpense)}
+              secondary={`${formatPct(result.yoyChange.expensePct)} vs ${result.previousYear}`}
+            />
+            <OverviewCard
+              icon={ArrowLeftRight}
+              iconClassName="text-accent-lime"
+              label="Saldo médio/mês"
+              value={formatCurrency(result.current.avgMonthlyBalance)}
+              secondary={`${formatPct(result.yoyChange.balancePct)} vs ${result.previousYear}`}
+            />
+          </div>
+
+          {result.topCategories.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold uppercase text-text-secondary">Maiores categorias do ano</h4>
+              {result.topCategories.map((category) => (
+                <div key={category.categoryId ?? category.name} className="flex items-center justify-between text-sm">
+                  <span>{category.name}</span>
+                  <span className="text-text-secondary">
+                    {formatCurrency(category.total)} · {category.percentOfExpenses.toFixed(1)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </ReportSectionCard>
+  );
+}
+
+function PersonalizedReportModal({
+  filter,
+  selected,
+  onToggleSection,
+  onClose,
+  onGenerate,
+}: {
+  filter: PeriodFilterState;
+  selected: Set<ReportSectionId>;
+  onToggleSection: (id: ReportSectionId) => void;
+  onClose: () => void;
+  onGenerate: () => void;
+}) {
+  const canGenerate = selected.size > 0 && filter.enabled;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button
+        type="button"
+        className="fixed inset-0 cursor-default bg-black/60"
+        onClick={onClose}
+        aria-hidden="true"
+        tabIndex={-1}
+      />
+      <div className="relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-bg-card p-6 shadow-xl">
+        <h2 className="font-sans text-xl font-bold">Relatório Personalizado</h2>
+        <p className="mt-1 text-sm text-text-secondary">Escolha o período e as seções que quer combinar no relatório.</p>
+
+        <div className="mt-5">
+          <PeriodFilterControls {...filter} />
+          {filter.period === "custom" && !filter.enabled && (
+            <p className="mt-2 text-sm text-text-secondary">Escolha as duas datas para gerar o relatório.</p>
+          )}
+        </div>
+
+        <div className="mt-5 space-y-2">
+          {REPORT_SECTIONS.map((section) => (
+            <label
+              key={section.id}
+              className="flex cursor-pointer items-center gap-3 rounded-xl bg-bg-muted px-4 py-3 text-sm font-medium text-text-primary"
+            >
+              <input
+                type="checkbox"
+                checked={selected.has(section.id)}
+                onChange={() => onToggleSection(section.id)}
+                className="h-4 w-4 shrink-0 accent-accent-lime"
+              />
+              {section.label}
+              {section.id === "contas" && <span className="ml-auto text-xs text-text-secondary">dados de hoje</span>}
+            </label>
+          ))}
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-border-default px-4 py-2 text-sm font-medium text-text-secondary transition hover:text-text-primary"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={!canGenerate}
+            onClick={onGenerate}
+            className="rounded-xl bg-accent-lime px-4 py-2 text-sm font-bold text-black transition disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Gerar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GeneratedReport({ config, onReset }: { config: GeneratedReportConfig; onReset: () => void }) {
+  return (
+    <div className="space-y-4 rounded-2xl border border-accent-lime/30 bg-bg-muted/40 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-sans text-xl font-bold">Relatório Personalizado</h2>
+        <button
+          type="button"
+          onClick={onReset}
+          className="text-sm font-medium text-text-secondary transition hover:text-text-primary"
+        >
+          Fechar relatório
+        </button>
+      </div>
+
+      {config.sections.includes("cashflow") && <ReportCashflowSection params={config.params} />}
+      {config.sections.includes("goals") && <ReportGoalsSection params={config.params} />}
+      {config.sections.includes("gastos") && <ReportGastosSection params={config.params} />}
+      {config.sections.includes("ganhos") && <ReportGanhosSection params={config.params} />}
+      {config.sections.includes("contas") && <ReportContasSection />}
+      {config.sections.includes("carteiras") && <ReportCarteirasSection params={config.params} />}
+      {config.sections.includes("annual") && <ReportAnnualSection year={config.year} />}
+    </div>
+  );
+}
+
+function PersonalizedReportSection() {
+  const filter = usePeriodFilter();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<ReportSectionId>>(new Set());
+  const [generatedConfig, setGeneratedConfig] = useState<GeneratedReportConfig | null>(null);
+
+  const toggleSection = (id: ReportSectionId) => {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const reportYear =
+    filter.period === "quarter"
+      ? filter.quarterYear
+      : filter.period === "custom"
+        ? filter.customTo
+          ? new Date(filter.customTo).getFullYear()
+          : CURRENT_YEAR
+        : filter.year;
+
+  const handleGenerate = () => {
+    setGeneratedConfig({ sections: Array.from(selected), params: filter.params, year: reportYear });
+    setModalOpen(false);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          className="flex items-center gap-2 rounded-xl border border-border-default px-4 py-2 text-sm font-semibold text-text-primary transition hover:border-accent-lime hover:text-accent-lime"
+        >
+          <FileText className="h-4 w-4" />
+          Relatório Personalizado
+        </button>
+      </div>
+
+      {modalOpen && (
+        <PersonalizedReportModal
+          filter={filter}
+          selected={selected}
+          onToggleSection={toggleSection}
+          onClose={() => setModalOpen(false)}
+          onGenerate={handleGenerate}
+        />
+      )}
+
+      {generatedConfig && <GeneratedReport config={generatedConfig} onReset={() => setGeneratedConfig(null)} />}
     </div>
   );
 }

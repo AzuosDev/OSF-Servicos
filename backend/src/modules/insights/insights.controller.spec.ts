@@ -154,6 +154,71 @@ describe('InsightsController - annual-summary (e2e)', () => {
   });
 });
 
+describe('InsightsController - annual-aggregates (e2e)', () => {
+  let app: INestApplication;
+  let mongod: MongoMemoryServer;
+  let transactionModel: Model<TransactionDocument>;
+
+  beforeAll(async () => {
+    mongod = await MongoMemoryServer.create();
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true }),
+        MongooseModule.forRootAsync({ useFactory: () => ({ uri: mongod.getUri() }) }),
+        InsightsModule,
+      ],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({
+        canActivate: (context: ExecutionContext) => {
+          const req = context.switchToHttp().getRequest();
+          req.user = { _id: new Types.ObjectId(FAKE_USER_ID) };
+          return true;
+        },
+      })
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    await app.init();
+
+    transactionModel = app.get<Model<TransactionDocument>>(getModelToken(Transaction.name));
+  }, 60000);
+
+  afterAll(async () => {
+    await app.close();
+    await mongod.stop();
+  });
+
+  afterEach(async () => {
+    await transactionModel.deleteMany({});
+  });
+
+  it('funciona isoladamente (sem IA) e devolve os mesmos números que annual-summary usa por baixo, sem narrative', async () => {
+    await transactionModel.insertMany([
+      txn({ type: TransactionType.INCOME, value: 3000, date: new Date('2026-01-10') }),
+      txn({ type: TransactionType.EXPENSE, value: 900, date: new Date('2026-01-20') }),
+    ]);
+
+    const res = await request(app.getHttpServer())
+      .get('/api/insights/annual-aggregates')
+      .query({ year: 2026 })
+      .expect(200);
+
+    expect(res.body.current.totalIncome).toBe(3000);
+    expect(res.body.current.totalExpense).toBe(900);
+    expect(res.body.current.monthsWithData).toBe(1);
+    expect(res.body.narrative).toBeUndefined();
+    expect(res.body.narrativeUnavailable).toBeUndefined();
+    expect(res.body.noData).toBeUndefined();
+  });
+
+  it('usa o ano corrente quando nenhum year é passado', async () => {
+    const res = await request(app.getHttpServer()).get('/api/insights/annual-aggregates').expect(200);
+
+    expect(res.body.year).toBe(new Date().getFullYear());
+  });
+});
+
 describe('InsightsController - cashflow (e2e)', () => {
   let app: INestApplication;
   let mongod: MongoMemoryServer;
@@ -331,6 +396,47 @@ describe('InsightsController - goals-progress (e2e)', () => {
     expect(goal.pace.requiredMonthlyContribution).toBeNull();
     expect(goal.pace.onTrack).toBeNull();
     expect(Number.isFinite(goal.pace.avgMonthlyContribution)).toBe(true);
+  });
+
+  it('com período (Relatório Personalizado), rebaseia as janelas de 12/6 meses pro FIM do período — não pra "agora" real', async () => {
+    const linkedCategoryId = new Types.ObjectId();
+
+    await goalModel.create({
+      userId: new Types.ObjectId(FAKE_USER_ID),
+      name: 'Viagem',
+      targetValue: 1000,
+      currentValue: 100,
+      // 89 dias de 2026-01-31 até 2026-04-30 => ceil(89/30) = 3 meses.
+      deadline: new Date('2026-04-30'),
+      completed: false,
+      linkedCategoryId,
+    });
+
+    await transactionModel.insertMany([
+      // Dentro do período (jan/2026): deve contar como contribuição.
+      txn({ type: TransactionType.EXPENSE, value: 100, categoryId: linkedCategoryId, date: new Date('2026-01-15') }),
+      // Depois do fim do período escolhido: NÃO deve contar, mesmo que já tenha acontecido de verdade.
+      txn({ type: TransactionType.EXPENSE, value: 900, categoryId: linkedCategoryId, date: new Date('2026-03-01') }),
+    ]);
+
+    const res = await request(app.getHttpServer())
+      .get('/api/insights/goals-progress')
+      .query({ period: 'month', year: 2026, month: 1 })
+      .expect(200);
+
+    const goal = res.body[0];
+    // Só a contribuição de janeiro conta — a de março (depois do fim do período) fica de fora.
+    expect(goal.pace.avgMonthlyContribution).toBe(100);
+    // monthsRemaining calculado a partir do FIM do período (2026-01-31), não da data real de hoje.
+    expect(goal.pace.monthsRemaining).toBe(3);
+    expect(goal.pace.requiredMonthlyContribution).toBe(300);
+    expect(goal.pace.onTrack).toBe(false);
+
+    const janBucket = goal.monthlyContributions.find((point: { month: string; amount: number }) => point.month === '2026-01');
+    expect(janBucket.amount).toBe(100);
+    // Nenhum bucket do gráfico (12 meses terminando em jan/2026) deve conter a contribuição de março.
+    const totalCharted = goal.monthlyContributions.reduce((sum: number, point: { amount: number }) => sum + point.amount, 0);
+    expect(totalCharted).toBe(100);
   });
 });
 
@@ -703,5 +809,28 @@ describe('InsightsController - wallets-evolution (e2e)', () => {
     // 500 (saldo inicial) + 200 (entrada) - 100 (saída) + 50 (crédito de transferência) = 650
     expect(walletResult.currentBalance).toBe(650);
     expect(walletResult.points[11].balance).toBe(650);
+  });
+
+  it('com período (Relatório Personalizado), rebaseia o bucketing de 12 meses pro FIM do período — ignora movimentos depois dele', async () => {
+    const wallet = await walletModel.create({ userId: new Types.ObjectId(FAKE_USER_ID), nome: 'Carteira A', saldo: 500 });
+
+    await transactionModel.insertMany([
+      // Dentro do período (jan/2026): deve contar.
+      txn({ type: TransactionType.INCOME, value: 200, carteiraId: wallet._id, date: new Date('2026-01-10') }),
+      txn({ type: TransactionType.EXPENSE, value: 100, carteiraId: wallet._id, date: new Date('2026-01-20') }),
+      // Depois do fim do período escolhido: não deve entrar no saldo do relatório.
+      txn({ type: TransactionType.INCOME, value: 1000, carteiraId: wallet._id, date: new Date('2026-03-01') }),
+    ]);
+
+    const res = await request(app.getHttpServer())
+      .get('/api/insights/wallets-evolution')
+      .query({ period: 'month', year: 2026, month: 1 })
+      .expect(200);
+
+    const walletResult = res.body.find((w: { id: string }) => w.id === wallet._id.toString());
+    expect(walletResult.points).toHaveLength(12);
+    // 500 (saldo inicial) + 200 (entrada) - 100 (saída) = 600 — sem a entrada de março.
+    expect(walletResult.currentBalance).toBe(600);
+    expect(walletResult.points[11].balance).toBe(600);
   });
 });

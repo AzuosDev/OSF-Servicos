@@ -28,8 +28,14 @@ export class InsightsController {
   }
 
   @Get('goals-progress')
-  async getGoalsProgress(@CurrentUser() user: ICurrentUser) {
-    return this.insightsService.getGoalsProgress(user._id.toString());
+  async getGoalsProgress(@CurrentUser() user: ICurrentUser, @Query() query: GetCashflowDto) {
+    return this.insightsService.getGoalsProgress(user._id.toString(), query);
+  }
+
+  @Get('annual-aggregates')
+  async getAnnualAggregates(@CurrentUser() user: ICurrentUser, @Query() query: GetAnnualSummaryDto) {
+    const year = query.year ?? new Date().getFullYear();
+    return this.insightsService.getAnnualAggregates(user._id.toString(), year);
   }
 
   @Get('expenses-breakdown')
@@ -48,8 +54,8 @@ export class InsightsController {
   }
 
   @Get('wallets-evolution')
-  async getWalletsEvolution(@CurrentUser() user: ICurrentUser) {
-    return this.insightsService.getWalletsEvolution(user._id.toString());
+  async getWalletsEvolution(@CurrentUser() user: ICurrentUser, @Query() query: GetCashflowDto) {
+    return this.insightsService.getWalletsEvolution(user._id.toString(), query);
   }
 
   @Throttle(5, 60)
