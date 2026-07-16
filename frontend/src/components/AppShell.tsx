@@ -1,6 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
-  Coins,
   LayoutDashboard,
   Receipt,
   ArrowLeftRight,
@@ -35,9 +34,11 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-bg-base text-text-primary">
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-bg-overlay bg-bg-card p-6 md:flex">
         <div className="mb-10 flex items-center gap-2">
-          <span className="grid h-9 w-9 place-items-center rounded-icon bg-accent-lime/10">
-            <Coins className="h-5 w-5 text-accent-lime" />
-          </span>
+          <img
+            src="/icons/icon.svg"
+            alt="AK LavaJato"
+            className="h-9 w-9 object-contain"
+          />
           <span className="font-sans text-lg font-bold tracking-tight">
             MeuGasto
           </span>

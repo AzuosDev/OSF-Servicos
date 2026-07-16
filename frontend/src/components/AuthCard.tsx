@@ -1,4 +1,3 @@
-import { Coins } from "lucide-react";
 import type { ReactNode } from "react";
 
 export function AuthCard({
@@ -17,9 +16,11 @@ export function AuthCard({
       <div className="mx-auto mt-20 w-full max-w-sm rounded-card bg-bg-card p-8 shadow-xl ring-1 ring-bg-overlay">
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="mb-3 flex items-center gap-2">
-            <span className="grid h-10 w-10 place-items-center rounded-icon bg-accent-lime/10">
-              <Coins className="h-5 w-5 text-accent-lime" />
-            </span>
+            <img
+              src="/icons/icon.svg"
+              alt="AK LavaJato"
+              className="h-10 w-10 object-contain"
+            />
             <span className="font-sans text-xl font-bold tracking-tight">
               MeuGasto
             </span>

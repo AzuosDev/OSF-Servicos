@@ -5,7 +5,6 @@ import {
   BarChart2,
   ChevronLeft,
   Clock,
-  Coins,
   Home,
   Landmark,
   LayoutDashboard,
@@ -201,11 +200,15 @@ function SidebarContent({
             <button
               type="button"
               onClick={onToggleCollapse}
-              className="shrink-0 text-accent-lime transition hover:opacity-75"
+              className="shrink-0 transition hover:opacity-75"
               aria-label={collapsed ? "Expandir menu lateral" : "Comprimir menu lateral"}
               title={collapsed ? "Expandir menu" : "Comprimir menu"}
             >
-              <Coins className="h-7 w-7" />
+              <img
+                src="/icons/icon.svg"
+                alt="AK LavaJato"
+                className="h-7 w-7 object-contain"
+              />
             </button>
             {!collapsed && (
               <Link
@@ -227,7 +230,11 @@ function SidebarContent({
             )}
             title={collapsed ? "MeuGasto" : undefined}
           >
-            <Coins className="h-7 w-7 shrink-0 text-accent-lime" />
+            <img
+              src="/icons/icon.svg"
+              alt="AK LavaJato"
+              className="h-7 w-7 shrink-0 object-contain"
+            />
             {!collapsed && <span className="truncate">MeuGasto</span>}
           </Link>
         )}

@@ -2,7 +2,6 @@ import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 
 import { AppLayout } from "./components/layout/AppLayout";
-import { LandingPage } from "./pages/LandingPage";
 import { ToastProvider } from "./components/ui/Toast";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -61,7 +60,7 @@ function RootRoute() {
   const { isLocked } = useAuth();
   const redirect = resolveAuthRedirect(getAccessToken(), isLocked);
 
-  return <Navigate to={redirect ?? "/landing"} replace />;
+  return <Navigate to={redirect ?? "/login"} replace />;
 }
 
 type BootStatus = 'booting' | 'ready' | 'offline';
@@ -127,7 +126,6 @@ export default function App() {
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<RootRoute />} />
-              <Route path="/landing" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/verify-email" element={<VerifyEmailPage />} />
