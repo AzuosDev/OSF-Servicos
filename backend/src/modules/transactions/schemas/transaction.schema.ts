@@ -41,6 +41,9 @@ export class Transaction {
   @Prop({ type: Types.ObjectId, ref: 'PendingAccount' })
   pendingAccountId?: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: 'Goal' })
+  goalId?: Types.ObjectId;
+
   @Prop({ type: Types.ObjectId, ref: 'Wallet' })
   carteiraId?: Types.ObjectId;
 

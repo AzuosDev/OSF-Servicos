@@ -63,6 +63,18 @@ export class TransactionsService {
         ? new Types.ObjectId(dto.carteiraId)
         : undefined;
 
+    let goalObjectId: Types.ObjectId | undefined;
+    if (dto.goalId) {
+      goalObjectId = this.toObjectId(dto.goalId, 'goalId');
+      const goal = await this.goalModel.findOne({ _id: goalObjectId, userId: userObjectId }).exec();
+      if (!goal) {
+        throw new BadRequestException('Invalid goal for this user');
+      }
+      if (goal.completed) {
+        throw new BadRequestException('Esta meta já foi concluída');
+      }
+    }
+
     const isScheduled = dto.date > new Date().toISOString().slice(0, 10);
 
     const transaction = await this.transactionModel.create({
@@ -73,6 +85,7 @@ export class TransactionsService {
       description: dto.description,
       date: new Date(dto.date),
       carteiraId: carteiraObjectId,
+      goalId: goalObjectId,
       agendado: isScheduled,
       fitId: dto.fitId ?? undefined,
     });
@@ -80,6 +93,10 @@ export class TransactionsService {
     if (!isScheduled) {
       if (dto.type === TransactionType.EXPENSE && categoryObjectId) {
         await this.incrementLinkedGoal(userObjectId, categoryObjectId, dto.value);
+      }
+
+      if (goalObjectId) {
+        await this.applyGoalContribution(goalObjectId, dto.value);
       }
 
       if (carteiraObjectId) {
@@ -104,6 +121,24 @@ export class TransactionsService {
 
   private async decrementLinkedGoal(userId: Types.ObjectId, categoryId: Types.ObjectId, amount: number) {
     const goal = await this.goalModel.findOne({ userId, linkedCategoryId: categoryId }).exec();
+    if (!goal) return;
+    goal.currentValue = Math.max(0, goal.currentValue - amount);
+    goal.completed = goal.currentValue >= goal.targetValue;
+    await goal.save();
+  }
+
+  // Contribuição direta a uma meta (dto.goalId), independente da vinculação por
+  // categoria já existente em incrementLinkedGoal/decrementLinkedGoal.
+  private async applyGoalContribution(goalId: Types.ObjectId, amount: number) {
+    const goal = await this.goalModel.findById(goalId).exec();
+    if (!goal) return;
+    goal.currentValue = Math.max(0, goal.currentValue + amount);
+    goal.completed = goal.currentValue >= goal.targetValue;
+    await goal.save();
+  }
+
+  private async revertGoalContribution(goalId: Types.ObjectId, amount: number) {
+    const goal = await this.goalModel.findById(goalId).exec();
     if (!goal) return;
     goal.currentValue = Math.max(0, goal.currentValue - amount);
     goal.completed = goal.currentValue >= goal.targetValue;
@@ -262,6 +297,10 @@ export class TransactionsService {
 
     if (transaction.type === TransactionType.EXPENSE && transaction.categoryId) {
       await this.decrementLinkedGoal(userObjectId, transaction.categoryId as Types.ObjectId, transaction.value);
+    }
+
+    if (!transaction.agendado && transaction.goalId) {
+      await this.revertGoalContribution(transaction.goalId as Types.ObjectId, transaction.value);
     }
 
     if (!transaction.agendado && transaction.carteiraId && transaction.type !== TransactionType.TRANSFER) {

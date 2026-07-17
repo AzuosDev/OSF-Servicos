@@ -16,6 +16,9 @@ export class Wallet {
 
   @Prop()
   icone?: string;
+
+  @Prop({ default: false })
+  fisica!: boolean;
 }
 
 export const WalletSchema = SchemaFactory.createForClass(Wallet);

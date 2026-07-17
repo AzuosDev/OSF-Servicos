@@ -7,6 +7,10 @@ import { CategoriesService } from '../categories/categories.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 
+// Verde já usado por "Serviços Prestados" nas categorias padrão — mantém o relatório de
+// ganhos consistente quando o usuário não escolhe uma cor na hora de cadastrar o serviço.
+const DEFAULT_SERVICE_COLOR = '#22C55E';
+
 @Injectable()
 export class ServicesService {
   constructor(
@@ -17,15 +21,16 @@ export class ServicesService {
 
   async create(userId: string, dto: CreateServiceDto) {
     const userObjectId = new Types.ObjectId(userId);
+    const color = dto.color ?? DEFAULT_SERVICE_COLOR;
 
     let category;
     try {
-      category = await this.categoriesService.create(userId, { name: dto.name }, true);
+      category = await this.categoriesService.create(userId, { name: dto.name, color }, true);
     } catch {
       // Nome de categoria já existe para este usuário (ex.: dois serviços com o mesmo nome) — desambigua com sufixo.
       category = await this.categoriesService.create(
         userId,
-        { name: `${dto.name} (${Date.now().toString(36)})` },
+        { name: `${dto.name} (${Date.now().toString(36)})`, color },
         true,
       );
     }
@@ -36,6 +41,7 @@ export class ServicesService {
       type: dto.type,
       defaultValue: dto.defaultValue,
       categoryId: category._id,
+      color,
     });
   }
 
@@ -63,6 +69,10 @@ export class ServicesService {
     if (typeof dto.type !== 'undefined') service.type = dto.type;
     if (typeof dto.defaultValue !== 'undefined') service.defaultValue = dto.defaultValue;
     if (typeof dto.active !== 'undefined') service.active = dto.active;
+    if (typeof dto.color !== 'undefined') {
+      service.color = dto.color;
+      await this.categoriesService.updateColor(userId, service.categoryId.toString(), dto.color);
+    }
     await service.save();
     return service;
   }

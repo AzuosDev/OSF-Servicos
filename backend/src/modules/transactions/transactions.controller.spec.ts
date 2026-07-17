@@ -7,6 +7,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { Model, Types } from 'mongoose';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Wallet } from '../wallets/schemas/wallet.schema';
+import { Goal } from '../goals/schemas/goal.schema';
 import { Transaction, TransactionType } from './schemas/transaction.schema';
 
 const FAKE_USER_ID = new Types.ObjectId().toString();
@@ -16,6 +17,7 @@ describe('TransactionsController (e2e)', () => {
   let mongod: MongoMemoryServer;
   let walletModel: Model<Wallet>;
   let transactionModel: Model<Transaction>;
+  let goalModel: Model<Goal>;
 
   beforeAll(async () => {
     mongod = await MongoMemoryServer.create();
@@ -44,6 +46,7 @@ describe('TransactionsController (e2e)', () => {
 
     walletModel = app.get<Model<Wallet>>(getModelToken(Wallet.name));
     transactionModel = app.get<Model<Transaction>>(getModelToken(Transaction.name));
+    goalModel = app.get<Model<Goal>>(getModelToken(Goal.name));
   });
 
   afterAll(async () => {
@@ -86,6 +89,63 @@ describe('TransactionsController (e2e)', () => {
     );
     expect(item).toBeDefined();
     expect(item!.carteira).toBeUndefined();
+  });
+
+  it('POST with goalId contributes the value to an open goal', async () => {
+    const userObjectId = new Types.ObjectId(FAKE_USER_ID);
+    const wallet = await walletModel.create({ userId: userObjectId, nome: 'Carteira meta', saldo: 0 });
+    const goal = await goalModel.create({ userId: userObjectId, name: 'Viagem', targetValue: 1000, currentValue: 200 });
+
+    const res = await request(app.getHttpServer())
+      .post('/api/transactions')
+      .send({ type: 'INCOME', value: 300, carteiraId: wallet._id.toString(), goalId: goal._id.toString(), date: '2026-02-05' })
+      .expect(201);
+
+    expect(res.body.goalId).toBe(goal._id.toString());
+
+    const updatedGoal = await goalModel.findById(goal._id).exec();
+    expect(updatedGoal!.currentValue).toBe(500);
+    expect(updatedGoal!.completed).toBe(false);
+  });
+
+  it('POST rejects a goalId that belongs to another user or does not exist', async () => {
+    const wallet = await walletModel.create({ userId: new Types.ObjectId(FAKE_USER_ID), nome: 'Carteira meta 2', saldo: 0 });
+    const foreignGoal = await goalModel.create({ userId: new Types.ObjectId(), name: 'Meta de outro usuário', targetValue: 100, currentValue: 0 });
+
+    await request(app.getHttpServer())
+      .post('/api/transactions')
+      .send({ type: 'INCOME', value: 50, carteiraId: wallet._id.toString(), goalId: foreignGoal._id.toString(), date: '2026-02-05' })
+      .expect(400);
+  });
+
+  it('POST rejects a goalId for a goal already completed', async () => {
+    const userObjectId = new Types.ObjectId(FAKE_USER_ID);
+    const wallet = await walletModel.create({ userId: userObjectId, nome: 'Carteira meta 3', saldo: 0 });
+    const goal = await goalModel.create({ userId: userObjectId, name: 'Meta concluída', targetValue: 100, currentValue: 100, completed: true });
+
+    await request(app.getHttpServer())
+      .post('/api/transactions')
+      .send({ type: 'INCOME', value: 50, carteiraId: wallet._id.toString(), goalId: goal._id.toString(), date: '2026-02-05' })
+      .expect(400);
+  });
+
+  it('DELETE reverts the goal contribution made by the transaction', async () => {
+    const userObjectId = new Types.ObjectId(FAKE_USER_ID);
+    const wallet = await walletModel.create({ userId: userObjectId, nome: 'Carteira meta 4', saldo: 0 });
+    const goal = await goalModel.create({ userId: userObjectId, name: 'Reserva', targetValue: 1000, currentValue: 100 });
+
+    const created = await request(app.getHttpServer())
+      .post('/api/transactions')
+      .send({ type: 'INCOME', value: 150, carteiraId: wallet._id.toString(), goalId: goal._id.toString(), date: '2026-02-05' })
+      .expect(201);
+
+    let updatedGoal = await goalModel.findById(goal._id).exec();
+    expect(updatedGoal!.currentValue).toBe(250);
+
+    await request(app.getHttpServer()).delete(`/api/transactions/${created.body._id}`).expect(200);
+
+    updatedGoal = await goalModel.findById(goal._id).exec();
+    expect(updatedGoal!.currentValue).toBe(100);
   });
 
   it('PATCH /bulk-wallet associates legacy transactions and updates wallet saldo by net impact', async () => {

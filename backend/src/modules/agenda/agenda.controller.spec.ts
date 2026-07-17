@@ -137,4 +137,57 @@ describe('AgendaController (e2e)', () => {
     expect(clientNames).toContain('João Silva');
     expect(clientNames).not.toContain('Ana Paula');
   });
+
+  it('PATCH /:id/cancel refunds already-paid payments by deleting their transactions and zeroing totalPaid', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/appointments')
+      .send({
+        serviceId,
+        clientName: 'Roberta Alves',
+        startAt: '2026-07-18T09:00:00.000Z',
+        durationMinutes: 60,
+        chargedValue: 150,
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/appointments/${created.body._id}/payments`)
+      .send({ method: 'PIX', value: 150 })
+      .expect(201);
+
+    const paidTransactions = await transactionModel.find({ description: 'Pagamento - Roberta Alves' }).exec();
+    expect(paidTransactions).toHaveLength(1);
+
+    const cancelled = await request(app.getHttpServer())
+      .patch(`/api/appointments/${created.body._id}/cancel`)
+      .expect(200);
+
+    expect(cancelled.body.status).toBe('CANCELADO');
+    expect(cancelled.body.totalPaid).toBe(0);
+    expect(cancelled.body.paymentStatus).toBe('NAO_PAGO');
+    expect(cancelled.body.payments).toHaveLength(0);
+
+    const remainingTransactions = await transactionModel.find({ description: 'Pagamento - Roberta Alves' }).exec();
+    expect(remainingTransactions).toHaveLength(0);
+  });
+
+  it('PATCH /:id/cancel is a no-op on payments when the appointment was never paid', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/appointments')
+      .send({
+        serviceId,
+        clientName: 'Fernando Costa',
+        startAt: '2026-07-18T11:00:00.000Z',
+        durationMinutes: 60,
+      })
+      .expect(201);
+
+    const cancelled = await request(app.getHttpServer())
+      .patch(`/api/appointments/${created.body._id}/cancel`)
+      .expect(200);
+
+    expect(cancelled.body.status).toBe('CANCELADO');
+    expect(cancelled.body.totalPaid).toBe(0);
+    expect(cancelled.body.payments).toHaveLength(0);
+  });
 });

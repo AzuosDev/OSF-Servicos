@@ -135,4 +135,59 @@ describe('WalletsController (e2e)', () => {
     const orphanEntry = (res.body as Array<{ _id: string }>).find((w) => w._id === orphanWalletId.toString());
     expect(orphanEntry).toBeUndefined();
   });
+
+  it('POST with an initial saldo makes that value show up in GET / and GET /:id right away', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/wallets')
+      .send({ nome: 'Carteira com saldo inicial', saldo: 250 })
+      .expect(201);
+
+    const listRes = await request(app.getHttpServer()).get('/api/wallets').expect(200);
+    const listed = (listRes.body as Array<{ _id: string; saldo: number }>).find((w) => w._id === created.body._id);
+    expect(listed?.saldo).toBe(250);
+
+    const oneRes = await request(app.getHttpServer()).get(`/api/wallets/${created.body._id}`).expect(200);
+    expect(oneRes.body.saldo).toBe(250);
+    expect(oneRes.body.transactions).toHaveLength(1);
+    expect(oneRes.body.transactions[0].description).toBe('Saldo inicial');
+  });
+
+  it('POST with fisica:true marks the wallet as physical (cash), defaulting to false otherwise', async () => {
+    const physical = await request(app.getHttpServer())
+      .post('/api/wallets')
+      .send({ nome: 'Carteira física', fisica: true })
+      .expect(201);
+    expect(physical.body.fisica).toBe(true);
+
+    const digital = await request(app.getHttpServer())
+      .post('/api/wallets')
+      .send({ nome: 'Carteira digital' })
+      .expect(201);
+    expect(digital.body.fisica).toBe(false);
+  });
+
+  it('PATCH updates fisica independently of other fields', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/wallets')
+      .send({ nome: 'Carteira a converter' })
+      .expect(201);
+    expect(created.body.fisica).toBe(false);
+
+    const updated = await request(app.getHttpServer())
+      .patch(`/api/wallets/${created.body._id}`)
+      .send({ fisica: true })
+      .expect(200);
+    expect(updated.body.fisica).toBe(true);
+  });
+
+  it('POST without an initial saldo (or zero) creates no synthetic transaction', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/wallets')
+      .send({ nome: 'Carteira sem saldo inicial' })
+      .expect(201);
+
+    const oneRes = await request(app.getHttpServer()).get(`/api/wallets/${created.body._id}`).expect(200);
+    expect(oneRes.body.saldo).toBe(0);
+    expect(oneRes.body.transactions).toHaveLength(0);
+  });
 });

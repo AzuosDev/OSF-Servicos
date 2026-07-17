@@ -11,7 +11,7 @@ import { Analytics } from "@vercel/analytics/react"
 
 const BudgetPage = lazy(() => import("./pages/BudgetPage").then((m) => ({ default: m.BudgetPage })));
 const DashboardPage = lazy(() => import("./pages/DashboardPage").then((m) => ({ default: m.DashboardPage })));
-const ExpensesPage = lazy(() => import("./pages/ExpensesPage").then((m) => ({ default: m.ExpensesPage })));
+const ResumoPage = lazy(() => import("./pages/ResumoPage").then((m) => ({ default: m.ResumoPage })));
 const GoalsPage = lazy(() => import("./pages/GoalsPage").then((m) => ({ default: m.GoalsPage })));
 const InsightsPage = lazy(() => import("./pages/InsightsPage").then((m) => ({ default: m.InsightsPage })));
 const ContasPage = lazy(() => import("./pages/ContasPage").then((m) => ({ default: m.ContasPage })));
@@ -144,7 +144,8 @@ export default function App() {
                   <Route path="/contas-a-receber" element={<ContasReceberPage />} />
                   <Route path="/relatorios" element={<RelatoriosPage />} />
                   <Route path="/insights" element={<InsightsPage />} />
-                  <Route path="/expenses" element={<ExpensesPage />} />
+                  <Route path="/resumo" element={<ResumoPage />} />
+                  <Route path="/expenses" element={<Navigate to="/resumo" replace />} />
                   <Route path="/transactions" element={<TransactionsPage />} />
                   <Route path="/budget" element={<BudgetPage />} />
                   <Route path="/goals" element={<GoalsPage />} />

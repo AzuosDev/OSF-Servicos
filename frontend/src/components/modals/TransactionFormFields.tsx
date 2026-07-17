@@ -176,6 +176,57 @@ export function useWallets() {
   });
 }
 
+export function useOpenGoals() {
+  return useQuery<Array<{ id: string; name: string; completed: boolean }>>({
+    queryKey: ["goals"],
+    queryFn: async () => {
+      const { data } = await api.get<unknown>("/api/goals");
+      const source = Array.isArray(data) ? data : [];
+      return source
+        .map((item: Record<string, unknown>) => ({
+          id: String(item.id ?? item._id ?? ""),
+          name: String(item.name ?? ""),
+          completed: Boolean(item.completed),
+        }))
+        .filter((goal) => goal.id && !goal.completed);
+    },
+  });
+}
+
+export function GoalField({
+  goals,
+  value,
+  onChange,
+  loading,
+}: {
+  goals: Array<{ id: string; name: string }>;
+  value?: string;
+  onChange: (id: string) => void;
+  loading: boolean;
+}) {
+  if (!loading && goals.length === 0) return null;
+
+  return (
+    <div>
+      <span className="mb-2 block text-sm text-text-secondary">Direcionar para uma meta (opcional)</span>
+      {loading ? (
+        <div className="h-12 animate-pulse rounded-xl bg-bg-muted" />
+      ) : (
+        <select
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-lime"
+        >
+          <option value="">Nenhuma meta</option>
+          {goals.map((goal) => (
+            <option key={goal.id} value={goal.id}>{goal.name}</option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
+
 export function WalletField({
   wallets,
   value,

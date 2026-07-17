@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarCheck, ChevronLeft, Loader2, Plus } from "lucide-react";
+import { CalendarCheck, CalendarDays, ChevronDown, ChevronLeft, ChevronUp, Loader2, Plus } from "lucide-react";
 
 import { api } from "../../lib/api";
 import { formatCurrency } from "../../lib/finance";
@@ -14,6 +14,7 @@ import {
 } from "../../lib/agenda";
 import { CurrencyInput } from "../ui/CurrencyInput";
 import { DurationPicker } from "../agenda/DurationPicker";
+import { MonthCalendar } from "../agenda/MonthCalendar";
 import { ModalShell } from "./ModalShell";
 import { ServiceFormModal } from "./ServiceFormModal";
 import { cn } from "../../lib/utils";
@@ -52,6 +53,8 @@ export function AppointmentWizardModal({
   const [clientPhone, setClientPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [serviceModalOpen, setServiceModalOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() => new Date());
 
   useEffect(() => {
     if (!open) return;
@@ -65,6 +68,8 @@ export function AppointmentWizardModal({
     setClientPhone("");
     setError(null);
     setServiceModalOpen(false);
+    setCalendarOpen(false);
+    setCalendarMonth(new Date());
   }, [open, initialDate]);
 
   const candidateDays = useMemo(() => nextCandidateDays(14), []);
@@ -230,30 +235,51 @@ export function AppointmentWizardModal({
       )}
 
       {step === 2 && (
-        <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
-          {candidateDays.map((day) => {
-            const key = toDateKey(day);
-            const full = dayFullnessQuery.data?.[key];
-            return (
-              <button
-                key={key}
-                type="button"
-                disabled={full}
-                onClick={() => selectDate(key)}
-                className={cn(
-                  "flex flex-col items-center gap-0.5 rounded-xl px-1 py-2.5 transition",
-                  full
-                    ? "cursor-not-allowed bg-bg-muted/40 text-text-muted opacity-50"
-                    : "bg-bg-muted text-white hover:bg-bg-overlay",
-                )}
-              >
-                <span className="text-[10px] font-semibold uppercase">{formatWeekdayShort(day)}</span>
-                <span className="text-base font-bold">{day.getUTCDate()}</span>
-                {isToday(day) && <span className="text-[9px] text-accent-lime">Hoje</span>}
-                {full && <span className="text-[9px] text-accent-red">Cheio</span>}
-              </button>
-            );
-          })}
+        <div className="space-y-3">
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+            {candidateDays.map((day) => {
+              const key = toDateKey(day);
+              const full = dayFullnessQuery.data?.[key];
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  disabled={full}
+                  onClick={() => selectDate(key)}
+                  className={cn(
+                    "flex flex-col items-center gap-0.5 rounded-xl px-1 py-2.5 transition",
+                    full
+                      ? "cursor-not-allowed bg-bg-muted/40 text-text-muted opacity-50"
+                      : "bg-bg-muted text-white hover:bg-bg-overlay",
+                  )}
+                >
+                  <span className="text-[10px] font-semibold uppercase">{formatWeekdayShort(day)}</span>
+                  <span className="text-base font-bold">{day.getUTCDate()}</span>
+                  {isToday(day) && <span className="text-[9px] text-accent-lime">Hoje</span>}
+                  {full && <span className="text-[9px] text-accent-red">Cheio</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setCalendarOpen((v) => !v)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-bg-muted px-4 py-2.5 text-sm font-semibold text-text-secondary transition hover:border-accent-lime hover:text-accent-lime"
+          >
+            <CalendarDays className="h-4 w-4" />
+            Ver calendário completo
+            {calendarOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+
+          {calendarOpen && (
+            <MonthCalendar
+              monthAnchor={calendarMonth}
+              selectedDate={dateKey}
+              onSelectDate={selectDate}
+              onMonthChange={setCalendarMonth}
+            />
+          )}
         </div>
       )}
 

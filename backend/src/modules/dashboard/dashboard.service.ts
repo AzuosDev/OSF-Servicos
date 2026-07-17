@@ -5,6 +5,7 @@ import { Transaction, TransactionDocument, TransactionType } from '../transactio
 import { PendingAccount, PendingAccountDocument } from '../pending/schemas/pending-account.schema';
 import { Goal, GoalDocument } from '../goals/schemas/goal.schema';
 import { GetDashboardDto } from './dto/get-dashboard.dto';
+import { GetCategoryBreakdownDto } from './dto/get-category-breakdown.dto';
 
 @Injectable()
 export class DashboardService {
@@ -211,6 +212,82 @@ export class DashboardService {
         totalPending,
       },
       goalsSummary,
+    };
+  }
+
+  private resolveBreakdownRange(query: GetCategoryBreakdownDto): { startDate: Date; endDate: Date } {
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+    if (query.period === 'daily') {
+      const day = query.date ? new Date(`${query.date}T00:00:00.000Z`) : today;
+      const endDate = new Date(day);
+      endDate.setUTCHours(23, 59, 59, 999);
+      return { startDate: day, endDate };
+    }
+
+    if (query.period === 'weekly') {
+      const anchor = query.date ? new Date(`${query.date}T00:00:00.000Z`) : today;
+      const dow = anchor.getUTCDay(); // 0 = domingo
+      const sunday = new Date(anchor);
+      sunday.setUTCDate(anchor.getUTCDate() - dow);
+      const saturday = new Date(sunday);
+      saturday.setUTCDate(sunday.getUTCDate() + 6);
+      saturday.setUTCHours(23, 59, 59, 999);
+      return { startDate: sunday, endDate: saturday };
+    }
+
+    if (query.period === 'yearly') {
+      const year = query.year ?? now.getUTCFullYear();
+      return {
+        startDate: new Date(Date.UTC(year, 0, 1, 0, 0, 0)),
+        endDate: new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999)),
+      };
+    }
+
+    // monthly
+    const year = query.year ?? now.getUTCFullYear();
+    const month = query.month ?? now.getUTCMonth() + 1;
+    return {
+      startDate: new Date(Date.UTC(year, month - 1, 1, 0, 0, 0)),
+      endDate: new Date(Date.UTC(year, month, 0, 23, 59, 59, 999)),
+    };
+  }
+
+  async getCategoryBreakdown(userId: string, query: GetCategoryBreakdownDto) {
+    const userObjectId = new Types.ObjectId(userId);
+    const { startDate, endDate } = this.resolveBreakdownRange(query);
+
+    const items = await this.transactionModel
+      .aggregate([
+        { $match: { userId: userObjectId, type: query.type, date: { $gte: startDate, $lte: endDate } } },
+        { $group: { _id: '$categoryId', total: { $sum: '$value' } } },
+        {
+          $lookup: {
+            from: 'categories',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'category',
+          },
+        },
+        { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            categoryId: '$_id',
+            categoryName: { $ifNull: ['$category.name', 'Sem categoria'] },
+            categoryColor: { $ifNull: ['$category.color', '#6B7280'] },
+            categoryIcon: { $ifNull: ['$category.icon', 'Receipt'] },
+            total: 1,
+          },
+        },
+        { $sort: { total: -1 } },
+      ])
+      .exec();
+
+    return {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      items,
     };
   }
 }

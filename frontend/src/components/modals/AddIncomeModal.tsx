@@ -75,7 +75,7 @@ export function AddIncomeModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["category-breakdown"] });
       queryClient.invalidateQueries({ queryKey: ["wallets"] });
       onClose();
     },

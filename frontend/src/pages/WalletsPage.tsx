@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Loader2, Eye, EyeOff, Trash2, FileUp } from "lucide-react";
+import { Plus, Loader2, Eye, EyeOff, Trash2, FileUp, Banknote } from "lucide-react";
 import { useShowValues } from "../hooks/useShowValues";
 
 import { api } from "../lib/api";
@@ -45,6 +45,7 @@ export function WalletsPage() {
   const [nome, setNome] = useState("");
   const [saldo, setSaldo] = useState(0);
   const [icone, setIcone] = useState("🏦");
+  const [fisica, setFisica] = useState(false);
 
   const { data: wallets = [], isLoading } = useQuery<Wallet[]>({
     queryKey: ["wallets"],
@@ -60,6 +61,7 @@ export function WalletsPage() {
         nome: nome.trim(),
         saldo,
         icone: icone || "🏦",
+        fisica,
       });
     },
     onSuccess: () => {
@@ -69,6 +71,7 @@ export function WalletsPage() {
       setNome("");
       setSaldo(0);
       setIcone("🏦");
+      setFisica(false);
     },
   });
 
@@ -206,9 +209,20 @@ export function WalletsPage() {
               </label>
             </div>
           </div>
+
+          <label className="flex items-center gap-2 text-sm text-text-secondary">
+            <input
+              type="checkbox"
+              checked={fisica}
+              onChange={(e) => setFisica(e.target.checked)}
+              className="h-4 w-4 rounded border-bg-muted bg-bg-muted accent-accent-lime"
+            />
+            Carteira física (dinheiro em espécie)
+          </label>
+
           <div className="flex gap-3">
             <button
-              onClick={() => { setShowForm(false); setIsCustomBank(false); setNome(""); setSaldo(0); setIcone("🏦"); }}
+              onClick={() => { setShowForm(false); setIsCustomBank(false); setNome(""); setSaldo(0); setIcone("🏦"); setFisica(false); }}
               className="flex-1 rounded-xl border border-bg-muted py-3 text-sm font-bold transition hover:bg-bg-muted"
             >
               Cancelar
@@ -263,7 +277,18 @@ export function WalletsPage() {
                   to={`/carteiras/${wallet._id}`}
                   className="flex flex-col gap-3 rounded-2xl bg-bg-card p-5 transition hover:bg-bg-muted"
                 >
-                  <BankLogo nome={wallet.nome} icone={wallet.icone} className="h-10 w-10" />
+                  <div className="flex items-center gap-2">
+                    <BankLogo nome={wallet.nome} icone={wallet.icone} className="h-10 w-10" />
+                    {wallet.fisica && (
+                      <span
+                        title="Carteira física (dinheiro em espécie)"
+                        className="flex items-center gap-1 rounded-full bg-accent-lime/10 px-2 py-0.5 text-[11px] font-semibold text-accent-lime"
+                      >
+                        <Banknote className="h-3 w-3" />
+                        Físico
+                      </span>
+                    )}
+                  </div>
                   <div>
                     <p className="text-sm text-text-secondary">{wallet.nome}</p>
                     <strong className={cn("font-sans text-2xl font-bold", wallet.saldo < 0 ? "text-accent-red" : "text-accent-lime")}>

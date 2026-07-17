@@ -69,6 +69,44 @@ export function isToday(date: Date): boolean {
   return toDateKey(date) === toDateKey(new Date());
 }
 
+export function isPastDay(date: Date): boolean {
+  return toDateKey(date) < toDateKey(new Date());
+}
+
+export function isSameMonth(date: Date, monthAnchor: Date): boolean {
+  return (
+    date.getUTCFullYear() === monthAnchor.getUTCFullYear() && date.getUTCMonth() === monthAnchor.getUTCMonth()
+  );
+}
+
+// Grade de semanas (Dom-Sáb) cobrindo o mês de monthAnchor, incluindo os dias de
+// transbordo do mês anterior/seguinte necessários pra completar a primeira/última semana.
+export function buildMonthGrid(monthAnchor: Date): Date[][] {
+  const year = monthAnchor.getUTCFullYear();
+  const month = monthAnchor.getUTCMonth();
+
+  const firstOfMonth = new Date(Date.UTC(year, month, 1));
+  const gridStart = new Date(firstOfMonth);
+  gridStart.setUTCDate(gridStart.getUTCDate() - firstOfMonth.getUTCDay());
+
+  const lastOfMonth = new Date(Date.UTC(year, month + 1, 0));
+  const gridEnd = new Date(lastOfMonth);
+  gridEnd.setUTCDate(gridEnd.getUTCDate() + (6 - lastOfMonth.getUTCDay()));
+
+  const days: Date[] = [];
+  const cursor = new Date(gridStart);
+  while (cursor <= gridEnd) {
+    days.push(new Date(cursor));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  const weeks: Date[][] = [];
+  for (let i = 0; i < days.length; i += 7) {
+    weeks.push(days.slice(i, i + 7));
+  }
+  return weeks;
+}
+
 // Extrai HH:mm de um datetime ISO em UTC (sem conversão de fuso).
 export function formatTimeUtc(isoDate: string): string {
   return isoDate.slice(11, 16);

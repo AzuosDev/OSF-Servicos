@@ -1134,7 +1134,7 @@ function WalletsChart({
   data,
 }: {
   wallets: WalletEvolution[];
-  data: Record<string, string | number>[];
+  data: Record<string, string | number | null>[];
 }) {
   const colorByName = useMemo(() => assignCategoryColors(wallets.map((wallet) => wallet.nome)), [wallets]);
 
@@ -1156,7 +1156,9 @@ function WalletsChart({
                 dataKey={wallet.nome}
                 stroke={colorByName.get(wallet.nome)}
                 strokeWidth={2}
-                dot={false}
+                connectNulls={false}
+                dot={{ r: 3, strokeWidth: 0, fill: colorByName.get(wallet.nome) }}
+                activeDot={{ r: 5 }}
               />
             ))}
           </LineChart>
@@ -1181,11 +1183,11 @@ function CarteirasTab() {
 
   const wallets = query.data ?? [];
   const chartData = wallets[0]?.points.map((_, index) => {
-    const point: Record<string, string | number> = {
+    const point: Record<string, string | number | null> = {
       label: formatMonthKey(monthKeyFromIso(wallets[0].points[index].date)),
     };
     wallets.forEach((wallet) => {
-      point[wallet.nome] = wallet.points[index]?.balance ?? 0;
+      point[wallet.nome] = wallet.points[index]?.balance ?? null;
     });
     return point;
   });
@@ -1539,11 +1541,11 @@ function ReportCarteirasSection({ params }: { params: PeriodFilterState["params"
     : [];
   const wallets = query.data ?? [];
   const chartData = wallets[0]?.points.map((_, index) => {
-    const point: Record<string, string | number> = {
+    const point: Record<string, string | number | null> = {
       label: formatMonthKey(monthKeyFromIso(wallets[0].points[index].date)),
     };
     wallets.forEach((wallet) => {
-      point[wallet.nome] = wallet.points[index]?.balance ?? 0;
+      point[wallet.nome] = wallet.points[index]?.balance ?? null;
     });
     return point;
   });
@@ -1825,14 +1827,14 @@ export function InsightsPage() {
         </p>
       </div>
 
-      <div className="flex w-fit gap-1 rounded-xl bg-bg-muted p-1">
+      <div className="flex w-full gap-1 overflow-x-auto rounded-xl bg-bg-muted p-1 [&::-webkit-scrollbar]:hidden">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "rounded-lg px-4 py-2 text-sm font-semibold transition",
+              "shrink-0 rounded-lg px-4 py-2 text-sm font-semibold transition",
               activeTab === tab.id ? "bg-accent-lime text-black" : "text-text-primary hover:bg-bg-overlay",
             )}
           >

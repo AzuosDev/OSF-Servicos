@@ -14,9 +14,11 @@ import {
   AmountField,
   CategoryField,
   DateAndDescriptionFields,
+  GoalField,
   WalletField,
   useCategories,
   useIncomeCategories,
+  useOpenGoals,
   useWallets,
 } from "./TransactionFormFields";
 import { ModalShell } from "./ModalShell";
@@ -34,6 +36,7 @@ const defaultValues = {
   carteiraId: "",
   carteiraOrigemId: "",
   carteiraDestinoId: "",
+  goalId: "",
   date: todayInputValue(),
   description: "",
 };
@@ -46,6 +49,7 @@ const incomeSchema = z.object({
   description: z.string().max(500).optional(),
   carteiraOrigemId: z.string().optional().default(""),
   carteiraDestinoId: z.string().optional().default(""),
+  goalId: z.string().optional().default(""),
 });
 
 const expenseSchema = z.object({
@@ -124,6 +128,8 @@ export function TransactionModal({
   const incomeCatsQuery = useIncomeCategories();
   const walletsQuery = useWallets();
   const wallets = walletsQuery.data ?? [];
+  const openGoalsQuery = useOpenGoals();
+  const openGoals = openGoalsQuery.data ?? [];
   const hasEnoughWallets = wallets.length >= 2;
   const hasWallets = wallets.length > 0;
 
@@ -160,6 +166,7 @@ export function TransactionModal({
         carteiraId: tab === "TRANSFER" ? "" : (transaction.carteiraId ?? ""),
         carteiraOrigemId: tab === "TRANSFER" ? (transaction.carteiraId ?? "") : "",
         carteiraDestinoId: tab === "TRANSFER" ? (transaction.carteiraDestinoId ?? "") : "",
+        goalId: "",
         date: dateInputValue(transaction.date),
         description: transaction.description ?? "",
       });
@@ -205,15 +212,16 @@ export function TransactionModal({
         await api.post("/api/transactions", {
           ...buildTransactionPayload({ ...values, type: tab }),
           carteiraId: values.carteiraId,
+          goalId: tab === "INCOME" ? values.goalId || undefined : undefined,
         });
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, values) => {
       queryClient.invalidateQueries({ queryKey: ["wallets"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
-      if (activeTabRef.current === "EXPENSE") {
+      queryClient.invalidateQueries({ queryKey: ["category-breakdown"] });
+      if (activeTabRef.current === "EXPENSE" || values.goalId) {
         queryClient.invalidateQueries({ queryKey: ["goals"] });
       }
       onClose();
@@ -348,6 +356,20 @@ export function TransactionModal({
                   />
                 )}
               />
+              {activeTab === "INCOME" && !isEditing && (
+                <Controller
+                  control={form.control}
+                  name="goalId"
+                  render={({ field }) => (
+                    <GoalField
+                      goals={openGoals}
+                      value={field.value}
+                      onChange={field.onChange}
+                      loading={openGoalsQuery.isLoading}
+                    />
+                  )}
+                />
+              )}
               <Controller
                 control={form.control}
                 name="categoryId"

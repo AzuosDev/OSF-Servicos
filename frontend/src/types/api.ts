@@ -43,6 +43,7 @@ export type Wallet = MongoDocument & {
   nome: string;
   saldo: number;
   icone?: string;
+  fisica?: boolean;
   tipo?: "VIRTUAL";
 };
 
@@ -342,7 +343,7 @@ export type AccountsOverview = {
   activeRecurringCount: number;
 };
 
-export type WalletEvolutionPoint = { date: string; balance: number };
+export type WalletEvolutionPoint = { date: string; balance: number | null };
 
 export type WalletEvolution = {
   id: string;
@@ -358,6 +359,7 @@ export type Service = MongoDocument & {
   defaultValue: number;
   active: boolean;
   categoryId: ApiId;
+  color: string;
 };
 
 export type AppointmentStatus = "AGENDADO" | "EM_ANDAMENTO" | "FINALIZADO" | "CANCELADO";

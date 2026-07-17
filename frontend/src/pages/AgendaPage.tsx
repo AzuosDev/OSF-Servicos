@@ -15,6 +15,7 @@ import {
   formatWeekdayLong,
   isToday,
   nextWindowStart,
+  parseDateKey,
   toDateKey,
 } from "../lib/agenda";
 import type { Appointment, Service } from "../types/api";
@@ -47,6 +48,10 @@ export function AgendaPage() {
 
   const handlePrev = () => setWeekWindow((current) => buildPrevWorkingWindow(current[0]));
   const handleNext = () => setWeekWindow((current) => buildWorkingWindow(nextWindowStart(current)));
+  const handleJumpToDate = (dateKey: string) => {
+    setWeekWindow(buildWorkingWindow(parseDateKey(dateKey)));
+    setSelectedDate(dateKey);
+  };
 
   return (
     <section className="space-y-5">
@@ -64,7 +69,14 @@ export function AgendaPage() {
         </Link>
       </header>
 
-      <WeekDayNav days={weekWindow} selectedDate={selectedDate} onSelectDate={setSelectedDate} onPrev={handlePrev} onNext={handleNext} />
+      <WeekDayNav
+        days={weekWindow}
+        selectedDate={selectedDate}
+        onSelectDate={setSelectedDate}
+        onPrev={handlePrev}
+        onNext={handleNext}
+        onJumpToDate={handleJumpToDate}
+      />
 
       <div className="flex items-center justify-between">
         <div>

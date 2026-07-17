@@ -51,6 +51,12 @@ export class CategoriesService implements OnModuleInit {
     return this.categoryModel.findById(id).exec();
   }
 
+  async updateColor(userId: string, categoryId: string, color: string) {
+    await this.categoryModel
+      .updateOne({ _id: new Types.ObjectId(categoryId), userId: new Types.ObjectId(userId) }, { $set: { color } })
+      .exec();
+  }
+
   async belongsToUserOrDefault(id: string, userId: string) {
     const category = await this.categoryModel.findById(id).exec();
     if (!category) return false;

@@ -110,7 +110,14 @@ export function ServicosPage() {
               )}
             >
               <div className="min-w-0">
-                <p className="truncate text-base font-semibold text-white">{service.name}</p>
+                <p className="flex items-center gap-2 truncate text-base font-semibold text-white">
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: service.color }}
+                    title="Cor no relatório de ganhos"
+                  />
+                  {service.name}
+                </p>
                 {service.type && <p className="text-xs text-text-secondary">{service.type}</p>}
                 <p className="mt-1 text-sm font-semibold text-accent-lime">{formatCurrency(service.defaultValue)}</p>
                 {!service.active && (

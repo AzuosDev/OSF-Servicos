@@ -20,12 +20,32 @@ export class WalletsService {
   }
 
   async create(userId: string, dto: CreateWalletDto) {
-    return this.walletModel.create({
-      userId: this.toObjectId(userId, 'userId'),
+    const userObjectId = this.toObjectId(userId, 'userId');
+    const saldoInicial = dto.saldo ?? 0;
+
+    const wallet = await this.walletModel.create({
+      userId: userObjectId,
       nome: dto.nome,
-      saldo: dto.saldo ?? 0,
+      saldo: saldoInicial,
       icone: dto.icone,
+      fisica: dto.fisica ?? false,
     });
+
+    // O saldo exibido (findAll/findOne) é sempre recalculado por agregação sobre
+    // Transaction, não pelo campo Wallet.saldo — sem uma transação correspondente, o
+    // saldo inicial informado na criação nunca apareceria no dashboard de carteiras.
+    if (saldoInicial > 0) {
+      await this.transactionModel.create({
+        userId: userObjectId,
+        type: TransactionType.INCOME,
+        value: saldoInicial,
+        description: 'Saldo inicial',
+        date: new Date(),
+        carteiraId: wallet._id,
+      });
+    }
+
+    return wallet;
   }
 
   private effectiveSaldoMatch() {
@@ -140,6 +160,7 @@ export class WalletsService {
     if (dto.nome !== undefined) wallet.nome = dto.nome;
     if (dto.icone !== undefined) wallet.icone = dto.icone;
     if (typeof dto.saldo === 'number') wallet.saldo = dto.saldo;
+    if (typeof dto.fisica === 'boolean') wallet.fisica = dto.fisica;
 
     await wallet.save();
     return wallet;

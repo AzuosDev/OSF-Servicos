@@ -5,6 +5,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ICurrentUser } from '../../common/types/current-user.type';
 import { DashboardService } from './dashboard.service';
 import { GetDashboardDto } from './dto/get-dashboard.dto';
+import { GetCategoryBreakdownDto } from './dto/get-category-breakdown.dto';
 
 @ApiTags('Dashboard')
 @ApiBearerAuth()
@@ -16,5 +17,10 @@ export class DashboardController {
   @Get()
   async getDashboard(@CurrentUser() user: ICurrentUser, @Query() query: GetDashboardDto) {
     return this.dashboardService.getDashboard(user._id.toString(), query);
+  }
+
+  @Get('category-breakdown')
+  async getCategoryBreakdown(@CurrentUser() user: ICurrentUser, @Query() query: GetCategoryBreakdownDto) {
+    return this.dashboardService.getCategoryBreakdown(user._id.toString(), query);
   }
 }

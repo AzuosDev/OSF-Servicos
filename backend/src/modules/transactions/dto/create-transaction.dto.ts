@@ -22,6 +22,10 @@ export class CreateTransactionDto {
   carteiraId?: string;
 
   @IsOptional()
+  @IsString()
+  goalId?: string;
+
+  @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))
   @IsString()
   @MaxLength(500)

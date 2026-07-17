@@ -1,6 +1,8 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { formatMonthYear, formatWeekdayShort, isToday, toDateKey } from "../../lib/agenda";
+import { MonthCalendar } from "./MonthCalendar";
 
 export function WeekDayNav({
   days,
@@ -8,14 +10,50 @@ export function WeekDayNav({
   onSelectDate,
   onPrev,
   onNext,
+  onJumpToDate,
 }: {
   days: Date[];
   selectedDate: string;
   onSelectDate: (dateKey: string) => void;
   onPrev: () => void;
   onNext: () => void;
+  onJumpToDate: (dateKey: string) => void;
 }) {
-  const monthLabel = days.length > 0 ? formatMonthYear(days[Math.floor(days.length / 2)]) : "";
+  const anchorDay = days[Math.floor(days.length / 2)] ?? new Date();
+  const monthLabel = days.length > 0 ? formatMonthYear(anchorDay) : "";
+
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(anchorDay);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!calendarOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        panelRef.current &&
+        !panelRef.current.contains(e.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(e.target as Node)
+      ) {
+        setCalendarOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [calendarOpen]);
+
+  const toggleCalendar = () => {
+    setCalendarOpen((open) => {
+      if (!open) setCalendarMonth(anchorDay);
+      return !open;
+    });
+  };
+
+  const handlePickDate = (dateKey: string) => {
+    onJumpToDate(dateKey);
+    setCalendarOpen(false);
+  };
 
   return (
     <div className="rounded-2xl border border-bg-muted bg-bg-card p-3 sm:p-4">
@@ -28,7 +66,34 @@ export function WeekDayNav({
           <ChevronLeft className="h-4 w-4" />
           <span className="hidden sm:inline">Anterior</span>
         </button>
-        <p className="text-sm font-semibold capitalize text-white">{monthLabel}</p>
+
+        <div className="relative">
+          <button
+            ref={buttonRef}
+            type="button"
+            onClick={toggleCalendar}
+            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-semibold capitalize text-white transition hover:bg-bg-overlay"
+          >
+            <CalendarDays className="h-3.5 w-3.5 text-text-secondary" />
+            {monthLabel}
+          </button>
+
+          {calendarOpen && (
+            <div
+              ref={panelRef}
+              className="absolute left-1/2 top-full z-20 mt-2 w-72 -translate-x-1/2"
+            >
+              <MonthCalendar
+                monthAnchor={calendarMonth}
+                selectedDate={selectedDate}
+                onSelectDate={handlePickDate}
+                onMonthChange={setCalendarMonth}
+                disablePast={false}
+              />
+            </div>
+          )}
+        </div>
+
         <button
           type="button"
           onClick={onNext}

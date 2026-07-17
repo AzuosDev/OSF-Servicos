@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Controller, useForm } from "react-hook-form";
-import { Loader2, Wrench } from "lucide-react";
+import { Check, Loader2, Wrench } from "lucide-react";
 import { z } from "zod";
 
 import { api } from "../../lib/api";
@@ -10,12 +10,30 @@ import { getApiErrorMessages, setFieldErrorsFromApi } from "../../lib/errors";
 import { CurrencyInput } from "../ui/CurrencyInput";
 import { ModalShell } from "./ModalShell";
 import { useToast } from "../ui/Toast";
+import { cn } from "../../lib/utils";
 import type { Service } from "../../types/api";
+
+// Verde = default (ganho de serviço); demais opções pra diferenciar serviços no
+// relatório de ganhos por categoria sem depender de cores repetidas.
+const DEFAULT_SERVICE_COLOR = "#22C55E";
+const COLOR_OPTIONS: { value: string; label: string }[] = [
+  { value: "#22C55E", label: "Verde" },
+  { value: "#0EA5E9", label: "Azul claro" },
+  { value: "#3B82F6", label: "Azul" },
+  { value: "#8B5CF6", label: "Roxo" },
+  { value: "#EC4899", label: "Rosa" },
+  { value: "#F59E0B", label: "Âmbar" },
+  { value: "#F97316", label: "Laranja" },
+  { value: "#EF4444", label: "Vermelho" },
+  { value: "#14B8A6", label: "Verde-água" },
+  { value: "#A3E635", label: "Lima" },
+];
 
 const serviceSchema = z.object({
   name: z.string().trim().min(1, "Informe o nome do serviço.").max(150),
   type: z.string().max(100).optional(),
   defaultValue: z.coerce.number().min(0.01, "Informe um valor maior que zero."),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Escolha uma cor válida."),
 });
 
 type ServiceFormInput = z.input<typeof serviceSchema>;
@@ -37,7 +55,7 @@ export function ServiceFormModal({
   const isEditing = Boolean(service);
   const form = useForm<ServiceFormInput, unknown, ServiceFormValues>({
     resolver: zodResolver(serviceSchema),
-    defaultValues: { name: "", type: "", defaultValue: 0 },
+    defaultValues: { name: "", type: "", defaultValue: 0, color: DEFAULT_SERVICE_COLOR },
   });
 
   useEffect(() => {
@@ -46,12 +64,18 @@ export function ServiceFormModal({
       name: service?.name ?? "",
       type: service?.type ?? "",
       defaultValue: service?.defaultValue ?? 0,
+      color: service?.color ?? DEFAULT_SERVICE_COLOR,
     });
   }, [open, service, form]);
 
   const mutation = useMutation({
     mutationFn: async (values: ServiceFormValues) => {
-      const payload = { name: values.name.trim(), type: values.type?.trim() || undefined, defaultValue: values.defaultValue };
+      const payload = {
+        name: values.name.trim(),
+        type: values.type?.trim() || undefined,
+        defaultValue: values.defaultValue,
+        color: values.color,
+      };
       if (service) {
         const { data } = await api.patch<Service>(`/api/services/${service._id}`, payload);
         return data;
@@ -66,7 +90,7 @@ export function ServiceFormModal({
       onClose();
     },
     onError: (error) => {
-      setFieldErrorsFromApi(error, form.setError, ["name", "type", "defaultValue"]);
+      setFieldErrorsFromApi(error, form.setError, ["name", "type", "defaultValue", "color"]);
     },
   });
 
@@ -142,6 +166,43 @@ export function ServiceFormModal({
             <p className="mt-1 text-xs text-accent-red">{form.formState.errors.defaultValue.message}</p>
           )}
         </label>
+
+        <div>
+          <span className="mb-2 block text-sm text-text-secondary">
+            Cor no relatório de ganhos
+          </span>
+          <Controller
+            control={form.control}
+            name="color"
+            render={({ field }) => (
+              <div className="flex flex-wrap gap-2">
+                {COLOR_OPTIONS.map((option) => {
+                  const active = field.value === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      title={option.label}
+                      onClick={() => field.onChange(option.value)}
+                      style={{ backgroundColor: option.value }}
+                      className={cn(
+                        "grid h-9 w-9 place-items-center rounded-full transition",
+                        active ? "ring-2 ring-white ring-offset-2 ring-offset-bg-card" : "hover:brightness-110",
+                      )}
+                      aria-label={option.label}
+                      aria-pressed={active}
+                    >
+                      {active && <Check className="h-4 w-4 text-white drop-shadow" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          />
+          {form.formState.errors.color?.message && (
+            <p className="mt-1 text-xs text-accent-red">{form.formState.errors.color.message}</p>
+          )}
+        </div>
 
         {mutation.isError && (
           <div className="rounded-xl bg-accent-red/10 p-3 text-sm text-accent-red">

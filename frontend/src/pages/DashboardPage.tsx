@@ -581,14 +581,14 @@ export function DashboardPage() {
               label="Entradas"
               value={fmt(dashboard.totalIncome)}
               iconClassName="text-accent-lime"
-              onClick={() => navigate("/transactions?type=INCOME")}
+              onClick={() => navigate("/resumo?type=INCOME")}
             />
             <SummaryCard
               icon={TrendingDown}
               label="Saídas"
               value={fmt(dashboard.totalExpense)}
               iconClassName="text-accent-red"
-              onClick={() => navigate("/expenses")}
+              onClick={() => navigate("/resumo?type=EXPENSE")}
             />
             <Link
               to="/contas"
@@ -616,7 +616,7 @@ export function DashboardPage() {
                 Gastos por Categoria
               </h2>
               <Link
-                to="/expenses"
+                to="/resumo"
                 className="text-sm font-semibold text-accent-lime"
               >
                 Ver todas

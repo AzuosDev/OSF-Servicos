@@ -84,7 +84,7 @@ export interface AccountsOverview {
 
 export interface WalletEvolutionPoint {
   date: string;
-  balance: number;
+  balance: number | null;
 }
 
 export interface WalletEvolution {
@@ -1078,14 +1078,42 @@ export class InsightsService {
 
     const { anchor } = this.resolveReportAnchor(dto);
     const monthsBack = 12;
-    const chartStart = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() - (monthsBack - 1), 1));
-    const bucketEnds = Array.from({ length: monthsBack }, (_, index) => {
-      if (index === monthsBack - 1) return anchor;
+    const defaultChartStart = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() - (monthsBack - 1), 1));
+
+    // O eixo começa na carteira mais antiga do usuário, não sempre 12 meses atrás — senão
+    // uma conta com pouco tempo de uso fica com a maior parte do gráfico em branco (o
+    // ponto real só aparece espremido lá no fim). Nunca volta mais que os 12 meses padrão.
+    let earliestWalletMonthStart: Date | null = null;
+    for (const wallet of wallets) {
+      const createdAt = (wallet as unknown as { createdAt?: Date }).createdAt;
+      if (!createdAt) continue;
+      const walletMonthStart = new Date(Date.UTC(createdAt.getUTCFullYear(), createdAt.getUTCMonth(), 1));
+      if (!earliestWalletMonthStart || walletMonthStart < earliestWalletMonthStart) {
+        earliestWalletMonthStart = walletMonthStart;
+      }
+    }
+    const chartStart =
+      earliestWalletMonthStart && earliestWalletMonthStart > defaultChartStart
+        ? earliestWalletMonthStart
+        : defaultChartStart;
+
+    const totalMonths = Math.max(
+      1,
+      (anchor.getUTCFullYear() - chartStart.getUTCFullYear()) * 12 + (anchor.getUTCMonth() - chartStart.getUTCMonth()) + 1,
+    );
+    const bucketEnds = Array.from({ length: totalMonths }, (_, index) => {
+      if (index === totalMonths - 1) return anchor;
       return new Date(Date.UTC(chartStart.getUTCFullYear(), chartStart.getUTCMonth() + index + 1, 0, 23, 59, 59, 999));
     });
 
     return Promise.all(
       wallets.map(async (wallet) => {
+        // Nunca mostra saldo em meses anteriores à criação da carteira — uma carteira
+        // criada este mês não deve exibir histórico fictício de quando ela nem existia.
+        // O eixo de datas continua o mesmo pra todas (balance null nesses buckets).
+        const createdAt = (wallet as unknown as { createdAt?: Date }).createdAt ?? chartStart;
+        const walletCreationMonthStart = new Date(Date.UTC(createdAt.getUTCFullYear(), createdAt.getUTCMonth(), 1));
+
         const [outRows, inRows] = await Promise.all([
           this.transactionModel
             .find({ userId: userObjectId, carteiraId: wallet._id, agendado: { $ne: true } })
@@ -1120,7 +1148,8 @@ export class InsightsService {
             cursor += 1;
           }
           const bucketDate = new Date(Date.UTC(chartStart.getUTCFullYear(), chartStart.getUTCMonth() + index, 1));
-          return { date: bucketDate.toISOString(), balance: runningBalance };
+          const beforeCreation = bucketDate < walletCreationMonthStart;
+          return { date: bucketDate.toISOString(), balance: beforeCreation ? null : runningBalance };
         });
 
         return {

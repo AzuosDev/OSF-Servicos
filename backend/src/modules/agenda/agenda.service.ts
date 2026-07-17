@@ -199,6 +199,27 @@ export class AgendaService {
 
   async cancel(userId: string, id: string) {
     const appointment = await this.findOne(userId, id);
+    const userObjectId = this.toObjectId(userId, 'userId');
+
+    // Cancelar um agendamento que já recebeu pagamento devolve o dinheiro: as
+    // transações desses pagamentos são removidas do histórico financeiro (não
+    // basta zerar localmente, senão o valor continuaria contando em relatórios/saldo).
+    if (appointment.payments.length > 0) {
+      const transactionIds = appointment.payments
+        .map((payment) => payment.transactionId)
+        .filter((transactionId): transactionId is Types.ObjectId => !!transactionId);
+
+      if (transactionIds.length > 0) {
+        await this.transactionModel
+          .deleteMany({ _id: { $in: transactionIds }, userId: userObjectId })
+          .exec();
+      }
+
+      appointment.payments = [];
+      appointment.totalPaid = 0;
+      appointment.paymentStatus = PaymentStatus.NAO_PAGO;
+    }
+
     appointment.status = AppointmentStatus.CANCELADO;
     await appointment.save();
     await this.syncNotification(appointment);

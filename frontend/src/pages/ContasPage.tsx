@@ -243,7 +243,7 @@ export function ContasPage() {
       queryClient.invalidateQueries({ queryKey: ["accounts-group"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["category-breakdown"] });
       queryClient.invalidateQueries({ queryKey: ["wallets"] });
       addToast(
         activeTab === "RECEBER" ? "Conta marcada como recebida com sucesso." : "Conta marcada como paga com sucesso.",
@@ -264,7 +264,7 @@ export function ContasPage() {
       queryClient.invalidateQueries({ queryKey: ["accounts-group"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["category-breakdown"] });
       queryClient.invalidateQueries({ queryKey: ["wallets"] });
       addToast(
         activeTab === "RECEBER" ? "Recebimento desmarcado com sucesso." : "Pagamento desmarcado com sucesso.",

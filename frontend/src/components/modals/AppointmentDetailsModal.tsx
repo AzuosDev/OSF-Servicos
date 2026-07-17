@@ -102,6 +102,11 @@ export function AppointmentDetailsModal({
     queryClient.invalidateQueries({ queryKey: ["notifications"] });
     queryClient.invalidateQueries({ queryKey: ["agenda-reports-dashboard"] });
     queryClient.invalidateQueries({ queryKey: ["agenda-reports-daily-summary"] });
+    // Cancelar com pagamento já recebido remove as transações correspondentes —
+    // reflete no financeiro pessoal também.
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["category-breakdown"] });
   };
 
   const editMutation = useMutation({
@@ -178,6 +183,8 @@ export function AppointmentDetailsModal({
 
   const pendingValue = appointment ? Math.max(0, appointment.chargedValue - appointment.totalPaid) : 0;
   const canOperate = appointment && appointment.status !== "CANCELADO" && appointment.status !== "FINALIZADO";
+  // Cliente pode pagar depois do serviço finalizado — só bloqueia se cancelado.
+  const canReceivePayment = appointment && appointment.status !== "CANCELADO" && pendingValue > 0;
 
   return (
     <ModalShell
@@ -269,9 +276,9 @@ export function AppointmentDetailsModal({
             </div>
           )}
 
-          {canOperate && (
+          {(canOperate || canReceivePayment) && (
             <div className="flex flex-wrap gap-2 pt-2">
-              {pendingValue > 0 && (
+              {canReceivePayment && (
                 <button
                   type="button"
                   onClick={() => setMode("payment")}
@@ -280,36 +287,40 @@ export function AppointmentDetailsModal({
                   <Banknote className="h-4 w-4" /> Registrar pagamento
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => setMode("edit")}
-                className="inline-flex items-center gap-2 rounded-xl bg-bg-muted px-3 py-2 text-xs font-semibold text-white transition hover:bg-bg-overlay"
-              >
-                <Pencil className="h-4 w-4" /> Editar
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("reschedule")}
-                className="inline-flex items-center gap-2 rounded-xl bg-bg-muted px-3 py-2 text-xs font-semibold text-white transition hover:bg-bg-overlay"
-              >
-                <CalendarClock className="h-4 w-4" /> Reagendar
-              </button>
-              <button
-                type="button"
-                onClick={() => finishMutation.mutate()}
-                disabled={finishMutation.isPending}
-                className="inline-flex items-center gap-2 rounded-xl bg-bg-muted px-3 py-2 text-xs font-semibold text-white transition hover:bg-bg-overlay disabled:opacity-60"
-              >
-                <CheckCircle2 className="h-4 w-4" /> Finalizar serviço
-              </button>
-              <button
-                type="button"
-                onClick={() => cancelMutation.mutate()}
-                disabled={cancelMutation.isPending}
-                className="inline-flex items-center gap-2 rounded-xl border border-accent-red/30 px-3 py-2 text-xs font-semibold text-accent-red transition hover:bg-accent-red/10 disabled:opacity-60"
-              >
-                <XCircle className="h-4 w-4" /> Cancelar
-              </button>
+              {canOperate && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setMode("edit")}
+                    className="inline-flex items-center gap-2 rounded-xl bg-bg-muted px-3 py-2 text-xs font-semibold text-white transition hover:bg-bg-overlay"
+                  >
+                    <Pencil className="h-4 w-4" /> Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode("reschedule")}
+                    className="inline-flex items-center gap-2 rounded-xl bg-bg-muted px-3 py-2 text-xs font-semibold text-white transition hover:bg-bg-overlay"
+                  >
+                    <CalendarClock className="h-4 w-4" /> Reagendar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => finishMutation.mutate()}
+                    disabled={finishMutation.isPending}
+                    className="inline-flex items-center gap-2 rounded-xl bg-bg-muted px-3 py-2 text-xs font-semibold text-white transition hover:bg-bg-overlay disabled:opacity-60"
+                  >
+                    <CheckCircle2 className="h-4 w-4" /> Finalizar serviço
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => cancelMutation.mutate()}
+                    disabled={cancelMutation.isPending}
+                    className="inline-flex items-center gap-2 rounded-xl border border-accent-red/30 px-3 py-2 text-xs font-semibold text-accent-red transition hover:bg-accent-red/10 disabled:opacity-60"
+                  >
+                    <XCircle className="h-4 w-4" /> Cancelar
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>

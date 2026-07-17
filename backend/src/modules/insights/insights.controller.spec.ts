@@ -787,8 +787,10 @@ describe('InsightsController - wallets-evolution (e2e)', () => {
   });
 
   it('calcula saldo cumulativo por mês reaproveitando a fórmula de wallets.service (saldo + net + créditos de transferência)', async () => {
-    const wallet = await walletModel.create({ userId: new Types.ObjectId(FAKE_USER_ID), nome: 'Carteira A', saldo: 500 });
-    const outraCarteira = await walletModel.create({ userId: new Types.ObjectId(FAKE_USER_ID), nome: 'Carteira B', saldo: 0 });
+    // createdAt bem no passado: garante os 12 pontos cheios sem a carteira ser o fator
+    // limitante da janela (testado isoladamente mais abaixo).
+    const wallet = await walletModel.create({ userId: new Types.ObjectId(FAKE_USER_ID), nome: 'Carteira A', saldo: 500, createdAt: monthsAgo(24) });
+    const outraCarteira = await walletModel.create({ userId: new Types.ObjectId(FAKE_USER_ID), nome: 'Carteira B', saldo: 0, createdAt: monthsAgo(24) });
 
     await transactionModel.insertMany([
       txn({ type: TransactionType.INCOME, value: 200, carteiraId: wallet._id, date: monthsAgo(2) }),
@@ -812,7 +814,7 @@ describe('InsightsController - wallets-evolution (e2e)', () => {
   });
 
   it('com período (Relatório Personalizado), rebaseia o bucketing de 12 meses pro FIM do período — ignora movimentos depois dele', async () => {
-    const wallet = await walletModel.create({ userId: new Types.ObjectId(FAKE_USER_ID), nome: 'Carteira A', saldo: 500 });
+    const wallet = await walletModel.create({ userId: new Types.ObjectId(FAKE_USER_ID), nome: 'Carteira A', saldo: 500, createdAt: new Date('2020-01-01') });
 
     await transactionModel.insertMany([
       // Dentro do período (jan/2026): deve contar.
@@ -832,5 +834,65 @@ describe('InsightsController - wallets-evolution (e2e)', () => {
     // 500 (saldo inicial) + 200 (entrada) - 100 (saída) = 600 — sem a entrada de março.
     expect(walletResult.currentBalance).toBe(600);
     expect(walletResult.points[11].balance).toBe(600);
+  });
+
+  it('quando a única carteira do usuário tem menos de 12 meses, o eixo começa na criação dela (sem meses em branco antes)', async () => {
+    // Sem isso, o gráfico ficava com a maior parte do eixo em branco antes do único ponto
+    // real — dando a impressão de "gráfico vazio" mesmo com dado correto no fim.
+    const wallet = await walletModel.create({
+      userId: new Types.ObjectId(FAKE_USER_ID),
+      nome: 'Carteira nova',
+      saldo: 100,
+      createdAt: new Date('2025-11-15'),
+    });
+
+    const res = await request(app.getHttpServer())
+      .get('/api/insights/wallets-evolution')
+      .query({ period: 'month', year: 2026, month: 1 })
+      .expect(200);
+
+    const walletResult = res.body.find((w: { id: string }) => w.id === wallet._id.toString());
+    // nov/2025, dez/2025, jan/2026 — só 3 meses, nenhum em branco.
+    expect(walletResult.points).toHaveLength(3);
+    expect(new Date(walletResult.points[0].date).getUTCFullYear()).toBe(2025);
+    expect(new Date(walletResult.points[0].date).getUTCMonth()).toBe(10);
+    expect(walletResult.points.every((p: { balance: number | null }) => p.balance === 100)).toBe(true);
+  });
+
+  it('com carteiras de idades diferentes, o eixo é definido pela mais antiga e a mais nova fica null antes da própria criação', async () => {
+    const older = await walletModel.create({
+      userId: new Types.ObjectId(FAKE_USER_ID),
+      nome: 'Carteira antiga',
+      saldo: 0,
+      createdAt: new Date('2020-01-01'),
+    });
+    const newer = await walletModel.create({
+      userId: new Types.ObjectId(FAKE_USER_ID),
+      nome: 'Carteira nova 2',
+      saldo: 100,
+      createdAt: new Date('2025-11-15'),
+    });
+
+    const res = await request(app.getHttpServer())
+      .get('/api/insights/wallets-evolution')
+      .query({ period: 'month', year: 2026, month: 1 })
+      .expect(200);
+
+    const olderResult = res.body.find((w: { id: string }) => w.id === older._id.toString());
+    const newerResult = res.body.find((w: { id: string }) => w.id === newer._id.toString());
+
+    // A carteira antiga define o eixo padrão de 12 meses e nunca fica null.
+    expect(olderResult.points).toHaveLength(12);
+    expect(olderResult.points.every((p: { balance: number | null }) => p.balance === 0)).toBe(true);
+
+    // A mais nova compartilha o mesmo eixo de 12 meses, mas só tem saldo real a partir de
+    // nov/2025 (índice 9) — os 9 meses antes ficam null.
+    expect(newerResult.points).toHaveLength(12);
+    for (let i = 0; i < 9; i += 1) {
+      expect(newerResult.points[i].balance).toBeNull();
+    }
+    for (let i = 9; i < 12; i += 1) {
+      expect(newerResult.points[i].balance).toBe(100);
+    }
   });
 });

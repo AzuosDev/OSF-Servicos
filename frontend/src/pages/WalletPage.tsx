@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, History, Loader2, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, Banknote, History, Loader2, Pencil, RotateCcw, Trash2 } from "lucide-react";
 
 import { api } from "../lib/api";
 import { cn } from "../lib/utils";
@@ -34,6 +34,7 @@ export function WalletPage() {
   const [editing, setEditing] = useState(false);
   const [nome, setNome] = useState("");
   const [icone, setIcone] = useState("");
+  const [fisica, setFisica] = useState(false);
   const [txOpen, setTxOpen] = useState(false);
   const [txTab, setTxTab] = useState<TransactionType>("EXPENSE");
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
@@ -77,6 +78,7 @@ export function WalletPage() {
       await api.patch(`/api/wallets/${id}`, {
         nome: nome || wallet?.nome,
         icone: icone || wallet?.icone,
+        fisica,
       });
     },
     onSuccess: () => {
@@ -169,7 +171,18 @@ export function WalletPage() {
       <div className="rounded-2xl bg-bg-card p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <BankLogo nome={wallet.nome} icone={wallet.icone} className="h-12 w-12" />
+            <div className="flex items-center gap-2">
+              <BankLogo nome={wallet.nome} icone={wallet.icone} className="h-12 w-12" />
+              {wallet.fisica && (
+                <span
+                  title="Carteira física (dinheiro em espécie)"
+                  className="flex items-center gap-1 rounded-full bg-accent-lime/10 px-2 py-0.5 text-[11px] font-semibold text-accent-lime"
+                >
+                  <Banknote className="h-3 w-3" />
+                  Físico
+                </span>
+              )}
+            </div>
             <p className="mt-3 text-sm uppercase tracking-widest text-text-secondary">Saldo</p>
             <strong
               className={cn(
@@ -185,6 +198,7 @@ export function WalletPage() {
               onClick={() => {
                 setNome(wallet.nome);
                 setIcone(wallet.icone ?? "");
+                setFisica(wallet.fisica ?? false);
                 setEditing(true);
               }}
               className="rounded-xl border border-bg-muted p-2 transition hover:bg-bg-muted"
@@ -228,6 +242,15 @@ export function WalletPage() {
               placeholder="🏦"
               className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
             />
+          </label>
+          <label className="flex items-center gap-2 text-sm text-text-secondary">
+            <input
+              type="checkbox"
+              checked={fisica}
+              onChange={(e) => setFisica(e.target.checked)}
+              className="h-4 w-4 rounded border-bg-muted bg-bg-muted accent-accent-lime"
+            />
+            Carteira física (dinheiro em espécie)
           </label>
           <div className="flex gap-3">
             <button

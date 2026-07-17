@@ -20,6 +20,9 @@ export class Service {
   @Prop({ default: true })
   active!: boolean;
 
+  @Prop({ default: '#22C55E' })
+  color!: string;
+
   @Prop({ type: Types.ObjectId, ref: 'Category', required: true })
   categoryId!: Types.ObjectId;
 }

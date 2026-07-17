@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateWalletDto {
@@ -16,4 +16,8 @@ export class CreateWalletDto {
   @IsOptional()
   @IsString()
   icone?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  fisica?: boolean;
 }

@@ -21,7 +21,6 @@ import {
   Sun,
   Target,
   TrendingDown,
-  TrendingUp,
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -60,13 +59,7 @@ const navigation: NavItem[] = [
   { to: "/contas-a-receber", label: "A Receber", icon: CircleDollarSign },
   { to: "/relatorios", label: "Relatórios", icon: FileBarChart },
   { to: "/insights", label: "Insights", icon: Sparkles },
-  { to: "/expenses", label: "Gastos", icon: TrendingDown },
-  {
-    to: "/transactions?type=INCOME",
-    match: "/transactions?type=INCOME",
-    label: "Ganhos",
-    icon: TrendingUp,
-  },
+  { to: "/resumo", label: "Resumo", icon: TrendingDown },
   { to: "/transactions", label: "Transações", icon: List },
   { to: "/carteiras", label: "Carteiras", icon: Landmark },
   { to: "/contas", label: "Contas", icon: Clock },
@@ -75,7 +68,7 @@ const navigation: NavItem[] = [
 
 const mobileNavigation = [
   { to: "/dashboard", label: "Início", icon: Home },
-  { to: "/expenses", label: "Resumo", icon: BarChart2 },
+  { to: "/resumo", label: "Resumo", icon: BarChart2 },
   { to: "/contas", label: "Contas", icon: Clock },
   { to: "/goals", label: "Metas", icon: Target },
 ] as const;
@@ -87,7 +80,7 @@ const pageTitles: Record<string, string> = {
   "/contas-a-receber": "Contas a Receber",
   "/relatorios": "Relatórios",
   "/insights": "Insights",
-  "/expenses": "Gastos",
+  "/resumo": "Resumo",
   "/transactions": "Transações",
   "/carteiras": "Carteiras",
   "/contas": "Contas",
