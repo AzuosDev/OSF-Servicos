@@ -24,6 +24,10 @@ const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage").then((m) =>
 const WalletPage = lazy(() => import("./pages/WalletPage").then((m) => ({ default: m.WalletPage })));
 const WalletsPage = lazy(() => import("./pages/WalletsPage").then((m) => ({ default: m.WalletsPage })));
 const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
+const AgendaPage = lazy(() => import("./pages/AgendaPage").then((m) => ({ default: m.AgendaPage })));
+const ServicosPage = lazy(() => import("./pages/ServicosPage").then((m) => ({ default: m.ServicosPage })));
+const ContasReceberPage = lazy(() => import("./pages/ContasReceberPage").then((m) => ({ default: m.ContasReceberPage })));
+const RelatoriosPage = lazy(() => import("./pages/RelatoriosPage").then((m) => ({ default: m.RelatoriosPage })));
 
 function PageLoader() {
   return (
@@ -135,6 +139,10 @@ export default function App() {
               <Route element={<PrivateRoute />}>
                 <Route element={<AppLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/agenda" element={<AgendaPage />} />
+                  <Route path="/servicos" element={<ServicosPage />} />
+                  <Route path="/contas-a-receber" element={<ContasReceberPage />} />
+                  <Route path="/relatorios" element={<RelatoriosPage />} />
                   <Route path="/insights" element={<InsightsPage />} />
                   <Route path="/expenses" element={<ExpensesPage />} />
                   <Route path="/transactions" element={<TransactionsPage />} />

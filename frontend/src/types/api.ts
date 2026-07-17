@@ -351,6 +351,85 @@ export type WalletEvolution = {
   points: WalletEvolutionPoint[];
 };
 
+export type Service = MongoDocument & {
+  userId: ApiId;
+  name: string;
+  type?: string;
+  defaultValue: number;
+  active: boolean;
+  categoryId: ApiId;
+};
+
+export type AppointmentStatus = "AGENDADO" | "EM_ANDAMENTO" | "FINALIZADO" | "CANCELADO";
+export type AppointmentPaymentStatus = "NAO_PAGO" | "PARCIALMENTE_PAGO" | "PAGO";
+export type AppointmentPaymentMethod = "PIX" | "DINHEIRO" | "CARTAO";
+
+export type AppointmentPayment = {
+  method: AppointmentPaymentMethod;
+  value: number;
+  paidAt: ApiDate;
+  transactionId?: ApiId;
+};
+
+export type Appointment = MongoDocument & {
+  userId: ApiId;
+  serviceId: ApiId;
+  clientName: string;
+  clientPhone?: string;
+  startAt: ApiDate;
+  durationMinutes: number;
+  endAt: ApiDate;
+  chargedValue: number;
+  status: AppointmentStatus;
+  paymentStatus: AppointmentPaymentStatus;
+  totalPaid: number;
+  payments: AppointmentPayment[];
+};
+
+export type AvailabilityResponse = {
+  date: string;
+  slots: string[];
+};
+
+export type DailySummary = {
+  date: string;
+  totalReceived: number;
+  totalIncome: number;
+  totalExpense: number;
+  netProfit: number;
+  servicesCompletedCount: number;
+  avgTicket: number;
+  paidCount: number;
+  pendingCount: number;
+};
+
+export type ServiceReportRow = {
+  serviceId: string;
+  serviceName: string;
+  count: number;
+  revenue: number;
+};
+
+export type CategoryReportRow = {
+  name: string;
+  total: number;
+  isIncome: boolean;
+};
+
+export type AgendaDashboard = {
+  date: string;
+  entradasHoje: number;
+  saidasHoje: number;
+  lucroLiquidoHoje: number;
+  contasPendentes: { count: number; value: number };
+  totalAgendamentosHoje: number;
+  servicosConcluidosHoje: number;
+  topServicesByCount: ServiceReportRow[];
+  topServicesByRevenue: ServiceReportRow[];
+  dailyRevenue: { date: string; revenue: number }[];
+  categoryBreakdown: { income: CategoryReportRow[]; expense: CategoryReportRow[] };
+};
+
 export type ApiValidationError = {
   statusCode?: number;
   error?: string;

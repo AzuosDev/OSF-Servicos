@@ -10,14 +10,16 @@ type NotificationType =
   | "VENCIDA_PAGAR"
   | "VENCIDA_RECEBER"
   | "VENCE_HOJE_PAGAR"
-  | "VENCE_HOJE_RECEBER";
+  | "VENCE_HOJE_RECEBER"
+  | "SALDO_PENDENTE_SERVICO";
 
 type Notification = {
   _id: string;
   type: NotificationType;
   title: string;
   message: string;
-  pendingAccountId: string;
+  pendingAccountId?: string;
+  appointmentId?: string;
   read: boolean;
   generatedDate: string;
   createdAt: string;
@@ -37,6 +39,10 @@ const typeConfig: Record<NotificationType, { color: string; dot: string }> = {
     dot: "bg-accent-yellow",
   },
   VENCE_HOJE_RECEBER: {
+    color: "text-accent-yellow",
+    dot: "bg-accent-yellow",
+  },
+  SALDO_PENDENTE_SERVICO: {
     color: "text-accent-yellow",
     dot: "bg-accent-yellow",
   },
@@ -95,7 +101,7 @@ export function NotificationBell({
   const handleNotificationClick = (n: Notification) => {
     if (!n.read) markOneMutation.mutate(n._id);
     setOpen(false);
-    navigate("/contas");
+    navigate(n.type === "SALDO_PENDENTE_SERVICO" ? "/contas-a-receber" : "/contas");
   };
 
   const BellIcon = unreadCount > 0 ? BellDot : Bell;

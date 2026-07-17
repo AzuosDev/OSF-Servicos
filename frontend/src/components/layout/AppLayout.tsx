@@ -3,8 +3,11 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeftRight,
   BarChart2,
+  CalendarDays,
   ChevronLeft,
+  CircleDollarSign,
   Clock,
+  FileBarChart,
   Home,
   Landmark,
   LayoutDashboard,
@@ -53,6 +56,9 @@ type NavItem = {
 
 const navigation: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/agenda", label: "Agenda", icon: CalendarDays },
+  { to: "/contas-a-receber", label: "A Receber", icon: CircleDollarSign },
+  { to: "/relatorios", label: "Relatórios", icon: FileBarChart },
   { to: "/insights", label: "Insights", icon: Sparkles },
   { to: "/expenses", label: "Gastos", icon: TrendingDown },
   {
@@ -76,6 +82,10 @@ const mobileNavigation = [
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
+  "/agenda": "Agenda",
+  "/servicos": "Serviços",
+  "/contas-a-receber": "Contas a Receber",
+  "/relatorios": "Relatórios",
   "/insights": "Insights",
   "/expenses": "Gastos",
   "/transactions": "Transações",
@@ -86,7 +96,7 @@ const pageTitles: Record<string, string> = {
   "/configuracoes": "Configurações",
 };
 
-const fallbackEmail = "usuario@meugasto.app";
+const fallbackEmail = "udawgs.org@gmail.com";
 
 function isEmail(value: unknown): value is string {
   return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -216,7 +226,7 @@ function SidebarContent({
                 onClick={onNavigate}
                 className="truncate font-sans text-xl font-bold text-text-primary"
               >
-                MeuGasto
+                AK Estetica
               </Link>
             )}
           </>
@@ -228,14 +238,14 @@ function SidebarContent({
               "flex min-w-0 items-center gap-3 font-sans text-xl font-bold text-text-primary",
               collapsed && "justify-center",
             )}
-            title={collapsed ? "MeuGasto" : undefined}
+            title={collapsed ? "AK Estetica" : undefined}
           >
             <img
               src="/icons/icon.svg"
               alt="AK LavaJato"
               className="h-7 w-7 shrink-0 object-contain"
             />
-            {!collapsed && <span className="truncate">MeuGasto</span>}
+            {!collapsed && <span className="truncate">AK Estetica</span>}
           </Link>
         )}
 
@@ -413,7 +423,7 @@ export function AppLayout() {
 
   const currentPath = location.pathname;
   const currentUrl = `${location.pathname}${location.search}`;
-  const title = pageTitles[currentPath] ?? "MeuGasto";
+  const title = pageTitles[currentPath] ?? "AK Estetica";
 
   useEffect(() => {
     setMobileSidebarOpen(false);
