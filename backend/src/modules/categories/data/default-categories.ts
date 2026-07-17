@@ -30,4 +30,16 @@ export const DEFAULT_CATEGORIES = [
   { name: 'Rendimentos', slug: 'rendimentos', icon: 'TrendingUp', color: '#8B5CF6', isDefault: true, isIncome: true },
   { name: 'Cashback / Reembolso', slug: 'cashback', icon: 'RefreshCcw', color: '#F59E0B', isDefault: true, isIncome: true },
   { name: 'Outras Entradas', slug: 'outras-entradas', icon: 'Gift', color: '#6B7280', isDefault: true, isIncome: true },
+  // Categorias de estética automotiva (receitas)
+  { name: 'Serviços', slug: 'servicos-estetica', icon: 'Wrench', color: '#0EA5E9', isDefault: true, isIncome: true },
+  { name: 'Produtos', slug: 'produtos-estetica', icon: 'Package', color: '#3B82F6', isDefault: true, isIncome: true },
+  { name: 'Outros', slug: 'outros-estetica-receita', icon: 'Gift', color: '#6B7280', isDefault: true, isIncome: true },
+  // Categorias de estética automotiva (despesas)
+  { name: 'Produtos Químicos', slug: 'produtos-quimicos', icon: 'FlaskConical', color: '#F97316', isDefault: true },
+  { name: 'Equipamentos', slug: 'equipamentos', icon: 'Wrench', color: '#64748B', isDefault: true },
+  { name: 'Energia', slug: 'energia', icon: 'Zap', color: '#F59E0B', isDefault: true },
+  { name: 'Água', slug: 'agua', icon: 'Droplet', color: '#06B6D4', isDefault: true },
+  { name: 'Funcionários', slug: 'funcionarios', icon: 'Users', color: '#8B5CF6', isDefault: true },
+  { name: 'Marketing', slug: 'marketing', icon: 'Megaphone', color: '#EC4899', isDefault: true },
+  { name: 'Outros', slug: 'outros-estetica-despesa', icon: 'MoreHorizontal', color: '#9CA3AF', isDefault: true },
 ];

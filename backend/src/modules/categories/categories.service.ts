@@ -30,7 +30,7 @@ export class CategoriesService implements OnModuleInit {
       .exec();
   }
 
-  async create(userId: string, dto: CreateCategoryDto) {
+  async create(userId: string, dto: CreateCategoryDto, isIncome = false) {
     const slug = this.generateSlug(dto.name);
     const exists = await this.categoryModel.findOne({ slug, userId: new Types.ObjectId(userId) }).exec();
     if (exists) {
@@ -43,6 +43,7 @@ export class CategoriesService implements OnModuleInit {
       icon: dto.icon,
       color: dto.color,
       isDefault: false,
+      isIncome,
     });
   }
 

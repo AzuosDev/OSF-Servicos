@@ -29,6 +29,43 @@ export class NotificationsService {
     await this.notificationModel.create(data);
   }
 
+  async upsertServiceBalanceNotification(data: {
+    userId: Types.ObjectId;
+    appointmentId: Types.ObjectId;
+    clientName: string;
+    value: number;
+    date: Date;
+  }) {
+    const { userId, appointmentId, clientName, value, date } = data;
+    const valueFormatted = value.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    await this.notificationModel
+      .findOneAndUpdate(
+        { userId, appointmentId, type: 'SALDO_PENDENTE_SERVICO' },
+        {
+          $set: {
+            userId,
+            appointmentId,
+            type: 'SALDO_PENDENTE_SERVICO',
+            title: 'Saldo pendente de serviço',
+            message: `${clientName} — R$ ${valueFormatted} pendente`,
+            generatedDate: date,
+            read: false,
+          },
+        },
+        { upsert: true },
+      )
+      .exec();
+  }
+
+  async removeServiceBalanceNotification(data: { userId: Types.ObjectId; appointmentId: Types.ObjectId }) {
+    await this.notificationModel
+      .deleteOne({ userId: data.userId, appointmentId: data.appointmentId, type: 'SALDO_PENDENTE_SERVICO' })
+      .exec();
+  }
+
   async findUnreadByUser(userId: Types.ObjectId) {
     return this.notificationModel
       .find({ userId, read: false })
