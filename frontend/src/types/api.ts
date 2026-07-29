@@ -8,17 +8,46 @@ export type MongoDocument = {
   __v?: number;
 };
 
+export type SubscriptionStatus = "trial" | "active" | "expired" | "cancelled";
+
 export type User = MongoDocument & {
   email: string;
   emailVerified: boolean;
   name?: string;
   avatarUrl?: string;
   gravatarUrl?: string;
+  subscriptionStatus?: SubscriptionStatus | null;
+  plan?: string | null;
+  trialEndsAt?: ApiDate | null;
+  isLegacyFree?: boolean;
+  subscriptionExpiresAt?: ApiDate | null;
+  billingCycle?: string | null;
+  stripeCustomerId?: string | null;
 };
 
 export type AuthTokens = {
   accessToken: string;
   refreshToken: string;
+};
+
+export type BillingMethod = "stripe" | "pix";
+
+export type PixCheckoutData = {
+  paymentId: string;
+  qrCodeImage: string;
+  copyPaste: string;
+  expirationDate: string;
+};
+
+export type CreateCheckoutResponse = { url: string } | { pixData: PixCheckoutData };
+
+export type PixStatusResponse = {
+  status: string;
+  active: boolean;
+};
+
+export type BillingPortalResponse = {
+  url: string;
 };
 
 export type TransactionType = "EXPENSE" | "INCOME" | "TRANSFER";

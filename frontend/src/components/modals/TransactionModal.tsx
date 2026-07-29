@@ -306,7 +306,7 @@ export function TransactionModal({
               onClick={() => handleTabChange(tab)}
               className={cn(
                 "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition",
-                activeTab === tab ? t.activeCls : "text-text-secondary hover:text-white",
+                activeTab === tab ? t.activeCls : "text-text-secondary hover:text-text-primary",
               )}
             >
               <Icon className="h-3.5 w-3.5" />

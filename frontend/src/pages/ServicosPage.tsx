@@ -62,7 +62,7 @@ export function ServicosPage() {
         <div>
           <Link
             to="/agenda"
-            className="mb-1 inline-flex items-center gap-1.5 text-sm font-semibold text-text-secondary transition hover:text-white"
+            className="mb-1 inline-flex items-center gap-1.5 text-sm font-semibold text-text-secondary transition hover:text-text-primary"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Voltar para Agenda
@@ -131,7 +131,7 @@ export function ServicosPage() {
                   type="button"
                   onClick={() => toggleActive.mutate(service)}
                   title={service.active ? "Desativar" : "Ativar"}
-                  className="grid h-9 w-9 place-items-center rounded-xl text-text-secondary transition hover:bg-bg-overlay hover:text-white"
+                  className="grid h-9 w-9 place-items-center rounded-xl text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
                 >
                   <Power className="h-4 w-4" />
                 </button>
@@ -139,7 +139,7 @@ export function ServicosPage() {
                   type="button"
                   onClick={() => openEdit(service)}
                   title="Editar"
-                  className="grid h-9 w-9 place-items-center rounded-xl text-text-secondary transition hover:bg-bg-overlay hover:text-white"
+                  className="grid h-9 w-9 place-items-center rounded-xl text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
                 >
                   <Pencil className="h-4 w-4" />
                 </button>

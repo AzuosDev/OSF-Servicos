@@ -581,7 +581,7 @@ export function AppLayout() {
 
         <button
           onClick={() => setAddModalOpen(true)}
-          className="-mt-6 mx-auto grid h-12 w-12 place-items-center rounded-full bg-accent-lime text-black shadow-lg shadow-lime-500/20"
+          className="-mt-6 mx-auto grid h-12 w-12 place-items-center rounded-full bg-accent-lime text-black shadow-lg shadow-accent-lime/20"
           aria-label="Adicionar transação"
         >
           <Plus className="h-6 w-6" />
@@ -612,7 +612,7 @@ export function AppLayout() {
               <h2 className="font-sans text-lg font-bold">Nova movimentação</h2>
               <button
                 onClick={() => setAddModalOpen(false)}
-                className="rounded-lg px-2 py-1 text-text-secondary hover:bg-bg-overlay hover:text-white"
+                className="rounded-lg px-2 py-1 text-text-secondary hover:bg-bg-overlay hover:text-text-primary"
               >
                 Fechar
               </button>

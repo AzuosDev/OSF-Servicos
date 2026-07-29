@@ -129,7 +129,7 @@ export function CategoryField({
                         "flex min-h-20 w-full flex-col items-center justify-center gap-2 rounded-xl border bg-bg-muted p-3 text-center text-xs font-semibold transition",
                         active
                           ? "border-accent-lime text-white"
-                          : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-white",
+                          : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-text-primary",
                       )}
                     >
                       <span

@@ -410,7 +410,7 @@ export function AppointmentDetailsModal({
                   "flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition",
                   paymentMethod === opt.value
                     ? "bg-accent-lime text-black"
-                    : "bg-bg-muted text-text-secondary hover:bg-bg-overlay hover:text-white",
+                    : "bg-bg-muted text-text-secondary hover:bg-bg-overlay hover:text-text-primary",
                 )}
               >
                 {opt.label}

@@ -35,7 +35,7 @@ export function LoginPage() {
   const [biometricError, setBiometricError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { unlock } = useAuth();
+  const { unlock, refreshMe } = useAuth();
   const queryClient = useQueryClient();
   const redirectTo = (location.state as { from?: string } | null)?.from ?? "/dashboard";
   const hasCheckedSupport = useRef(false);
@@ -87,6 +87,7 @@ export function LoginPage() {
       queryClient.clear();
       setTokens(data.accessToken, data.refreshToken);
       unlock();
+      await refreshMe();
       navigate(redirectTo, { replace: true });
     } catch (error) {
       setApiErrors(getApiErrorMessages(error, "Nao foi possivel entrar. Verifique suas credenciais."));
@@ -120,6 +121,7 @@ export function LoginPage() {
       queryClient.clear();
       setTokens(tokens.accessToken, tokens.refreshToken);
       unlock();
+      await refreshMe();
       navigate(redirectTo, { replace: true });
     } catch (err: unknown) {
       const apiMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;

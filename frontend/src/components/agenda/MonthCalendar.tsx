@@ -41,7 +41,7 @@ export function MonthCalendar({
         <button
           type="button"
           onClick={goPrevMonth}
-          className="rounded-lg p-1.5 text-text-secondary transition hover:bg-bg-overlay hover:text-white"
+          className="rounded-lg p-1.5 text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
           aria-label="Mês anterior"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -50,7 +50,7 @@ export function MonthCalendar({
         <button
           type="button"
           onClick={goNextMonth}
-          className="rounded-lg p-1.5 text-text-secondary transition hover:bg-bg-overlay hover:text-white"
+          className="rounded-lg p-1.5 text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
           aria-label="Próximo mês"
         >
           <ChevronRight className="h-4 w-4" />

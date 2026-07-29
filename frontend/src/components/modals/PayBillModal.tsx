@@ -80,7 +80,7 @@ export function PayBillModal({ open, onClose, title, value, defaultCarteiraId, i
                   className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
                     selectedId === w._id
                       ? "border-accent-lime bg-accent-lime/10 text-white"
-                      : "border-bg-muted text-text-secondary hover:border-bg-overlay hover:text-white"
+                      : "border-bg-muted text-text-secondary hover:border-bg-overlay hover:text-text-primary"
                   }`}
                 >
                   {w.nome}

@@ -178,7 +178,7 @@ export function ResumoPage() {
                 onClick={() => setTxType(t)}
                 className={cn(
                   "flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition",
-                  txType === t ? "bg-accent-lime text-black" : "text-text-secondary hover:bg-bg-overlay hover:text-white",
+                  txType === t ? "bg-accent-lime text-black" : "text-text-secondary hover:bg-bg-overlay hover:text-text-primary",
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -200,7 +200,7 @@ export function ResumoPage() {
                 "rounded-xl px-4 py-2.5 text-sm font-semibold transition",
                 period === tab.value
                   ? "bg-bg-muted text-white"
-                  : "text-text-secondary hover:bg-bg-overlay hover:text-white",
+                  : "text-text-secondary hover:bg-bg-overlay hover:text-text-primary",
               )}
             >
               {tab.label}

@@ -1,10 +1,24 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Fingerprint, ShieldCheck, Trash2, Loader2, AlertCircle } from "lucide-react";
+import { CreditCard, Fingerprint, ShieldCheck, Trash2, Loader2, AlertCircle } from "lucide-react";
 import { startRegistration, platformAuthenticatorIsAvailable } from "@simplewebauthn/browser";
 
 import { api } from "../lib/api";
+import { useAuth } from "../contexts/AuthContext";
+import { getApiErrorText } from "../lib/errors";
+import type { BillingPortalResponse } from "../types/api";
 import type { PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/browser";
+
+const SUBSCRIPTION_STATUS_LABEL: Record<string, string> = {
+  trial: "Período de teste",
+  active: "Ativa",
+  expired: "Expirada",
+  cancelled: "Cancelada",
+};
+
+function formatDateBR(iso: string) {
+  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+}
 
 type StoredCredential = {
   credentialId: string;
@@ -25,9 +39,24 @@ function useWebAuthnSupported() {
 export function SettingsPage() {
   const queryClient = useQueryClient();
   const supported = useWebAuthnSupported();
+  const { user, subscription } = useAuth();
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [registerSuccess, setRegisterSuccess] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
+
+  const portalMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post<BillingPortalResponse>("/api/billing/portal");
+      return data;
+    },
+    onSuccess: (data) => {
+      window.location.href = data.url;
+    },
+    onError: (error) => {
+      setPortalError(getApiErrorText(error, "Não foi possível abrir o portal de assinatura."));
+    },
+  });
 
   const credentialsQuery = useQuery<StoredCredential[]>({
     queryKey: ["webauthn-credentials"],
@@ -92,6 +121,62 @@ export function SettingsPage() {
         <h1 className="font-sans text-2xl font-bold text-text-primary">Configurações</h1>
         <p className="mt-1 text-sm text-text-secondary">Gerencie sua conta e segurança.</p>
       </div>
+
+      {/* Seção assinatura */}
+      {subscription && (
+        <div className="rounded-2xl bg-bg-card p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <CreditCard className="h-5 w-5 text-accent-lime shrink-0" />
+            <div>
+              <h2 className="font-semibold text-text-primary">Assinatura</h2>
+              <p className="text-xs text-text-secondary">
+                {subscription.plan ?? "AkLavajato App"} · {SUBSCRIPTION_STATUS_LABEL[subscription.status ?? ""] ?? "Sem assinatura"}
+              </p>
+            </div>
+          </div>
+
+          {subscription.status === "trial" && subscription.trialEndsAt && (
+            <p className="text-sm text-text-secondary">
+              Seu período de teste termina em {formatDateBR(subscription.trialEndsAt)}.
+            </p>
+          )}
+
+          {subscription.status === "active" && (
+            <p className="text-sm text-text-secondary">
+              Plano mensal
+              {subscription.subscriptionExpiresAt
+                ? ` · renova em ${formatDateBR(subscription.subscriptionExpiresAt)}`
+                : " · renovação automática"}
+            </p>
+          )}
+
+          {(subscription.status === "expired" || subscription.status === "cancelled") && (
+            <p className="text-sm text-text-secondary">Sua assinatura não está ativa no momento.</p>
+          )}
+
+          {user?.stripeCustomerId ? (
+            <button
+              onClick={() => portalMutation.mutate()}
+              disabled={portalMutation.isPending}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-border-default bg-bg-muted px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-overlay disabled:opacity-50"
+            >
+              {portalMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Abrindo...</>
+              ) : (
+                "Gerenciar assinatura"
+              )}
+            </button>
+          ) : (
+            subscription.status !== "trial" && (
+              <p className="text-xs text-text-secondary">
+                Assinatura via PIX — para trocar o método de pagamento, gere um novo checkout.
+              </p>
+            )
+          )}
+
+          {portalError && <p className="text-xs text-accent-red">{portalError}</p>}
+        </div>
+      )}
 
       {/* Seção biometria */}
       <div className="rounded-2xl bg-bg-card p-6 space-y-4">

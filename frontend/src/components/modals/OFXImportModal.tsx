@@ -177,7 +177,7 @@ export function OFXImportModal({ open, onClose }: { open: boolean; onClose: () =
             <button
               type="button"
               onClick={handleClose}
-              className="rounded-xl px-4 py-2 text-sm text-text-secondary hover:text-white transition"
+              className="rounded-xl px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition"
             >
               Cancelar
             </button>
@@ -204,7 +204,7 @@ export function OFXImportModal({ open, onClose }: { open: boolean; onClose: () =
               <button
                 type="button"
                 onClick={() => setPhase("upload")}
-                className="rounded-xl px-4 py-2 text-sm text-text-secondary hover:text-white transition"
+                className="rounded-xl px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition"
               >
                 Voltar
               </button>
@@ -297,7 +297,7 @@ export function OFXImportModal({ open, onClose }: { open: boolean; onClose: () =
             <span className="text-text-secondary">
               {rows.length} transaç{rows.length !== 1 ? "ões" : "ão"} encontrada{rows.length !== 1 ? "s" : ""}
             </span>
-            <label className="flex items-center gap-2 cursor-pointer text-text-secondary hover:text-white transition">
+            <label className="flex items-center gap-2 cursor-pointer text-text-secondary hover:text-text-primary transition">
               <input
                 type="checkbox"
                 checked={rows.filter((r) => !r.alreadyImported).every((r) => r.selected)}

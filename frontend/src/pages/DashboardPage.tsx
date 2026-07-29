@@ -480,7 +480,7 @@ export function DashboardPage() {
           </strong>
           <button
             onClick={toggle}
-            className="rounded-lg p-1 text-text-secondary transition hover:text-white"
+            className="rounded-lg p-1 text-text-secondary transition hover:text-text-primary"
             aria-label={show ? "Ocultar valores" : "Mostrar valores"}
           >
             {show ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}

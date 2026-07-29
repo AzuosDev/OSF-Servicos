@@ -401,7 +401,7 @@ export function ContasPage() {
               type="button"
               onClick={() => setUnmarkTarget(item)}
               disabled={unmarkPaid.isPending}
-              className="inline-flex items-center gap-2 rounded-xl bg-bg-muted px-3 py-2 text-sm font-semibold text-text-secondary hover:text-white transition"
+              className="inline-flex items-center gap-2 rounded-xl bg-bg-muted px-3 py-2 text-sm font-semibold text-text-secondary hover:text-text-primary transition"
             >
               <RotateCcw className="h-4 w-4" />
               Desmarcar

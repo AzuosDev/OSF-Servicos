@@ -73,7 +73,7 @@ export const TransactionRow = memo(function TransactionRow({
         <button
           type="button"
           onClick={() => onEdit(transaction)}
-          className="grid h-8 w-8 place-items-center rounded-lg text-text-secondary hover:bg-bg-overlay hover:text-white"
+          className="grid h-8 w-8 place-items-center rounded-lg text-text-secondary hover:bg-bg-overlay hover:text-text-primary"
           aria-label="Editar transação"
         >
           <Edit2 className="h-4 w-4" />

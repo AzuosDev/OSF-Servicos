@@ -28,7 +28,7 @@ export function DurationPicker({
               "rounded-xl px-3 py-2 text-xs font-semibold transition",
               value === opt.minutes
                 ? "bg-accent-lime text-black"
-                : "bg-bg-muted text-text-secondary hover:bg-bg-overlay hover:text-white",
+                : "bg-bg-muted text-text-secondary hover:bg-bg-overlay hover:text-text-primary",
             )}
           >
             {opt.label}

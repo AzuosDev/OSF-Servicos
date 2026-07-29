@@ -36,7 +36,7 @@ export function ModalShell({
           <button
             type="button"
             onClick={onClose}
-            className="grid h-9 w-9 place-items-center rounded-xl text-text-secondary hover:bg-bg-overlay hover:text-white"
+            className="grid h-9 w-9 place-items-center rounded-xl text-text-secondary hover:bg-bg-overlay hover:text-text-primary"
             aria-label="Fechar modal"
           >
             <X className="h-5 w-5" />

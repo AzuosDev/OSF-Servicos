@@ -254,7 +254,7 @@ export function TransactionsPage() {
                 "rounded-xl px-4 py-2.5 text-sm font-semibold transition",
                 active
                   ? "bg-bg-muted text-white"
-                  : "text-text-secondary hover:bg-bg-overlay hover:text-white",
+                  : "text-text-secondary hover:bg-bg-overlay hover:text-text-primary",
               )}
             >
               {tab.label}
@@ -403,7 +403,7 @@ export function TransactionsPage() {
               type="button"
               onClick={() => setSelectedTxIds([])}
               disabled={bulkWalletMutation.isPending}
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-text-secondary hover:bg-bg-overlay hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-text-secondary hover:bg-bg-overlay hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-60"
               aria-label="Cancelar seleção"
             >
               <X className="h-4 w-4" />
@@ -420,7 +420,7 @@ export function TransactionsPage() {
               <button
                 type="button"
                 onClick={() => setChoiceOpen(false)}
-                className="rounded-lg px-2 py-1 text-text-secondary hover:bg-bg-overlay hover:text-white"
+                className="rounded-lg px-2 py-1 text-text-secondary hover:bg-bg-overlay hover:text-text-primary"
               >
                 Fechar
               </button>

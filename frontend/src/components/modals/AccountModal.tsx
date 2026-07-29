@@ -335,7 +335,7 @@ export function AccountModal({
           <button
             type="button"
             disabled={isSaving}
-            className="px-3 py-2 text-sm font-semibold text-text-secondary transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="px-3 py-2 text-sm font-semibold text-text-secondary transition hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-60"
             onClick={onClose}
           >
             Cancelar
@@ -604,7 +604,7 @@ export function AccountModal({
                           "flex h-16 w-full flex-col items-center justify-center gap-1 rounded-lg border bg-bg-muted px-1.5 py-1.5 text-center text-[11px] font-semibold transition",
                           active
                             ? "border-accent-lime text-white"
-                            : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-white",
+                            : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-text-primary",
                         )}
                       >
                         <span
@@ -624,7 +624,7 @@ export function AccountModal({
                   "flex h-16 w-full flex-col items-center justify-center gap-1 rounded-lg border bg-bg-muted px-1.5 py-1.5 text-center text-[11px] font-semibold transition",
                   formCategoria === "Outro"
                     ? "border-accent-lime text-white"
-                    : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-white",
+                    : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-text-primary",
                 )}
               >
                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg" style={{ backgroundColor: "#6B728022" }}>

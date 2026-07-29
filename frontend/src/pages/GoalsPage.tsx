@@ -603,7 +603,7 @@ export function GoalsPage() {
               <article
                 key={goal.id}
                 className={`rounded-2xl border bg-bg-card p-5 ${progress.borderClass} ${
-                  goal.completed ? "shadow-[0_0_0_1px_rgba(163,230,53,0.08)]" : ""
+                  goal.completed ? "shadow-[0_0_0_1px_rgba(17,183,234,0.15)]" : ""
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
