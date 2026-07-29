@@ -27,6 +27,8 @@ export class UsersService {
       password: hashed,
       emailVerified: false,
       emailVerificationToken,
+      subscriptionStatus: 'trial',
+      trialEndsAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
     });
     const obj = created.toObject() as Record<string, unknown>;
     delete obj['password'];
@@ -139,5 +141,43 @@ export class UsersService {
     const obj = user.toObject() as Record<string, unknown>;
     delete obj['password'];
     return obj;
+  }
+
+  async findByStripeSubscriptionId(stripeSubscriptionId: string) {
+    return this.userModel.findOne({ stripeSubscriptionId }).exec();
+  }
+
+  async setAsaasCustomerId(userId: string, asaasCustomerId: string) {
+    return this.userModel.findByIdAndUpdate(userId, { asaasCustomerId }, { new: true }).select('-password').exec();
+  }
+
+  async activateSubscription(
+    userId: string,
+    data: {
+      plan: string;
+      stripeCustomerId?: string;
+      stripeSubscriptionId?: string;
+      asaasCustomerId?: string;
+      subscriptionExpiresAt?: Date | null;
+    },
+  ) {
+    const update: Record<string, unknown> = {
+      subscriptionStatus: 'active',
+      plan: data.plan,
+      billingCycle: 'monthly',
+      subscriptionExpiresAt: data.subscriptionExpiresAt ?? null,
+    };
+    if (data.stripeCustomerId) update.stripeCustomerId = data.stripeCustomerId;
+    if (data.stripeSubscriptionId) update.stripeSubscriptionId = data.stripeSubscriptionId;
+    if (data.asaasCustomerId) update.asaasCustomerId = data.asaasCustomerId;
+
+    return this.userModel.findByIdAndUpdate(userId, update, { new: true }).select('-password').exec();
+  }
+
+  async cancelSubscriptionByStripeSubscriptionId(stripeSubscriptionId: string) {
+    return this.userModel
+      .findOneAndUpdate({ stripeSubscriptionId }, { subscriptionStatus: 'cancelled' }, { new: true })
+      .select('-password')
+      .exec();
   }
 }

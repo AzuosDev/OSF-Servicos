@@ -6,7 +6,7 @@ import nodemailer from 'nodemailer';
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) { }
 
   private getBaseUrl() {
     const frontendUrl = this.configService.get<string>('FRONTEND_URL')?.trim();
@@ -72,13 +72,13 @@ export class EmailService {
     const verifyUrl = `${this.getBaseUrl()}/verify-email?token=${encodeURIComponent(token)}`;
     return this.sendMail(
       to,
-      'Confirme seu email - ContaCerta',
+      'Confirme seu email - AKLAVAJATO',
       `Clique no link para confirmar seu email: ${verifyUrl}`,
       `
         <p>Olá!</p>
         <p>Para confirmar seu email, clique no link abaixo:</p>
         <p><a href="${verifyUrl}">${verifyUrl}</a></p>
-        <p>Se você não criou uma conta no ContaCerta, ignore esta mensagem.</p>
+        <p>Se você não criou uma conta no AKLAVAJATO, ignore esta mensagem.</p>
       `,
     );
   }
@@ -87,7 +87,7 @@ export class EmailService {
     const resetUrl = `${this.getBaseUrl()}/reset-password?token=${encodeURIComponent(token)}`;
     return this.sendMail(
       to,
-      'Redefinição de senha - ContaCerta',
+      'Redefinição de senha - AKLAVAJATO',
       `Clique no link para redefinir sua senha: ${resetUrl}`,
       `
         <p>Olá!</p>

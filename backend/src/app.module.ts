@@ -20,6 +20,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { ServicesModule } from './modules/services/services.module';
 import { AgendaModule } from './modules/agenda/agenda.module';
 import { AgendaReportsModule } from './modules/agenda-reports/agenda-reports.module';
+import { BillingModule } from './modules/billing/billing.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { AgendaReportsModule } from './modules/agenda-reports/agenda-reports.mod
     ServicesModule,
     AgendaModule,
     AgendaReportsModule,
+    BillingModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

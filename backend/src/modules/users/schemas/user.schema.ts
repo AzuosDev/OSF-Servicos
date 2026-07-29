@@ -29,6 +29,36 @@ export class User {
 
   @Prop()
   passwordResetExpires?: Date;
+
+  @Prop({ type: String, enum: ['trial', 'active', 'expired', 'cancelled', null], default: null })
+  subscriptionStatus?: 'trial' | 'active' | 'expired' | 'cancelled' | null;
+
+  @Prop({ type: String, default: null })
+  plan?: string | null;
+
+  @Prop({ type: Date, default: null })
+  trialEndsAt?: Date | null;
+
+  @Prop({ default: false })
+  isLegacyFree?: boolean;
+
+  @Prop({ type: String, default: null })
+  cpfCnpj?: string | null;
+
+  @Prop({ type: String, default: null })
+  stripeCustomerId?: string | null;
+
+  @Prop({ type: String, default: null })
+  stripeSubscriptionId?: string | null;
+
+  @Prop({ type: String, default: null })
+  asaasCustomerId?: string | null;
+
+  @Prop({ type: Date, default: null })
+  subscriptionExpiresAt?: Date | null;
+
+  @Prop({ type: String, default: null })
+  billingCycle?: string | null;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

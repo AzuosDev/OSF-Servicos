@@ -8,6 +8,7 @@ import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { RefreshTokenSchema } from './schemas/refresh-token.schema';
 import { UsersModule } from '../users/users.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { AuthController } from './auth.controller';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { EmailService } from '../../common/services/email.service';
@@ -27,6 +28,7 @@ import { EmailService } from '../../common/services/email.service';
     }),
     MongooseModule.forFeature([{ name: 'RefreshToken', schema: RefreshTokenSchema }]),
     UsersModule,
+    NotificationsModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, LocalStrategy, JwtStrategy, JwtAuthGuard, EmailService],

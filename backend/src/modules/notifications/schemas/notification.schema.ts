@@ -8,7 +8,8 @@ export type NotificationType =
   | 'VENCIDA_RECEBER'
   | 'VENCE_HOJE_PAGAR'
   | 'VENCE_HOJE_RECEBER'
-  | 'SALDO_PENDENTE_SERVICO';
+  | 'SALDO_PENDENTE_SERVICO'
+  | 'SERVICO_NAO_CONCLUIDO';
 
 @Schema({ timestamps: true })
 export class Notification {
@@ -17,7 +18,14 @@ export class Notification {
 
   @Prop({
     type: String,
-    enum: ['VENCIDA_PAGAR', 'VENCIDA_RECEBER', 'VENCE_HOJE_PAGAR', 'VENCE_HOJE_RECEBER', 'SALDO_PENDENTE_SERVICO'],
+    enum: [
+      'VENCIDA_PAGAR',
+      'VENCIDA_RECEBER',
+      'VENCE_HOJE_PAGAR',
+      'VENCE_HOJE_RECEBER',
+      'SALDO_PENDENTE_SERVICO',
+      'SERVICO_NAO_CONCLUIDO',
+    ],
     required: true,
   })
   type!: NotificationType;

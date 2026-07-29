@@ -10,6 +10,7 @@ export class NotificationsService {
     private readonly notificationModel: Model<NotificationDocument>,
   ) {}
 
+  /** Retorna true quando a notificação é nova (ainda não existia). */
   async upsertNotification(data: {
     userId: Types.ObjectId;
     pendingAccountId: Types.ObjectId;
@@ -17,7 +18,7 @@ export class NotificationsService {
     title: string;
     message: string;
     generatedDate: Date;
-  }) {
+  }): Promise<boolean> {
     const { userId, pendingAccountId, type, generatedDate } = data;
     const exists = await this.notificationModel.exists({
       userId,
@@ -25,8 +26,9 @@ export class NotificationsService {
       type,
       generatedDate,
     });
-    if (exists) return;
+    if (exists) return false;
     await this.notificationModel.create(data);
+    return true;
   }
 
   async upsertServiceBalanceNotification(data: {
@@ -64,6 +66,40 @@ export class NotificationsService {
     await this.notificationModel
       .deleteOne({ userId: data.userId, appointmentId: data.appointmentId, type: 'SALDO_PENDENTE_SERVICO' })
       .exec();
+  }
+
+  /** Retorna true quando a notificação é nova (agendamento ainda não havia sido sinalizado). */
+  async upsertServiceNotCompletedNotification(data: {
+    userId: Types.ObjectId;
+    appointmentId: Types.ObjectId;
+    clientName: string;
+    date: Date;
+  }): Promise<boolean> {
+    const { userId, appointmentId, clientName, date } = data;
+    const existed = await this.notificationModel.exists({
+      userId,
+      appointmentId,
+      type: 'SERVICO_NAO_CONCLUIDO',
+    });
+    const dateFormatted = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    await this.notificationModel
+      .findOneAndUpdate(
+        { userId, appointmentId, type: 'SERVICO_NAO_CONCLUIDO' },
+        {
+          $set: {
+            userId,
+            appointmentId,
+            type: 'SERVICO_NAO_CONCLUIDO',
+            title: 'Serviço não concluído',
+            message: `Atendimento de ${clientName} em ${dateFormatted} ainda não foi marcado como concluído.`,
+            generatedDate: date,
+            read: false,
+          },
+        },
+        { upsert: true },
+      )
+      .exec();
+    return !existed;
   }
 
   async findUnreadByUser(userId: Types.ObjectId) {

@@ -11,7 +11,7 @@ let app: any;
 
 async function bootstrap() {
   if (!app) {
-    app = await NestFactory.create(AppModule, new ExpressAdapter(server));
+    app = await NestFactory.create(AppModule, new ExpressAdapter(server), { rawBody: true });
     const configService = app.get(ConfigService);
     const configuredOrigins = (configService.get<string>('FRONTEND_URL') ?? '')
       .split(',')
@@ -22,6 +22,7 @@ async function bootstrap() {
       ...configuredOrigins,
       'http://localhost:5173',
       'http://127.0.0.1:5173',
+      'http://192.168.1.11:5173',
       'https://meugasto.vercel.app',
     ]);
 

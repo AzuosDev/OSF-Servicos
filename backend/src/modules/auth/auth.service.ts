@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
@@ -7,14 +7,18 @@ import { Model } from 'mongoose';
 import { RefreshTokenDocument } from './schemas/refresh-token.schema';
 import * as crypto from 'crypto';
 import { EmailService } from '../../common/services/email.service';
+import { NotificationsCronService } from '../notifications/notifications-cron.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
     @InjectModel('RefreshToken') private refreshModel: Model<RefreshTokenDocument>,
     private emailService: EmailService,
+    private notificationsCronService: NotificationsCronService,
   ) {}
 
   async register(dto: { email: string; password: string }) {
@@ -53,7 +57,18 @@ export class AuthService {
     const hashed = this.hashRefreshToken(rawRefresh);
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await this.refreshModel.create({ userId: user._id, token: hashed, expiresAt });
+    await this.checkUserNotifications(user._id);
     return { accessToken, refreshToken: rawRefresh };
+  }
+
+  private async checkUserNotifications(userId: Types.ObjectId | string) {
+    try {
+      const userObjectId = typeof userId === 'string' ? new Types.ObjectId(userId) : userId;
+      await this.notificationsCronService.generateNotificationsForUser(userObjectId);
+    } catch (err) {
+      // Notificação é best-effort: uma falha aqui nunca deve impedir o login.
+      this.logger.error('Failed to generate login-time notifications', err as Error);
+    }
   }
 
   async refresh(rawRefreshToken: string) {
