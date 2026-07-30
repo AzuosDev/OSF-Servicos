@@ -54,7 +54,7 @@ export class NotificationsCronService {
     const accounts = await this.generatePendingAccountNotifications();
     const services = await this.generateServiceNotCompletedNotifications();
 
-    await this.pushNewNotifications(accounts.newByUser, services.newByUser);
+    await this.pushPendingSummary(accounts.totalByUser, services.totalByUser);
 
     this.logger.log(
       `Global sweep: ${accounts.total} conta(s) pendente(s), ${services.total} serviço(s) não concluído(s)`,
@@ -75,7 +75,13 @@ export class NotificationsCronService {
     ]);
   }
 
-  private async pushNewNotifications(accountsByUser: NewCountByUser, servicesByUser: NewCountByUser) {
+  /**
+   * Envia um resumo de TODOS os itens pendentes no momento (não só os criados
+   * nesta execução) — assim, se o cron externo rodar várias vezes ao dia, o
+   * usuário recebe push a cada execução enquanto houver pendência, em vez de
+   * só na primeira vez que ela foi detectada.
+   */
+  private async pushPendingSummary(accountsByUser: NewCountByUser, servicesByUser: NewCountByUser) {
     const userIds = new Set([...accountsByUser.keys(), ...servicesByUser.keys()]);
 
     await Promise.all(
@@ -123,7 +129,7 @@ export class NotificationsCronService {
   /** Contas a pagar vencidas/vencendo hoje e contas a receber atrasadas. */
   private async generatePendingAccountNotifications(
     userId?: Types.ObjectId,
-  ): Promise<{ total: number; newByUser: NewCountByUser }> {
+  ): Promise<{ total: number; newByUser: NewCountByUser; totalByUser: NewCountByUser }> {
     const filter: FilterQuery<PendingAccountDocument> = {
       paid: false,
       skipped: { $ne: true },
@@ -137,6 +143,7 @@ export class NotificationsCronService {
     todayStart.setUTCHours(0, 0, 0, 0);
 
     const newByUser: NewCountByUser = new Map();
+    const totalByUser: NewCountByUser = new Map();
 
     for (const account of accounts) {
       const dueDay = new Date(account.dueDate);
@@ -160,6 +167,7 @@ export class NotificationsCronService {
       });
 
       const accountUserId = account.userId as Types.ObjectId;
+      this.bumpCount(totalByUser, accountUserId);
       const isNew = await this.notificationsService.upsertNotification({
         userId: accountUserId,
         pendingAccountId: (account as { _id: Types.ObjectId })._id,
@@ -171,13 +179,13 @@ export class NotificationsCronService {
       if (isNew) this.bumpCount(newByUser, accountUserId);
     }
 
-    return { total: accounts.length, newByUser };
+    return { total: accounts.length, newByUser, totalByUser };
   }
 
   /** Agendamentos de ontem que ainda não foram marcados como concluídos (nem cancelados). */
   private async generateServiceNotCompletedNotifications(
     userId?: Types.ObjectId,
-  ): Promise<{ total: number; newByUser: NewCountByUser }> {
+  ): Promise<{ total: number; newByUser: NewCountByUser; totalByUser: NewCountByUser }> {
     const { start, end } = this.previousDayRange();
     const filter: FilterQuery<AppointmentDocument> = {
       startAt: { $gte: start, $lte: end },
@@ -187,9 +195,11 @@ export class NotificationsCronService {
 
     const appointments = await this.appointmentModel.find(filter).lean().exec();
     const newByUser: NewCountByUser = new Map();
+    const totalByUser: NewCountByUser = new Map();
 
     for (const appointment of appointments) {
       const appointmentUserId = appointment.userId as Types.ObjectId;
+      this.bumpCount(totalByUser, appointmentUserId);
       const isNew = await this.notificationsService.upsertServiceNotCompletedNotification({
         userId: appointmentUserId,
         appointmentId: (appointment as { _id: Types.ObjectId })._id,
@@ -199,6 +209,6 @@ export class NotificationsCronService {
       if (isNew) this.bumpCount(newByUser, appointmentUserId);
     }
 
-    return { total: appointments.length, newByUser };
+    return { total: appointments.length, newByUser, totalByUser };
   }
 }
