@@ -665,7 +665,7 @@ export function AppLayout() {
       />
 
       <WebAuthnSuggestionModal
-        open={webAuthnSuggestion.open}
+        open={webAuthnSuggestion.open && !whatsNewOpen}
         isForm1={webAuthnSuggestion.isForm1}
         onDismiss={webAuthnSuggestion.dismiss}
         onRegistered={webAuthnSuggestion.markRegistered}
