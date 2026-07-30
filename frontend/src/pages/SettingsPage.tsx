@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CreditCard, Fingerprint, ShieldCheck, Trash2, Loader2, AlertCircle } from "lucide-react";
+import { Bell, BellOff, CreditCard, Fingerprint, ShieldCheck, Trash2, Loader2, AlertCircle } from "lucide-react";
 import { startRegistration, platformAuthenticatorIsAvailable } from "@simplewebauthn/browser";
 
 import { api } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
 import { getApiErrorText } from "../lib/errors";
+import { getExistingPushSubscription, isPushSupported, subscribeToPush, unsubscribeFromPush } from "../lib/push";
 import type { BillingPortalResponse } from "../types/api";
 import type { PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/browser";
 
@@ -44,6 +45,35 @@ export function SettingsPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [registerSuccess, setRegisterSuccess] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
+  const [pushError, setPushError] = useState<string | null>(null);
+
+  const pushSupported = isPushSupported();
+
+  const pushStatusQuery = useQuery({
+    queryKey: ["push-subscription"],
+    queryFn: async () => Boolean(await getExistingPushSubscription()),
+    enabled: pushSupported,
+  });
+
+  const pushSubscribeMutation = useMutation({
+    mutationFn: () => subscribeToPush(),
+    onSuccess: () => {
+      setPushError(null);
+      queryClient.invalidateQueries({ queryKey: ["push-subscription"] });
+    },
+    onError: (err: unknown) => {
+      setPushError(err instanceof Error ? err.message : "Não foi possível ativar as notificações.");
+    },
+  });
+
+  const pushUnsubscribeMutation = useMutation({
+    mutationFn: () => unsubscribeFromPush(),
+    onSuccess: () => {
+      setPushError(null);
+      queryClient.invalidateQueries({ queryKey: ["push-subscription"] });
+    },
+    onError: () => setPushError("Não foi possível desativar as notificações."),
+  });
 
   const portalMutation = useMutation({
     mutationFn: async () => {
@@ -177,6 +207,52 @@ export function SettingsPage() {
           {portalError && <p className="text-xs text-accent-red">{portalError}</p>}
         </div>
       )}
+
+      {/* Seção notificações push */}
+      <div className="rounded-2xl bg-bg-card p-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <Bell className="h-5 w-5 text-accent-lime shrink-0" />
+          <div>
+            <h2 className="font-semibold text-text-primary">Notificações push</h2>
+            <p className="text-xs text-text-secondary">
+              Avisos de contas vencendo e serviços pendentes mesmo com o app fechado.
+            </p>
+          </div>
+        </div>
+
+        {!pushSupported ? (
+          <div className="flex items-start gap-2 rounded-xl bg-bg-muted px-4 py-3 text-sm text-text-secondary">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+            Este dispositivo ou navegador não suporta notificações push.
+          </div>
+        ) : pushStatusQuery.data ? (
+          <button
+            onClick={() => pushUnsubscribeMutation.mutate()}
+            disabled={pushUnsubscribeMutation.isPending}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-border-default bg-bg-muted px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-overlay disabled:opacity-50"
+          >
+            {pushUnsubscribeMutation.isPending ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Desativando...</>
+            ) : (
+              <><BellOff className="h-4 w-4" /> Desativar notificações</>
+            )}
+          </button>
+        ) : (
+          <button
+            onClick={() => pushSubscribeMutation.mutate()}
+            disabled={pushSubscribeMutation.isPending || pushStatusQuery.isLoading}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:opacity-50"
+          >
+            {pushSubscribeMutation.isPending ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Ativando...</>
+            ) : (
+              <><Bell className="h-4 w-4" /> Ativar notificações push</>
+            )}
+          </button>
+        )}
+
+        {pushError && <p className="text-xs text-accent-red">{pushError}</p>}
+      </div>
 
       {/* Seção biometria */}
       <div className="rounded-2xl bg-bg-card p-6 space-y-4">

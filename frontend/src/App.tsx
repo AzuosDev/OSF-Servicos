@@ -28,6 +28,7 @@ const AgendaPage = lazy(() => import("./pages/AgendaPage").then((m) => ({ defaul
 const ServicosPage = lazy(() => import("./pages/ServicosPage").then((m) => ({ default: m.ServicosPage })));
 const ContasReceberPage = lazy(() => import("./pages/ContasReceberPage").then((m) => ({ default: m.ContasReceberPage })));
 const RelatoriosPage = lazy(() => import("./pages/RelatoriosPage").then((m) => ({ default: m.RelatoriosPage })));
+const CheckoutPage = lazy(() => import("./pages/CheckoutPage").then((m) => ({ default: m.CheckoutPage })));
 
 function PageLoader() {
   return (
@@ -43,6 +44,20 @@ function PrivateRoute() {
 
   if (isLocked || !getAccessToken()) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  return <Outlet />;
+}
+
+function SubscriptionGate() {
+  const { hasAccess, subscriptionLoaded } = useAuth();
+
+  if (!subscriptionLoaded) {
+    return <PageLoader />;
+  }
+
+  if (!hasAccess) {
+    return <Navigate to="/checkout" replace />;
   }
 
   return <Outlet />;
@@ -73,7 +88,7 @@ function AppBoot({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<BootStatus>(
     hasRefreshToken() ? 'booting' : 'ready',
   );
-  const { unlock } = useAuth();
+  const { unlock, refreshMe } = useAuth();
 
   const tryRefresh = useCallback(async () => {
     setStatus('booting');
@@ -81,6 +96,7 @@ function AppBoot({ children }: { children: React.ReactNode }) {
     if (getAccessToken()) {
       // Refresh successful: unlock so PrivateRoute renders the protected page.
       unlock();
+      await refreshMe();
       setStatus('ready');
     } else if (!hasRefreshToken()) {
       // Refresh token was rejected (401) — let PrivateRoute redirect to login.
@@ -89,7 +105,7 @@ function AppBoot({ children }: { children: React.ReactNode }) {
       // Network error: refresh token still exists but got no access token.
       setStatus('offline');
     }
-  }, [unlock]);
+  }, [unlock, refreshMe]);
 
   useEffect(() => {
     if (!hasRefreshToken()) return;
@@ -137,6 +153,9 @@ export default function App() {
               <Route path="/reset-password" element={<ResetPasswordPage />} />
 
               <Route element={<PrivateRoute />}>
+                <Route path="/checkout" element={<CheckoutPage />} />
+
+                <Route element={<SubscriptionGate />}>
                 <Route element={<AppLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/agenda" element={<AgendaPage />} />
@@ -154,6 +173,7 @@ export default function App() {
                   <Route path="/carteiras" element={<WalletsPage />} />
                   <Route path="/carteiras/:id" element={<WalletPage />} />
                   <Route path="/configuracoes" element={<SettingsPage />} />
+                </Route>
                 </Route>
               </Route>
 
