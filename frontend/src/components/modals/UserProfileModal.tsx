@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import {
   AlertTriangle,
+  Bell,
   Camera,
   Check,
   Fingerprint,
@@ -28,6 +29,7 @@ import { api } from "../../lib/api";
 import { clearTokens, getRefreshToken } from "../../lib/auth";
 import { getApiErrorMessages } from "../../lib/errors";
 import { useTheme } from "../../hooks/useTheme";
+import { getExistingPushSubscription, isPushSupported, subscribeToPush, unsubscribeFromPush } from "../../lib/push";
 import { ModalShell } from "./ModalShell";
 import type { User } from "../../types/api";
 
@@ -135,6 +137,8 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
   const [biometricError, setBiometricError] = useState<string | null>(null);
   const [registerLoading, setRegisterLoading] = useState(false);
   const [registerError, setRegisterError] = useState<string | null>(null);
+  const [pushError, setPushError] = useState<string | null>(null);
+  const pushSupported = isPushSupported();
 
   const userQuery = useQuery<User>({
     queryKey: ["user-profile"],
@@ -150,6 +154,12 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
     staleTime: 1000 * 60 * 5,
   });
   const webAuthnAvailable = (credentialsQuery.data?.length ?? 0) > 0 && browserSupportsWebAuthn();
+
+  const pushStatusQuery = useQuery({
+    queryKey: ["push-subscription"],
+    queryFn: async () => Boolean(await getExistingPushSubscription()),
+    enabled: open && pushSupported,
+  });
 
   const user = userQuery.data;
   const email = user?.email ?? "";
@@ -255,6 +265,26 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["webauthn-credentials"] });
     },
+  });
+
+  const pushSubscribeMutation = useMutation({
+    mutationFn: () => subscribeToPush(),
+    onSuccess: () => {
+      setPushError(null);
+      queryClient.invalidateQueries({ queryKey: ["push-subscription"] });
+    },
+    onError: (err: unknown) => {
+      setPushError(err instanceof Error ? err.message : "Não foi possível ativar as notificações.");
+    },
+  });
+
+  const pushUnsubscribeMutation = useMutation({
+    mutationFn: () => unsubscribeFromPush(),
+    onSuccess: () => {
+      setPushError(null);
+      queryClient.invalidateQueries({ queryKey: ["push-subscription"] });
+    },
+    onError: () => setPushError("Não foi possível desativar as notificações."),
   });
 
   const handleRegisterBiometric = async () => {
@@ -661,6 +691,53 @@ export function UserProfileModal({ open, onClose }: { open: boolean; onClose: ()
             {registerError && (
               <p className="mt-2 text-xs text-accent-red">{registerError}</p>
             )}
+          </SectionCard>
+        )}
+
+        {/* ── Notificações Push ── */}
+        {pushSupported && (
+          <SectionCard title="Notificações Push">
+            <p className="mb-3 text-xs text-text-muted">
+              Avisos de contas vencendo e serviços pendentes mesmo com o app fechado.
+            </p>
+
+            {pushStatusQuery.data ? (
+              <div className="flex items-center justify-between rounded-xl bg-accent-lime/10 px-4 py-3">
+                <div className="flex items-center gap-2 text-sm text-accent-lime">
+                  <Bell className="h-4 w-4 shrink-0" />
+                  Notificações ativas
+                </div>
+                <button
+                  type="button"
+                  onClick={() => pushUnsubscribeMutation.mutate()}
+                  disabled={pushUnsubscribeMutation.isPending}
+                  className="text-xs text-text-secondary underline hover:text-text-primary disabled:opacity-50"
+                >
+                  {pushUnsubscribeMutation.isPending ? "Desativando..." : "Desativar"}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => pushSubscribeMutation.mutate()}
+                disabled={pushSubscribeMutation.isPending || pushStatusQuery.isLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent-lime px-4 py-2.5 text-sm font-bold text-black transition hover:brightness-110 disabled:opacity-70"
+              >
+                {pushSubscribeMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Ativando...
+                  </>
+                ) : (
+                  <>
+                    <Bell className="h-4 w-4" />
+                    Ativar notificações push
+                  </>
+                )}
+              </button>
+            )}
+
+            {pushError && <p className="mt-2 text-xs text-accent-red">{pushError}</p>}
           </SectionCard>
         )}
 
