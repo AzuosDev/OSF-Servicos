@@ -4,6 +4,12 @@ import { visualizer } from "rollup-plugin-visualizer";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig(() => ({
+  // A pasta de assets estáticos deste projeto se chama "Public" (P maiúsculo).
+  // O default do Vite é "public" (minúsculo) — no Windows (case-insensitive)
+  // isso passava despercebido, mas builds na Vercel rodam em Linux
+  // (case-sensitive) e simplesmente não encontravam a pasta, deixando
+  // favicon/manifest/ícones PWA de fora do dist/ em produção.
+  publicDir: "Public",
   test: {
     environment: "jsdom",
     globals: true,
