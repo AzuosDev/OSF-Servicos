@@ -37,10 +37,33 @@ export async function subscribeToPush(): Promise<PushSubscription> {
   }
 
   const registration = await navigator.serviceWorker.ready;
-  const subscription = await registration.pushManager.subscribe({
+
+  // Uma inscrição antiga (de um deploy/chave anterior) pode ficar presa no
+  // navegador e o push service rejeitar a nova tentativa com "push service
+  // error". Descarta qualquer inscrição existente antes de criar uma nova.
+  const existing = await registration.pushManager.getSubscription();
+  if (existing) {
+    await existing.unsubscribe();
+  }
+
+  const subscribeOptions = {
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(data.publicKey),
-  });
+  };
+
+  let subscription: PushSubscription;
+  try {
+    subscription = await registration.pushManager.subscribe(subscribeOptions);
+  } catch (err) {
+    // "Registration failed - push service error" costuma ser um problema
+    // passageiro de comunicação com o serviço de push do sistema (ex: FCM no
+    // Android) — uma segunda tentativa resolve na maioria dos casos.
+    if (err instanceof DOMException && err.name === "AbortError") {
+      subscription = await registration.pushManager.subscribe(subscribeOptions);
+    } else {
+      throw err;
+    }
+  }
 
   await api.post("/api/notifications/push/subscribe", subscription.toJSON());
   return subscription;
