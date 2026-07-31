@@ -68,13 +68,13 @@ export class NotificationsService {
       .exec();
   }
 
-  /** Retorna true quando a notificação é nova (agendamento ainda não havia sido sinalizado). */
+  /** Retorna se a notificação é nova (agendamento ainda não havia sido sinalizado), junto do título/mensagem gerados — reaproveitados pelo push individual do cron. */
   async upsertServiceNotCompletedNotification(data: {
     userId: Types.ObjectId;
     appointmentId: Types.ObjectId;
     clientName: string;
     date: Date;
-  }): Promise<boolean> {
+  }): Promise<{ isNew: boolean; title: string; message: string }> {
     const { userId, appointmentId, clientName, date } = data;
     const existed = await this.notificationModel.exists({
       userId,
@@ -82,6 +82,8 @@ export class NotificationsService {
       type: 'SERVICO_NAO_CONCLUIDO',
     });
     const dateFormatted = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const title = 'Serviço não concluído';
+    const message = `Atendimento de ${clientName} em ${dateFormatted} ainda não foi marcado como concluído.`;
     await this.notificationModel
       .findOneAndUpdate(
         { userId, appointmentId, type: 'SERVICO_NAO_CONCLUIDO' },
@@ -90,8 +92,8 @@ export class NotificationsService {
             userId,
             appointmentId,
             type: 'SERVICO_NAO_CONCLUIDO',
-            title: 'Serviço não concluído',
-            message: `Atendimento de ${clientName} em ${dateFormatted} ainda não foi marcado como concluído.`,
+            title,
+            message,
             generatedDate: date,
             read: false,
           },
@@ -99,7 +101,7 @@ export class NotificationsService {
         { upsert: true },
       )
       .exec();
-    return !existed;
+    return { isNew: !existed, title, message };
   }
 
   async findUnreadByUser(userId: Types.ObjectId) {

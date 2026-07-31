@@ -9,6 +9,8 @@ import { PushService } from './push.service';
 import { NotificationType } from './schemas/notification.schema';
 
 type NewCountByUser = Map<string, number>;
+type PushItem = { title: string; body: string };
+type ItemsByUser = Map<string, PushItem[]>;
 
 @Injectable()
 export class NotificationsCronService {
@@ -54,7 +56,7 @@ export class NotificationsCronService {
     const accounts = await this.generatePendingAccountNotifications();
     const services = await this.generateServiceNotCompletedNotifications();
 
-    await this.pushPendingSummary(accounts.totalByUser, services.totalByUser);
+    await this.pushIndividualNotifications(accounts.itemsByUser, services.itemsByUser);
 
     this.logger.log(
       `Global sweep: ${accounts.total} conta(s) pendente(s), ${services.total} serviço(s) não concluído(s)`,
@@ -76,32 +78,21 @@ export class NotificationsCronService {
   }
 
   /**
-   * Envia um resumo de TODOS os itens pendentes no momento (não só os criados
-   * nesta execução) — assim, se o cron externo rodar várias vezes ao dia, o
-   * usuário recebe push a cada execução enquanto houver pendência, em vez de
-   * só na primeira vez que ela foi detectada.
+   * Envia uma push separada para CADA item pendente no momento (não só os
+   * criados nesta execução) — assim, se o cron externo rodar várias vezes ao
+   * dia, o usuário recebe push a cada execução enquanto houver pendência, em
+   * vez de só na primeira vez que ela foi detectada. Cada notificação já traz
+   * na descrição qual conta ou qual cliente ela se refere, em vez de um
+   * resumo agregado.
    */
-  private async pushPendingSummary(accountsByUser: NewCountByUser, servicesByUser: NewCountByUser) {
-    const userIds = new Set([...accountsByUser.keys(), ...servicesByUser.keys()]);
+  private async pushIndividualNotifications(accountItemsByUser: ItemsByUser, serviceItemsByUser: ItemsByUser) {
+    const userIds = new Set([...accountItemsByUser.keys(), ...serviceItemsByUser.keys()]);
 
     await Promise.all(
       Array.from(userIds).map(async (userId) => {
-        const accountsCount = accountsByUser.get(userId) ?? 0;
-        const servicesCount = servicesByUser.get(userId) ?? 0;
-
-        const parts: string[] = [];
-        if (accountsCount > 0) {
-          parts.push(`${accountsCount} conta${accountsCount > 1 ? 's' : ''} pendente${accountsCount > 1 ? 's' : ''}`);
-        }
-        if (servicesCount > 0) {
-          parts.push(`${servicesCount} serviço${servicesCount > 1 ? 's' : ''} não concluído${servicesCount > 1 ? 's' : ''}`);
-        }
-        if (parts.length === 0) return;
-
-        await this.pushService.sendToUser(new Types.ObjectId(userId), {
-          title: 'AK LavaJato',
-          body: `Você tem ${parts.join(' e ')}. Abra o app para ver os detalhes.`,
-        });
+        const items = [...(accountItemsByUser.get(userId) ?? []), ...(serviceItemsByUser.get(userId) ?? [])];
+        const objectId = new Types.ObjectId(userId);
+        await Promise.all(items.map((item) => this.pushService.sendToUser(objectId, item)));
       }),
     );
   }
@@ -126,10 +117,17 @@ export class NotificationsCronService {
     map.set(key, (map.get(key) ?? 0) + 1);
   }
 
+  private pushItem(map: ItemsByUser, userId: Types.ObjectId, item: PushItem) {
+    const key = userId.toString();
+    const items = map.get(key);
+    if (items) items.push(item);
+    else map.set(key, [item]);
+  }
+
   /** Contas a pagar vencidas/vencendo hoje e contas a receber atrasadas. */
   private async generatePendingAccountNotifications(
     userId?: Types.ObjectId,
-  ): Promise<{ total: number; newByUser: NewCountByUser; totalByUser: NewCountByUser }> {
+  ): Promise<{ total: number; newByUser: NewCountByUser; itemsByUser: ItemsByUser }> {
     const filter: FilterQuery<PendingAccountDocument> = {
       paid: false,
       skipped: { $ne: true },
@@ -143,7 +141,7 @@ export class NotificationsCronService {
     todayStart.setUTCHours(0, 0, 0, 0);
 
     const newByUser: NewCountByUser = new Map();
-    const totalByUser: NewCountByUser = new Map();
+    const itemsByUser: ItemsByUser = new Map();
 
     for (const account of accounts) {
       const dueDay = new Date(account.dueDate);
@@ -165,27 +163,28 @@ export class NotificationsCronService {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       });
+      const message = `${account.title} — R$ ${valueFormatted}`;
 
       const accountUserId = account.userId as Types.ObjectId;
-      this.bumpCount(totalByUser, accountUserId);
+      this.pushItem(itemsByUser, accountUserId, { title, body: message });
       const isNew = await this.notificationsService.upsertNotification({
         userId: accountUserId,
         pendingAccountId: (account as { _id: Types.ObjectId })._id,
         type,
         title,
-        message: `${account.title} — R$ ${valueFormatted}`,
+        message,
         generatedDate: todayStart,
       });
       if (isNew) this.bumpCount(newByUser, accountUserId);
     }
 
-    return { total: accounts.length, newByUser, totalByUser };
+    return { total: accounts.length, newByUser, itemsByUser };
   }
 
   /** Agendamentos de ontem que ainda não foram marcados como concluídos (nem cancelados). */
   private async generateServiceNotCompletedNotifications(
     userId?: Types.ObjectId,
-  ): Promise<{ total: number; newByUser: NewCountByUser; totalByUser: NewCountByUser }> {
+  ): Promise<{ total: number; newByUser: NewCountByUser; itemsByUser: ItemsByUser }> {
     const { start, end } = this.previousDayRange();
     const filter: FilterQuery<AppointmentDocument> = {
       startAt: { $gte: start, $lte: end },
@@ -195,20 +194,20 @@ export class NotificationsCronService {
 
     const appointments = await this.appointmentModel.find(filter).lean().exec();
     const newByUser: NewCountByUser = new Map();
-    const totalByUser: NewCountByUser = new Map();
+    const itemsByUser: ItemsByUser = new Map();
 
     for (const appointment of appointments) {
       const appointmentUserId = appointment.userId as Types.ObjectId;
-      this.bumpCount(totalByUser, appointmentUserId);
-      const isNew = await this.notificationsService.upsertServiceNotCompletedNotification({
+      const { isNew, title, message } = await this.notificationsService.upsertServiceNotCompletedNotification({
         userId: appointmentUserId,
         appointmentId: (appointment as { _id: Types.ObjectId })._id,
         clientName: appointment.clientName,
         date: appointment.startAt,
       });
+      this.pushItem(itemsByUser, appointmentUserId, { title, body: message });
       if (isNew) this.bumpCount(newByUser, appointmentUserId);
     }
 
-    return { total: appointments.length, newByUser, totalByUser };
+    return { total: appointments.length, newByUser, itemsByUser };
   }
 }
