@@ -62,6 +62,15 @@ export class PushService {
     await Promise.all(subscriptions.map((subscription) => this.sendToSubscription(subscription, payload)));
   }
 
+  /** Envia para todas as inscrições cadastradas, independente de critério de negócio — só para testar se o pipeline de push está funcionando. */
+  async sendToAllSubscribed(payload: PushPayload): Promise<number> {
+    if (!this.vapidConfigured) return 0;
+
+    const subscriptions = await this.subscriptionModel.find().exec();
+    await Promise.all(subscriptions.map((subscription) => this.sendToSubscription(subscription, payload)));
+    return subscriptions.length;
+  }
+
   private async sendToSubscription(subscription: PushSubscriptionDocument, payload: PushPayload) {
     try {
       await webpush.sendNotification(

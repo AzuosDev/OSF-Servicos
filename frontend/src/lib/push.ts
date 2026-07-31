@@ -4,6 +4,30 @@ export function isPushSupported(): boolean {
   return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 }
 
+export function getPermissionState(): NotificationPermission | "unsupported" {
+  if (!("Notification" in window)) return "unsupported";
+  return Notification.permission;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * `navigator.serviceWorker.ready` pode nunca resolver (ex.: o SW de
+ * desenvolvimento do vite-plugin-pwa falha silenciosamente em `npm run dev`).
+ * Sem um limite de tempo, qualquer tela que dependa disso fica presa em
+ * "carregando" para sempre. Falha explicitamente em vez de travar a UI.
+ */
+async function readyServiceWorker(timeoutMs = 8000): Promise<ServiceWorkerRegistration> {
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<ServiceWorkerRegistration>((_, reject) =>
+      setTimeout(() => reject(new Error("O Service Worker não respondeu a tempo. Recarregue a página e tente novamente.")), timeoutMs),
+    ),
+  ]);
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -17,7 +41,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 
 export async function getExistingPushSubscription(): Promise<PushSubscription | null> {
   if (!isPushSupported()) return null;
-  const registration = await navigator.serviceWorker.ready;
+  const registration = await readyServiceWorker();
   return registration.pushManager.getSubscription();
 }
 
@@ -36,7 +60,7 @@ export async function subscribeToPush(): Promise<PushSubscription> {
     throw new Error("Push notifications não configurado no servidor.");
   }
 
-  const registration = await navigator.serviceWorker.ready;
+  const registration = await readyServiceWorker();
 
   // Uma inscrição antiga (de um deploy/chave anterior) pode ficar presa no
   // navegador e o push service rejeitar a nova tentativa com "push service
@@ -51,18 +75,33 @@ export async function subscribeToPush(): Promise<PushSubscription> {
     applicationServerKey: urlBase64ToUint8Array(data.publicKey),
   };
 
-  let subscription: PushSubscription;
-  try {
-    subscription = await registration.pushManager.subscribe(subscribeOptions);
-  } catch (err) {
-    // "Registration failed - push service error" costuma ser um problema
-    // passageiro de comunicação com o serviço de push do sistema (ex: FCM no
-    // Android) — uma segunda tentativa resolve na maioria dos casos.
-    if (err instanceof DOMException && err.name === "AbortError") {
+  // "Registration failed - push service error" costuma ser uma falha passageira
+  // de comunicação com o serviço de push do sistema (ex.: FCM no Android) logo
+  // após o Service Worker ativar — tenta de novo algumas vezes com um pequeno
+  // intervalo antes de desistir.
+  const retryDelaysMs = [1000, 2500];
+  let subscription: PushSubscription | undefined;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= retryDelaysMs.length; attempt++) {
+    try {
       subscription = await registration.pushManager.subscribe(subscribeOptions);
-    } else {
-      throw err;
+      break;
+    } catch (err) {
+      lastError = err;
+      const isAbort = err instanceof DOMException && err.name === "AbortError";
+      if (!isAbort || attempt === retryDelaysMs.length) break;
+      await sleep(retryDelaysMs[attempt]);
     }
+  }
+
+  if (!subscription) {
+    if (lastError instanceof DOMException && lastError.name === "AbortError") {
+      throw new Error(
+        "O serviço de notificações do sistema não respondeu. Verifique sua conexão e se o Google Play Services está atualizado, depois tente novamente.",
+      );
+    }
+    throw lastError;
   }
 
   await api.post("/api/notifications/push/subscribe", subscription.toJSON());
