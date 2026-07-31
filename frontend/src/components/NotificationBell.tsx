@@ -11,7 +11,8 @@ type NotificationType =
   | "VENCIDA_RECEBER"
   | "VENCE_HOJE_PAGAR"
   | "VENCE_HOJE_RECEBER"
-  | "SALDO_PENDENTE_SERVICO";
+  | "SALDO_PENDENTE_SERVICO"
+  | "SERVICO_NAO_CONCLUIDO";
 
 type Notification = {
   _id: string;
@@ -43,6 +44,10 @@ const typeConfig: Record<NotificationType, { color: string; dot: string }> = {
     dot: "bg-accent-yellow",
   },
   SALDO_PENDENTE_SERVICO: {
+    color: "text-accent-yellow",
+    dot: "bg-accent-yellow",
+  },
+  SERVICO_NAO_CONCLUIDO: {
     color: "text-accent-yellow",
     dot: "bg-accent-yellow",
   },
@@ -101,7 +106,9 @@ export function NotificationBell({
   const handleNotificationClick = (n: Notification) => {
     if (!n.read) markOneMutation.mutate(n._id);
     setOpen(false);
-    navigate(n.type === "SALDO_PENDENTE_SERVICO" ? "/contas-a-receber" : "/contas");
+    if (n.type === "SALDO_PENDENTE_SERVICO") navigate("/contas-a-receber");
+    else if (n.type === "SERVICO_NAO_CONCLUIDO") navigate("/agenda");
+    else navigate("/contas");
   };
 
   const BellIcon = unreadCount > 0 ? BellDot : Bell;
