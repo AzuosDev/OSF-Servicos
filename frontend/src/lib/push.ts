@@ -46,73 +46,104 @@ export async function getExistingPushSubscription(): Promise<PushSubscription | 
 }
 
 export async function subscribeToPush(): Promise<PushSubscription> {
+  console.log("[push] subscribeToPush: início", {
+    supported: isPushSupported(),
+    permission: getPermissionState(),
+    isSecureContext: window.isSecureContext,
+  });
+
   if (!isPushSupported()) {
+    console.error("[push] navegador não suporta push (serviceWorker/PushManager/Notification)");
     throw new Error("Este navegador não suporta notificações push.");
   }
 
   const permission = await Notification.requestPermission();
+  console.log("[push] Notification.requestPermission ->", permission);
   if (permission !== "granted") {
     throw new Error("Permissão de notificação negada.");
   }
 
-  const { data } = await api.get<{ publicKey: string | null }>("/api/notifications/push/public-key");
-  if (!data.publicKey) {
+  let publicKey: string | null;
+  try {
+    const { data } = await api.get<{ publicKey: string | null }>("/api/notifications/push/public-key");
+    publicKey = data.publicKey;
+    console.log("[push] public-key ->", publicKey ? `presente (len=${publicKey.length})` : "ausente");
+  } catch (err) {
+    console.error("[push] erro ao buscar a chave VAPID no backend", err);
+    throw err;
+  }
+  if (!publicKey) {
     throw new Error("Push notifications não configurado no servidor.");
   }
 
   const registration = await readyServiceWorker();
+  console.log("[push] serviceWorker.ready ok", { scope: registration.scope, active: !!registration.active });
 
-  // Uma inscrição antiga (de um deploy/chave anterior) pode ficar presa no
-  // navegador e o push service rejeitar a nova tentativa com "push service
-  // error". Descarta qualquer inscrição existente antes de criar uma nova.
-  const existing = await registration.pushManager.getSubscription();
-  if (existing) {
-    await existing.unsubscribe();
-  }
-
-  const subscribeOptions = {
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(data.publicKey),
-  };
-
-  // "Registration failed - push service error" costuma ser uma falha passageira
-  // de comunicação com o serviço de push do sistema (ex.: FCM no Android) logo
-  // após o Service Worker ativar — tenta de novo algumas vezes com um pequeno
-  // intervalo antes de desistir.
-  const retryDelaysMs = [1000, 2500];
-  let subscription: PushSubscription | undefined;
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt <= retryDelaysMs.length; attempt++) {
-    try {
-      subscription = await registration.pushManager.subscribe(subscribeOptions);
-      break;
-    } catch (err) {
-      lastError = err;
-      const isAbort = err instanceof DOMException && err.name === "AbortError";
-      if (!isAbort || attempt === retryDelaysMs.length) break;
-      await sleep(retryDelaysMs[attempt]);
-    }
-  }
+  // Reaproveita a inscrição já existente em vez de descartar e recriar — menos
+  // round-trips com o push service, que já é o ponto mais frágil desse fluxo.
+  let subscription = await registration.pushManager.getSubscription();
+  console.log("[push] inscrição já existente?", !!subscription);
 
   if (!subscription) {
-    if (lastError instanceof DOMException && lastError.name === "AbortError") {
-      throw new Error(
-        "O serviço de notificações do sistema não respondeu. Verifique sua conexão e se o Google Play Services está atualizado, depois tente novamente.",
-      );
+    const subscribeOptions = {
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    };
+
+    // "Registration failed - push service error" costuma ser uma falha passageira
+    // de comunicação com o serviço de push do sistema (ex.: FCM no Android) logo
+    // após o Service Worker ativar — tenta de novo algumas vezes com um pequeno
+    // intervalo antes de desistir.
+    const retryDelaysMs = [1000, 2500];
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= retryDelaysMs.length; attempt++) {
+      try {
+        subscription = await registration.pushManager.subscribe(subscribeOptions);
+        console.log("[push] pushManager.subscribe ok", { endpoint: subscription.endpoint, attempt });
+        break;
+      } catch (err) {
+        lastError = err;
+        const isAbort = err instanceof DOMException && err.name === "AbortError";
+        console.error(`[push] erro em pushManager.subscribe (tentativa ${attempt + 1})`, err);
+        if (!isAbort || attempt === retryDelaysMs.length) break;
+        await sleep(retryDelaysMs[attempt]);
+      }
     }
-    throw lastError;
+
+    if (!subscription) {
+      if (lastError instanceof DOMException && lastError.name === "AbortError") {
+        throw new Error(
+          "O serviço de notificações do sistema não respondeu. Verifique sua conexão e se o Google Play Services está atualizado, depois tente novamente.",
+        );
+      }
+      throw lastError;
+    }
   }
 
-  await api.post("/api/notifications/push/subscribe", subscription.toJSON());
+  try {
+    await api.post("/api/notifications/push/subscribe", subscription.toJSON());
+    console.log("[push] inscrição enviada ao backend com sucesso");
+  } catch (err) {
+    console.error("[push] erro ao enviar a inscrição para o backend", err);
+    throw err;
+  }
+
   return subscription;
 }
 
 export async function unsubscribeFromPush(): Promise<void> {
+  console.log("[push] unsubscribeFromPush: início");
   const subscription = await getExistingPushSubscription();
-  if (!subscription) return;
+  if (!subscription) {
+    console.log("[push] nenhuma inscrição ativa encontrada para cancelar");
+    return;
+  }
 
   const endpoint = subscription.endpoint;
-  await subscription.unsubscribe();
+  const deactivated = await subscription.unsubscribe();
+  console.log("[push] subscription.unsubscribe no navegador ->", deactivated);
+
   await api.delete("/api/notifications/push/subscribe", { data: { endpoint } });
+  console.log("[push] inscrição removida do backend com sucesso");
 }
