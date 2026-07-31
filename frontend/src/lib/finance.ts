@@ -12,7 +12,7 @@ export const brlFormatter = new Intl.NumberFormat("pt-BR", {
 });
 
 export function formatCurrency(value: number) {
-  return brlFormatter.format(value);
+  return brlFormatter.format(Number.isFinite(value) ? value : 0);
 }
 
 export function asRecord(value: unknown): Record<string, unknown> {

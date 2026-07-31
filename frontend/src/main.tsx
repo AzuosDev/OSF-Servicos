@@ -10,6 +10,22 @@ import "./styles.css";
 
 registerSW({ immediate: true });
 
+// Com registerType "autoUpdate", o novo service worker assume o controle da aba
+// (skipWaiting + clientsClaim) sem recarregar a página automaticamente. Isso deixa
+// o bundle JS antigo rodando em memória até um reload manual, causando dados
+// inconsistentes/NaN logo após um deploy. Forçamos um reload único ao detectar a
+// troca de controller para sempre carregar o bundle mais recente.
+if ("serviceWorker" in navigator) {
+  let reloadingAfterSwUpdate = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloadingAfterSwUpdate) {
+      return;
+    }
+    reloadingAfterSwUpdate = true;
+    window.location.reload();
+  });
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
