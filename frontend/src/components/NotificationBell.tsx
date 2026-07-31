@@ -194,11 +194,15 @@ export function NotificationBell({
               notifications.map((n) => {
                 const cfg = typeConfig[n.type];
                 return (
-                  <button
+                  <div
                     key={n._id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => handleNotificationClick(n)}
-                    className="flex w-full items-start gap-3 border-b border-border-default px-4 py-3 text-left transition last:border-0 hover:bg-bg-overlay"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") handleNotificationClick(n);
+                    }}
+                    className="flex w-full cursor-pointer items-start gap-3 border-b border-border-default px-4 py-3 text-left transition last:border-0 hover:bg-bg-overlay"
                   >
                     <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", cfg.dot)} />
                     <div className="min-w-0 flex-1">
@@ -219,7 +223,7 @@ export function NotificationBell({
                     >
                       <Check className="h-3.5 w-3.5" />
                     </button>
-                  </button>
+                  </div>
                 );
               })
             )}

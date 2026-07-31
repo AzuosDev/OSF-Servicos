@@ -81,11 +81,13 @@ self.addEventListener('push', (event) => {
     payload = { title: 'AK LavaJato', body: event.data.text() };
   }
 
+  const iconUrl = new URL('/pwa-192x192.png', self.location.origin).href;
+
   event.waitUntil(
     self.registration.showNotification(payload.title ?? 'AK LavaJato', {
       body: payload.body ?? '',
-      icon: '/pwa-192x192.png',
-      badge: '/pwa-192x192.png',
+      icon: iconUrl,
+      badge: iconUrl,
     }),
   );
 });
