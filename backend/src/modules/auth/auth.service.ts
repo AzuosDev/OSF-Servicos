@@ -8,6 +8,7 @@ import { RefreshTokenDocument } from './schemas/refresh-token.schema';
 import * as crypto from 'crypto';
 import { EmailService } from '../../common/services/email.service';
 import { NotificationsCronService } from '../notifications/notifications-cron.service';
+import { BillingService } from '../billing/billing.service';
 
 @Injectable()
 export class AuthService {
@@ -19,6 +20,7 @@ export class AuthService {
     @InjectModel('RefreshToken') private refreshModel: Model<RefreshTokenDocument>,
     private emailService: EmailService,
     private notificationsCronService: NotificationsCronService,
+    private billingService: BillingService,
   ) {}
 
   async register(dto: { email: string; password: string }) {
@@ -62,12 +64,17 @@ export class AuthService {
   }
 
   private async checkUserNotifications(userId: Types.ObjectId | string) {
+    const userObjectId = typeof userId === 'string' ? new Types.ObjectId(userId) : userId;
     try {
-      const userObjectId = typeof userId === 'string' ? new Types.ObjectId(userId) : userId;
       await this.notificationsCronService.generateNotificationsForUser(userObjectId);
     } catch (err) {
       // Notificação é best-effort: uma falha aqui nunca deve impedir o login.
       this.logger.error('Failed to generate login-time notifications', err as Error);
+    }
+    try {
+      await this.billingService.checkAndNotifyPendingBilling(userObjectId);
+    } catch (err) {
+      this.logger.error('Failed to check pending billing on login', err as Error);
     }
   }
 

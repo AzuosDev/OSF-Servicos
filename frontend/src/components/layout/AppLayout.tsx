@@ -37,6 +37,7 @@ import { useToast } from "../ui/Toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UserProfileModal } from "../modals/UserProfileModal";
 import { WebAuthnSuggestionModal } from "../modals/WebAuthnSuggestionModal";
+import { PixBillingReminderModal } from "../modals/PixBillingReminderModal";
 import { useWebAuthnSuggestion } from "../../hooks/useWebAuthnSuggestion";
 import { hasSeenWhatsNew } from "../modals/WhatsNewModal";
 const TransactionModal = lazy(() =>
@@ -174,6 +175,7 @@ type SidebarContentProps = {
   onOpenProfile?: () => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  onBillingReminderClick?: () => void;
 };
 
 function SidebarContent({
@@ -187,6 +189,7 @@ function SidebarContent({
   onOpenProfile,
   collapsed = false,
   onToggleCollapse,
+  onBillingReminderClick,
 }: SidebarContentProps) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -292,7 +295,7 @@ function SidebarContent({
       </nav>
 
       <div className={cn("px-4 pb-1", collapsed && "px-3")}>
-        <NotificationBell collapsed={collapsed} />
+        <NotificationBell collapsed={collapsed} onBillingReminderClick={onBillingReminderClick} />
       </div>
 
       <div
@@ -377,8 +380,8 @@ function SidebarContent({
 
 import { createContext, useContext } from "react";
 
-function MobileNotificationBell() {
-  return <NotificationBell openDirection="down" iconOnly />;
+function MobileNotificationBell({ onBillingReminderClick }: { onBillingReminderClick?: () => void }) {
+  return <NotificationBell openDirection="down" iconOnly onBillingReminderClick={onBillingReminderClick} />;
 }
 
 export const TransactionModalContext = createContext<{ open: boolean; setOpen: React.Dispatch<React.SetStateAction<boolean>> }>({
@@ -400,6 +403,7 @@ export function AppLayout() {
   const [userProfileOpen, setUserProfileOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
+  const [billingReminderOpen, setBillingReminderOpen] = useState(false);
   const webAuthnSuggestion = useWebAuthnSuggestion();
 
   const [email, setEmail] = useState(
@@ -487,6 +491,7 @@ export function AppLayout() {
           avatarUrl={avatarUrl}
           onLogout={handleLogout}
           onOpenProfile={() => setUserProfileOpen(true)}
+          onBillingReminderClick={() => setBillingReminderOpen(true)}
           collapsed={desktopSidebarCollapsed}
           onToggleCollapse={() =>
             setDesktopSidebarCollapsed((collapsed) => !collapsed)
@@ -519,6 +524,7 @@ export function AppLayout() {
               avatarUrl={avatarUrl}
               onLogout={handleLogout}
               onOpenProfile={() => { setMobileSidebarOpen(false); setUserProfileOpen(true); }}
+              onBillingReminderClick={() => { setMobileSidebarOpen(false); setBillingReminderOpen(true); }}
               onNavigate={() => setMobileSidebarOpen(false)}
             />
           </aside>
@@ -539,7 +545,7 @@ export function AppLayout() {
           </h1>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <MobileNotificationBell />
+          <MobileNotificationBell onBillingReminderClick={() => setBillingReminderOpen(true)} />
           <button
             onClick={() => setUserProfileOpen(true)}
             className="rounded-full transition hover:ring-2 hover:ring-accent-lime/50 focus:outline-none"
@@ -670,6 +676,8 @@ export function AppLayout() {
         onDismiss={webAuthnSuggestion.dismiss}
         onRegistered={webAuthnSuggestion.markRegistered}
       />
+
+      <PixBillingReminderModal open={billingReminderOpen} onClose={() => setBillingReminderOpen(false)} />
     </div>
   </TransactionModalContext.Provider>
   );

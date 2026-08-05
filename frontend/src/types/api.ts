@@ -50,6 +50,19 @@ export type BillingPortalResponse = {
   url: string;
 };
 
+export type PendingBillingInvoice = {
+  referenceMonth: string;
+  amount: number;
+  dueDate: ApiDate;
+};
+
+export type PendingBillingSummary = {
+  hasPending: boolean;
+  totalAmount: number;
+  installments: number;
+  invoices: PendingBillingInvoice[];
+};
+
 export type TransactionType = "EXPENSE" | "INCOME" | "TRANSFER";
 export type TipoTransacao = "entrada" | "saida" | "transferencia";
 

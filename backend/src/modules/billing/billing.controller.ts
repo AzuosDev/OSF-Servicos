@@ -4,6 +4,7 @@ import { SkipThrottle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { BillingService } from './billing.service';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
+import { PendingCheckoutDto } from './dto/pending-checkout.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ICurrentUser } from '../../common/types/current-user.type';
@@ -32,6 +33,22 @@ export class BillingController {
   @Post('portal')
   async portal(@CurrentUser() user: ICurrentUser) {
     return this.billingService.createPortalSession(user);
+  }
+
+  /** Resumo da mensalidade em aberto do usuário logado (mês atual + atrasados). */
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('pending')
+  async pending(@CurrentUser() user: ICurrentUser) {
+    return this.billingService.getPendingSummary(user._id.toString());
+  }
+
+  /** Gera um único PIX cobrindo todas as parcelas em aberto do usuário. */
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('pending/checkout')
+  async pendingCheckout(@CurrentUser() user: ICurrentUser, @Body() dto: PendingCheckoutDto) {
+    return this.billingService.createPendingPixCheckout(user, dto.cpfCnpj);
   }
 
   @SkipThrottle()
