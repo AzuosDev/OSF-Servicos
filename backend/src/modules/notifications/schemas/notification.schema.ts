@@ -9,7 +9,8 @@ export type NotificationType =
   | 'VENCE_HOJE_PAGAR'
   | 'VENCE_HOJE_RECEBER'
   | 'SALDO_PENDENTE_SERVICO'
-  | 'SERVICO_NAO_CONCLUIDO';
+  | 'SERVICO_NAO_CONCLUIDO'
+  | 'MENSALIDADE_PENDENTE';
 
 @Schema({ timestamps: true })
 export class Notification {
@@ -25,6 +26,7 @@ export class Notification {
       'VENCE_HOJE_RECEBER',
       'SALDO_PENDENTE_SERVICO',
       'SERVICO_NAO_CONCLUIDO',
+      'MENSALIDADE_PENDENTE',
     ],
     required: true,
   })

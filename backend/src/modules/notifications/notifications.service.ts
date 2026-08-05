@@ -68,6 +68,48 @@ export class NotificationsService {
       .exec();
   }
 
+  /**
+   * Lembrete de mensalidade pendente. Sempre reabre como não lida (read: false)
+   * a cada chamada — o requisito é notificar o usuário em TODO login enquanto
+   * houver saldo em aberto, mesmo que ele já tenha marcado como lida antes.
+   */
+  async upsertBillingReminderNotification(data: {
+    userId: Types.ObjectId;
+    totalAmount: number;
+    installments: number;
+  }) {
+    const { userId, totalAmount, installments } = data;
+    const amountFormatted = totalAmount.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    const message =
+      installments > 1
+        ? `R$ ${amountFormatted} em aberto (${installments} mensalidades acumuladas). Toque para pagar via PIX.`
+        : `R$ ${amountFormatted} em aberto. Toque para pagar via PIX.`;
+
+    await this.notificationModel
+      .findOneAndUpdate(
+        { userId, type: 'MENSALIDADE_PENDENTE' },
+        {
+          $set: {
+            userId,
+            type: 'MENSALIDADE_PENDENTE',
+            title: 'Mensalidade pendente',
+            message,
+            generatedDate: new Date(),
+            read: false,
+          },
+        },
+        { upsert: true },
+      )
+      .exec();
+  }
+
+  async removeBillingReminderNotification(userId: Types.ObjectId) {
+    await this.notificationModel.deleteOne({ userId, type: 'MENSALIDADE_PENDENTE' }).exec();
+  }
+
   /** Retorna se a notificação é nova (agendamento ainda não havia sido sinalizado), junto do título/mensagem gerados — reaproveitados pelo push individual do cron. */
   async upsertServiceNotCompletedNotification(data: {
     userId: Types.ObjectId;

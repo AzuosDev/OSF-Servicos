@@ -49,20 +49,6 @@ function PrivateRoute() {
   return <Outlet />;
 }
 
-function SubscriptionGate() {
-  const { hasAccess, subscriptionLoaded } = useAuth();
-
-  if (!subscriptionLoaded) {
-    return <PageLoader />;
-  }
-
-  if (!hasAccess) {
-    return <Navigate to="/checkout" replace />;
-  }
-
-  return <Outlet />;
-}
-
 function resolveAuthRedirect(hasToken: string | null, isLocked: boolean): string | null {
   if (hasToken && isLocked) {
     return "/login";
@@ -155,7 +141,6 @@ export default function App() {
               <Route element={<PrivateRoute />}>
                 <Route path="/checkout" element={<CheckoutPage />} />
 
-                <Route element={<SubscriptionGate />}>
                 <Route element={<AppLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/agenda" element={<AgendaPage />} />
@@ -173,7 +158,6 @@ export default function App() {
                   <Route path="/carteiras" element={<WalletsPage />} />
                   <Route path="/carteiras/:id" element={<WalletPage />} />
                   <Route path="/configuracoes" element={<SettingsPage />} />
-                </Route>
                 </Route>
               </Route>
 

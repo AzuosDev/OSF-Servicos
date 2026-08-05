@@ -12,7 +12,8 @@ type NotificationType =
   | "VENCE_HOJE_PAGAR"
   | "VENCE_HOJE_RECEBER"
   | "SALDO_PENDENTE_SERVICO"
-  | "SERVICO_NAO_CONCLUIDO";
+  | "SERVICO_NAO_CONCLUIDO"
+  | "MENSALIDADE_PENDENTE";
 
 type Notification = {
   _id: string;
@@ -51,16 +52,23 @@ const typeConfig: Record<NotificationType, { color: string; dot: string }> = {
     color: "text-accent-yellow",
     dot: "bg-accent-yellow",
   },
+  MENSALIDADE_PENDENTE: {
+    color: "text-accent-yellow",
+    dot: "bg-accent-yellow",
+  },
 };
 
 export function NotificationBell({
   collapsed = false,
   openDirection = "up",
   iconOnly = false,
+  onBillingReminderClick,
 }: {
   collapsed?: boolean;
   openDirection?: "up" | "down";
   iconOnly?: boolean;
+  /** Chamado ao clicar numa notificação de mensalidade pendente, em vez de navegar. */
+  onBillingReminderClick?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -106,7 +114,8 @@ export function NotificationBell({
   const handleNotificationClick = (n: Notification) => {
     if (!n.read) markOneMutation.mutate(n._id);
     setOpen(false);
-    if (n.type === "SALDO_PENDENTE_SERVICO") navigate("/contas-a-receber");
+    if (n.type === "MENSALIDADE_PENDENTE") onBillingReminderClick?.();
+    else if (n.type === "SALDO_PENDENTE_SERVICO") navigate("/contas-a-receber");
     else if (n.type === "SERVICO_NAO_CONCLUIDO") navigate("/agenda");
     else navigate("/contas");
   };

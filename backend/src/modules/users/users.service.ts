@@ -180,4 +180,16 @@ export class UsersService {
       .select('-password')
       .exec();
   }
+
+  /** Usuários que devem ser cobrados pela mensalidade — exclui contas legadas gratuitas e quem ainda está no período de teste. */
+  async findEligibleForBilling(referenceDate: Date) {
+    return this.userModel
+      .find({
+        isLegacyFree: { $ne: true },
+        $or: [{ trialEndsAt: null }, { trialEndsAt: { $lte: referenceDate } }],
+      })
+      .select('_id')
+      .lean()
+      .exec();
+  }
 }
