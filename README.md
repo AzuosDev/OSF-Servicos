@@ -1,3 +1,5 @@
-# AK LavaJato
+# OSF Serviços
 
-Ferramenta web para gestao financeira
+Ferramenta web para gestão de serviços
+
+by [OSF Serviços](https://www.instagram.com/osf_servicos)
