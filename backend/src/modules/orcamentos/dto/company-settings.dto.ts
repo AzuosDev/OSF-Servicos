@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString, Min, MaxLength } from 'class-validator';
+import { IsLatitude, IsLongitude, IsNotEmpty, IsNumber, IsOptional, IsString, Min, MaxLength } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import sanitizeHtml from 'sanitize-html';
 
@@ -21,6 +21,16 @@ export class CompanySettingsDto {
   @IsString()
   @MaxLength(300)
   baseAddress!: string;
+
+  @IsOptional()
+  @IsLatitude()
+  @Type(() => Number)
+  originLat?: number;
+
+  @IsOptional()
+  @IsLongitude()
+  @Type(() => Number)
+  originLng?: number;
 
   @IsOptional()
   @IsString()

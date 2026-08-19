@@ -17,6 +17,15 @@ export class CompanySettings {
   @Prop({ required: true, trim: true, maxlength: 300 })
   baseAddress!: string;
 
+  // Quando preenchidas, o cálculo de deslocamento usa essas coordenadas como ponto de partida
+  // em vez de geocodificar `baseAddress` — útil para endereços rurais/sem numeração que a ORS
+  // não consegue localizar por texto.
+  @Prop({ min: -90, max: 90 })
+  originLat?: number;
+
+  @Prop({ min: -180, max: 180 })
+  originLng?: number;
+
   @Prop({ trim: true, maxlength: 30 })
   phone?: string;
 

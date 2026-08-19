@@ -10,6 +10,12 @@ export type TravelPricing = {
   freeRadiusKm: number;
 };
 
+export type GeoPoint = { lat: number; lon: number };
+
+// Origem pode ser um endereço textual (geocodificado pela ORS) ou coordenadas diretas —
+// útil para pontos de partida sem endereço formal (ex.: zona rural).
+export type GeoOrigin = string | GeoPoint;
+
 export type DistanceResult = {
   distanceKm: number;
   durationMin: number;
@@ -20,11 +26,20 @@ export type DistanceResult = {
 
 const normalize = (address: string) => address.trim().toLowerCase().replace(/\s+/g, ' ');
 
+const isGeoPoint = (origin: GeoOrigin): origin is GeoPoint => typeof origin === 'object';
+
+// Rótulo estável de uma origem, usado tanto na chave de cache quanto no registro salvo,
+// independente de ser um endereço textual ou coordenadas diretas.
+const originLabel = (origin: GeoOrigin): string =>
+  isGeoPoint(origin) ? `${origin.lat.toFixed(6)},${origin.lon.toFixed(6)}` : origin;
+
 const computeTravelCost = (distanceKm: number, pricing: TravelPricing): number => {
   if (distanceKm < pricing.freeRadiusKm) {
     return 0;
   }
-  return Math.max(pricing.minimumTravelFee, distanceKm * pricing.pricePerKm);
+  // distanceKm é o trajeto de ida (retornado pela ORS); o custo cobra ida e volta.
+  const roundTripKm = distanceKm * 2;
+  return Math.max(pricing.minimumTravelFee, roundTripKm * pricing.pricePerKm);
 };
 
 @Injectable()
@@ -83,7 +98,7 @@ export class DistanceService {
     return response.json() as Promise<T>;
   }
 
-  private async geocode(address: string): Promise<{ lat: number; lon: number }> {
+  private async geocode(address: string): Promise<GeoPoint> {
     const result = await this.orsFetch<{ features: { geometry: { coordinates: [number, number] } }[] }>(
       `/geocode/search?text=${encodeURIComponent(address)}&size=1`,
     );
@@ -92,6 +107,10 @@ export class DistanceService {
     }
     const [lon, lat] = result.features[0].geometry.coordinates;
     return { lat, lon };
+  }
+
+  private async resolvePoint(origin: GeoOrigin): Promise<GeoPoint> {
+    return isGeoPoint(origin) ? origin : this.geocode(origin);
   }
 
   private async directions(
@@ -116,10 +135,11 @@ export class DistanceService {
 
   async calculate(
     userId: string,
-    originAddress: string,
+    origin: GeoOrigin,
     destinationAddress: string,
     pricing: TravelPricing,
   ): Promise<DistanceResult> {
+    const originAddress = originLabel(origin);
     const cacheKey = `${normalize(originAddress)}|${normalize(destinationAddress)}`;
     const userObjectId = new Types.ObjectId(userId);
 
@@ -135,9 +155,9 @@ export class DistanceService {
       };
     }
 
-    const origin = await this.geocode(originAddress);
+    const originPoint = await this.resolvePoint(origin);
     const destination = await this.geocode(destinationAddress);
-    const { distanceKm, durationMin } = await this.directions(origin, destination);
+    const { distanceKm, durationMin } = await this.directions(originPoint, destination);
     const travelCost = computeTravelCost(distanceKm, pricing);
 
     const record = await this.distanceCalculationModel.create({

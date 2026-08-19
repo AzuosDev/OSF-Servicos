@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Budget, BudgetDocument, BudgetStatus } from './schemas/budget.schema';
 import { ClientsService } from './clients.service';
-import { CompanySettingsService } from './company-settings.service';
+import { CompanySettingsService, companyOrigin } from './company-settings.service';
 import { CountersService } from './counters.service';
 import { DistanceService } from './distance.service';
 import { ServicesService } from '../services/services.service';
@@ -57,7 +57,7 @@ export class BudgetsService {
     let distanceCalculationId: Types.ObjectId | undefined;
     if (dto.calculateDistance || dto.destinationAddress) {
       const destinationAddress = dto.destinationAddress ?? client.address;
-      const distance = await this.distanceService.calculate(userId, companySettings.baseAddress, destinationAddress, {
+      const distance = await this.distanceService.calculate(userId, companyOrigin(companySettings), destinationAddress, {
         pricePerKm: companySettings.pricePerKm,
         minimumTravelFee: companySettings.minimumTravelFee,
         freeRadiusKm: companySettings.freeRadiusKm,

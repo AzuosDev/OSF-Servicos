@@ -67,7 +67,7 @@ describe('DistanceService', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(result.cached).toBe(true);
     expect(result.distanceKm).toBe(100);
-    expect(result.travelCost).toBe(300); // 100km * 3 > minimumTravelFee
+    expect(result.travelCost).toBe(600); // ida e volta: 100km * 2 * 3/km
   });
 
   it('applies freeRadiusKm: travelCost is 0 below the free radius', async () => {
@@ -98,6 +98,22 @@ describe('DistanceService', () => {
     });
 
     expect(result.travelCost).toBe(50);
+  });
+
+  it('charges for the round trip (ida e volta), not just the one-way ORS distance', async () => {
+    await buildModule('fake-key');
+    modelMock.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ _id: new Types.ObjectId(), distanceKm: 20, durationMin: 25 }),
+    });
+
+    const result = await service.calculate(testUserId, 'Origem', 'Destino', {
+      pricePerKm: 1.5,
+      minimumTravelFee: 10,
+      freeRadiusKm: 5,
+    });
+
+    // 20km de ida => 40km ida+volta * R$1,50/km
+    expect(result.travelCost).toBe(60);
   });
 
   it('geocodes + calls directions on cache miss and persists the result', async () => {

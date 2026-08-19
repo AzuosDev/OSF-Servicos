@@ -139,8 +139,8 @@ describe('BudgetsController (e2e)', () => {
       })
       .expect(201);
 
-    expect(res.body.travelCost).toBe(100); // 50km * 2/km
-    expect(res.body.total).toBe(1600);
+    expect(res.body.travelCost).toBe(200); // ida e volta: 50km * 2 * 2/km
+    expect(res.body.total).toBe(1700);
   });
 
   it('PATCH /:id/status enforces the transition table', async () => {
