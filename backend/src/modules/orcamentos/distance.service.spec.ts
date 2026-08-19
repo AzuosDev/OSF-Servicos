@@ -6,8 +6,8 @@ import { Types } from 'mongoose';
 import { DistanceService } from './distance.service';
 import { DistanceCalculation } from './schemas/distance-calculation.schema';
 
-const geocodeResponse = (lon: number, lat: number) => ({
-  features: [{ geometry: { coordinates: [lon, lat] } }],
+const geocodeResponse = (lon: number, lat: number, label?: string) => ({
+  features: [{ geometry: { coordinates: [lon, lat] }, ...(label && { properties: { label } }) }],
 });
 
 const directionsResponse = (distanceMeters: number, durationSeconds: number) => ({
@@ -138,6 +138,184 @@ describe('DistanceService', () => {
     expect(result.durationMin).toBe(30);
     expect(result.cached).toBe(false);
     expect(modelMock.create).toHaveBeenCalled();
+  });
+
+  it('biases the destination geocoding to Brazil and to the origin point', async () => {
+    await buildModule('fake-key');
+    modelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+    modelMock.create.mockResolvedValue({ _id: new Types.ObjectId() });
+
+    fetchSpy = jest.spyOn(global, 'fetch');
+    fetchSpy
+      .mockResolvedValueOnce(new Response(JSON.stringify(geocodeResponse(-46.7, -23.6)), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(directionsResponse(20000, 1800)), { status: 200 }));
+
+    await service.calculate(
+      testUserId,
+      { lat: -3.31673, lon: -40.092974 },
+      'Praia da Baleia',
+      { pricePerKm: 2, minimumTravelFee: 20, freeRadiusKm: 5 },
+    );
+
+    const geocodeUrl = String(fetchSpy.mock.calls[0][0]);
+    expect(geocodeUrl).toContain('boundary.country=BRA');
+    expect(geocodeUrl).toContain('focus.point.lat=-3.31673');
+    expect(geocodeUrl).toContain('focus.point.lon=-40.092974');
+  });
+
+  it('sends a snapping radius so beach/rural points still reach a road', async () => {
+    await buildModule('fake-key');
+    modelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+    modelMock.create.mockResolvedValue({ _id: new Types.ObjectId() });
+
+    fetchSpy = jest.spyOn(global, 'fetch');
+    fetchSpy
+      .mockResolvedValueOnce(new Response(JSON.stringify(geocodeResponse(-46.7, -23.6)), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(directionsResponse(20000, 1800)), { status: 200 }));
+
+    await service.calculate(testUserId, { lat: -3.31673, lon: -40.092974 }, 'Destino', {
+      pricePerKm: 2,
+      minimumTravelFee: 20,
+      freeRadiusKm: 5,
+    });
+
+    const directionsBody = JSON.parse(String(fetchSpy.mock.calls[1][1].body));
+    expect(directionsBody.radiuses).toEqual([5000, 5000]);
+  });
+
+  it('translates the ORS "unroutable point" error (2010) into a readable message', async () => {
+    await buildModule('fake-key');
+    modelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+
+    const orsError = JSON.stringify({
+      error: { code: 2010, message: 'Could not find routable point within a radius of 350.0 meters' },
+    });
+    fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(geocodeResponse(-39.18333, -16.26667)), { status: 200 }))
+      .mockResolvedValueOnce(new Response(orsError, { status: 404 }));
+
+    await expect(
+      service.calculate(testUserId, { lat: -3.31673, lon: -40.092974 }, 'Praia da Baleia', {
+        pricePerKm: 2,
+        minimumTravelFee: 20,
+        freeRadiusKm: 5,
+      }),
+    ).rejects.toThrow(/não há via mapeada nas proximidades/);
+  });
+
+  it('throws NotFoundException when ORS answers 200 without any route', async () => {
+    await buildModule('fake-key');
+    modelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+
+    fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(geocodeResponse(-46.7, -23.6)), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ routes: [] }), { status: 200 }));
+
+    await expect(
+      service.calculate(testUserId, { lat: -3.31673, lon: -40.092974 }, 'Destino', {
+        pricePerKm: 2,
+        minimumTravelFee: 20,
+        freeRadiusKm: 5,
+      }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('returns and persists the destination point the geocoder chose', async () => {
+    await buildModule('fake-key');
+    modelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+    modelMock.create.mockResolvedValue({ _id: new Types.ObjectId() });
+
+    fetchSpy = jest.spyOn(global, 'fetch');
+    fetchSpy
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(geocodeResponse(-39.5, -3.4, 'Praia da Baleia, Itapipoca, CE, Brasil')), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify(directionsResponse(90000, 5400)), { status: 200 }));
+
+    const result = await service.calculate(
+      testUserId,
+      { lat: -3.31673, lon: -40.092974 },
+      'Praia da Baleia',
+      { pricePerKm: 2, minimumTravelFee: 20, freeRadiusKm: 5 },
+    );
+
+    expect(result.resolvedDestination).toEqual({
+      label: 'Praia da Baleia, Itapipoca, CE, Brasil',
+      lat: -3.4,
+      lon: -39.5,
+    });
+    expect(modelMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resolvedDestinationLabel: 'Praia da Baleia, Itapipoca, CE, Brasil',
+        resolvedDestinationLat: -3.4,
+        resolvedDestinationLon: -39.5,
+      }),
+    );
+  });
+
+  it('falls back to the searched text when the geocoder returns no label', async () => {
+    await buildModule('fake-key');
+    modelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+    modelMock.create.mockResolvedValue({ _id: new Types.ObjectId() });
+
+    fetchSpy = jest.spyOn(global, 'fetch');
+    fetchSpy
+      .mockResolvedValueOnce(new Response(JSON.stringify(geocodeResponse(-39.5, -3.4)), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(directionsResponse(90000, 5400)), { status: 200 }));
+
+    const result = await service.calculate(testUserId, { lat: -3.31673, lon: -40.092974 }, 'Praia da Baleia', {
+      pricePerKm: 2,
+      minimumTravelFee: 20,
+      freeRadiusKm: 5,
+    });
+
+    expect(result.resolvedDestination?.label).toBe('Praia da Baleia');
+  });
+
+  it('returns the stored destination point on a cache hit', async () => {
+    await buildModule('fake-key');
+    modelMock.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({
+        _id: new Types.ObjectId(),
+        distanceKm: 90,
+        durationMin: 90,
+        resolvedDestinationLabel: 'Praia da Baleia, Itapipoca, CE, Brasil',
+        resolvedDestinationLat: -3.4,
+        resolvedDestinationLon: -39.5,
+      }),
+    });
+
+    const result = await service.calculate(testUserId, 'Origem', 'Praia da Baleia', {
+      pricePerKm: 2,
+      minimumTravelFee: 20,
+      freeRadiusKm: 5,
+    });
+
+    expect(result.cached).toBe(true);
+    expect(result.resolvedDestination).toEqual({
+      label: 'Praia da Baleia, Itapipoca, CE, Brasil',
+      lat: -3.4,
+      lon: -39.5,
+    });
+  });
+
+  it('omits the destination point for cache entries stored before the field existed', async () => {
+    await buildModule('fake-key');
+    modelMock.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ _id: new Types.ObjectId(), distanceKm: 90, durationMin: 90 }),
+    });
+
+    const result = await service.calculate(testUserId, 'Origem', 'Destino', {
+      pricePerKm: 2,
+      minimumTravelFee: 20,
+      freeRadiusKm: 5,
+    });
+
+    expect(result.resolvedDestination).toBeUndefined();
   });
 
   it('throws NotFoundException when the address cannot be geocoded', async () => {

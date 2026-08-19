@@ -599,6 +599,34 @@ export function OrcamentoWizardPage() {
               )}
             </div>
 
+            {/* Endereços homônimos são comuns (existem várias "Praia da Baleia" no país), então o
+                ponto escolhido pelo mapa fica visível aqui para conferência antes de gerar o orçamento. */}
+            {!skipDistance && distancePreview?.resolvedDestination && (
+              <div className="rounded-xl border border-border-default bg-bg-muted/30 p-4">
+                <div className="flex items-start gap-2">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-accent-gold" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-text-secondary">Destino localizado no mapa</p>
+                    <p className="mt-1 break-words text-sm text-text-primary">
+                      {distancePreview.resolvedDestination.label}
+                    </p>
+                    <a
+                      href={`https://www.openstreetmap.org/?mlat=${distancePreview.resolvedDestination.lat}&mlon=${distancePreview.resolvedDestination.lon}#map=15/${distancePreview.resolvedDestination.lat}/${distancePreview.resolvedDestination.lon}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-block text-xs text-accent-gold underline underline-offset-2 hover:brightness-110"
+                    >
+                      {distancePreview.resolvedDestination.lat.toFixed(6)},{" "}
+                      {distancePreview.resolvedDestination.lon.toFixed(6)} · ver no mapa
+                    </a>
+                    <p className="mt-2 text-xs text-text-muted">
+                      Não é esse o lugar? Volte e informe o endereço com mais detalhes (bairro, cidade e estado).
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
                 <span className="mb-1 block text-sm text-text-secondary">Desconto (opcional)</span>
