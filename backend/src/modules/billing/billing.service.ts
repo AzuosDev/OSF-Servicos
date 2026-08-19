@@ -34,7 +34,7 @@ type CheckoutResult = { url: string } | { pixData: PixCheckoutData };
 @Injectable()
 export class BillingService {
   private readonly logger = new Logger(BillingService.name);
-  private readonly stripe: Stripe;
+  private readonly stripe: Stripe | null;
   private readonly asaasUrl: string;
   private readonly asaasApiKey: string;
   private readonly frontendUrl: string;
@@ -45,10 +45,19 @@ export class BillingService {
     private readonly notificationsService: NotificationsService,
     @InjectModel(Invoice.name) private readonly invoiceModel: Model<InvoiceDocument>,
   ) {
-    this.stripe = new Stripe(this.configService.get<string>('STRIPE_SECRET_KEY') ?? '');
+    const stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
+    // Cobrança ainda inativa nesta instância (OSF Serviços): sem chave, o Stripe não é inicializado.
+    this.stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
     this.asaasUrl = this.configService.get<string>('ASAAS_URL') ?? 'https://api.asaas.com/v3';
     this.asaasApiKey = this.configService.get<string>('ASAAS_API_KEY') ?? '';
     this.frontendUrl = (this.configService.get<string>('FRONTEND_URL') ?? '').split(',')[0].trim().replace(/\/$/, '');
+  }
+
+  private getStripe(): Stripe {
+    if (!this.stripe) {
+      throw new BadRequestException('Pagamento via Stripe não está disponível nesta instância');
+    }
+    return this.stripe;
   }
 
   private getStripePriceId(): string {
@@ -100,7 +109,7 @@ export class BillingService {
 
     if (dto.method === 'stripe') {
       const priceId = this.getStripePriceId();
-      const session = await this.stripe.checkout.sessions.create({
+      const session = await this.getStripe().checkout.sessions.create({
         mode: 'subscription',
         payment_method_types: ['card'],
         line_items: [{ price: priceId, quantity: 1 }],
@@ -184,7 +193,7 @@ export class BillingService {
       throw new BadRequestException('Assinatura não gerenciada pelo Stripe');
     }
 
-    const session = await this.stripe.billingPortal.sessions.create({
+    const session = await this.getStripe().billingPortal.sessions.create({
       customer: user.stripeCustomerId,
       return_url: `${this.frontendUrl}/configuracoes`,
     });
@@ -194,7 +203,7 @@ export class BillingService {
 
   async handleStripeWebhook(rawBody: Buffer, signature: string): Promise<{ received: true }> {
     const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET') ?? '';
-    const event = this.stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+    const event = this.getStripe().webhooks.constructEvent(rawBody, signature, webhookSecret);
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
