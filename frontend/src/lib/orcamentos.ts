@@ -11,10 +11,10 @@ export const BUDGET_STATUS_LABEL: Record<BudgetStatus, string> = {
 
 export const BUDGET_STATUS_BADGE_CLASS: Record<BudgetStatus, string> = {
   RASCUNHO: "bg-bg-overlay text-text-secondary",
-  ENVIADO: "bg-accent-blue/20 text-accent-blue",
-  APROVADO: "bg-accent-green/15 text-accent-green",
-  REJEITADO: "bg-accent-red/15 text-accent-red",
-  EXPIRADO: "bg-accent-orange/15 text-accent-orange",
+  ENVIADO: "bg-accent-blueHover/10 text-accent-blueHover",
+  APROVADO: "bg-accent-green/10 text-accent-green",
+  REJEITADO: "bg-accent-red/10 text-accent-red",
+  EXPIRADO: "bg-accent-orange/10 text-accent-orange",
   CANCELADO: "bg-bg-muted text-text-muted",
 };
 
