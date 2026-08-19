@@ -52,6 +52,12 @@ export class CompanySettingsDto {
   email?: string;
 
   @IsOptional()
+  @Transform(({ value }) => clean(value))
+  @IsString()
+  @MaxLength(100)
+  instagram?: string;
+
+  @IsOptional()
   @IsString()
   @MaxLength(300)
   logoUrl?: string;

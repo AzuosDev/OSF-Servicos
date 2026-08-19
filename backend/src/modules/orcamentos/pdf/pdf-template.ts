@@ -54,6 +54,7 @@ export function buildBudgetHtml(
   header .brand { display: flex; align-items: center; gap: 14px; }
   header .brand img { height: 48px; width: 48px; object-fit: contain; }
   h1 { font-size: 20px; margin: 0 0 4px; }
+  header .contact { font-size: 12px; color: #444444; }
   table { width: 100%; border-collapse: collapse; margin-top: 24px; }
   th, td { padding: 8px; border-bottom: 1px solid #e5e5e5; text-align: left; font-size: 13px; }
   th { background: #f5f5f5; }
@@ -69,7 +70,9 @@ export function buildBudgetHtml(
       <div>
         <h1>${escapeHtml(company.companyName)}</h1>
         ${company.baseAddress ? `<div>${escapeHtml(company.baseAddress)}</div>` : ''}
-        ${company.phone ? `<div>${escapeHtml(company.phone)}</div>` : ''}
+        ${company.phone ? `<div class="contact">Telefone: ${escapeHtml(company.phone)}</div>` : ''}
+        ${company.email ? `<div class="contact">E-mail: ${escapeHtml(company.email)}</div>` : ''}
+        ${company.instagram ? `<div class="contact">Instagram: ${escapeHtml(company.instagram)}</div>` : ''}
       </div>
     </div>
     <div>

@@ -82,6 +82,7 @@ type CompanySettingsFormState = {
   originLng: string;
   phone: string;
   email: string;
+  instagram: string;
   pricePerKm: number;
   minimumTravelFee: number;
   freeRadiusKm: number;
@@ -97,6 +98,7 @@ function emptyCompanySettingsForm(): CompanySettingsFormState {
     originLng: "",
     phone: "",
     email: "",
+    instagram: "",
     pricePerKm: 1.5,
     minimumTravelFee: 0,
     freeRadiusKm: 0,
@@ -126,6 +128,7 @@ function CompanySettingsSection() {
       originLng: settings.originLng != null ? String(settings.originLng) : "",
       phone: settings.phone ?? "",
       email: settings.email ?? "",
+      instagram: settings.instagram ?? "",
       pricePerKm: settings.pricePerKm,
       minimumTravelFee: settings.minimumTravelFee,
       freeRadiusKm: settings.freeRadiusKm,
@@ -143,6 +146,7 @@ function CompanySettingsSection() {
         originLng: form.originLng.trim() ? Number(form.originLng) : undefined,
         phone: form.phone.trim() || undefined,
         email: form.email.trim() || undefined,
+        instagram: form.instagram.trim() || undefined,
         pricePerKm: form.pricePerKm,
         minimumTravelFee: form.minimumTravelFee,
         freeRadiusKm: form.freeRadiusKm,
@@ -217,6 +221,46 @@ function CompanySettingsSection() {
               className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
             />
           </label>
+
+          {/* Contatos impressos no cabeçalho do PDF do orçamento. */}
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="block">
+              <span className="mb-1 block text-sm text-text-secondary">Telefone (opcional)</span>
+              <input
+                type="text"
+                maxLength={30}
+                placeholder="Ex.: 88 9688-6607"
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm text-text-secondary">E-mail (opcional)</span>
+              <input
+                type="email"
+                maxLength={150}
+                placeholder="Ex.: osfenergia.solucoes@gmail.com"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm text-text-secondary">Instagram (opcional)</span>
+              <input
+                type="text"
+                maxLength={100}
+                placeholder="Ex.: @osf_servicos"
+                value={form.instagram}
+                onChange={(e) => setForm((f) => ({ ...f, instagram: e.target.value }))}
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+              />
+            </label>
+          </div>
+          <p className="-mt-2 text-xs text-text-secondary">
+            Esses contatos aparecem no cabeçalho do PDF do orçamento. Cada um só é impresso se estiver preenchido.
+          </p>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">

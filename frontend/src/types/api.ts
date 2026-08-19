@@ -501,6 +501,7 @@ export type CompanySettings = MongoDocument & {
   originLng?: number;
   phone?: string;
   email?: string;
+  instagram?: string;
   logoUrl?: string;
   pricePerKm: number;
   minimumTravelFee: number;
