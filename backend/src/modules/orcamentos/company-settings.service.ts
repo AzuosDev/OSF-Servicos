@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CompanySettings, CompanySettingsDocument } from './schemas/company-settings.schema';
@@ -6,11 +6,17 @@ import { CompanySettingsDto } from './dto/company-settings.dto';
 import { GeoOrigin } from './distance.service';
 
 // Usa coordenadas diretas quando cadastradas (endereço rural/sem numeração formal),
-// senão volta a geocodificar o endereço textual da empresa.
-export const companyOrigin = (settings: Pick<CompanySettings, 'baseAddress' | 'originLat' | 'originLng'>): GeoOrigin =>
-  settings.originLat != null && settings.originLng != null
-    ? { lat: settings.originLat, lon: settings.originLng }
-    : settings.baseAddress;
+// senão volta a geocodificar o endereço textual da empresa. A validação do DTO garante
+// que pelo menos um dos dois esteja preenchido — o throw aqui é defesa em profundidade.
+export const companyOrigin = (settings: Pick<CompanySettings, 'baseAddress' | 'originLat' | 'originLng'>): GeoOrigin => {
+  if (settings.originLat != null && settings.originLng != null) {
+    return { lat: settings.originLat, lon: settings.originLng };
+  }
+  if (!settings.baseAddress) {
+    throw new BadRequestException('Configure o endereço de partida ou as coordenadas da empresa');
+  }
+  return settings.baseAddress;
+};
 
 @Injectable()
 export class CompanySettingsService {

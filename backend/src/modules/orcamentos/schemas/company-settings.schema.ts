@@ -14,8 +14,8 @@ export class CompanySettings {
   @Prop({ trim: true, maxlength: 20 })
   cnpj?: string;
 
-  @Prop({ required: true, trim: true, maxlength: 300 })
-  baseAddress!: string;
+  @Prop({ trim: true, maxlength: 300 })
+  baseAddress?: string;
 
   // Quando preenchidas, o cálculo de deslocamento usa essas coordenadas como ponto de partida
   // em vez de geocodificar `baseAddress` — útil para endereços rurais/sem numeração que a ORS

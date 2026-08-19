@@ -1,8 +1,14 @@
-import { IsLatitude, IsLongitude, IsNotEmpty, IsNumber, IsOptional, IsString, Min, MaxLength } from 'class-validator';
+import { IsLatitude, IsLongitude, IsNotEmpty, IsNumber, IsOptional, IsString, Min, MaxLength, ValidateIf } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import sanitizeHtml from 'sanitize-html';
 
 const clean = (value: unknown) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value);
+
+// Endereço e coordenadas são duas formas alternativas de informar o ponto de partida —
+// pelo menos uma delas precisa estar completa (endereço rural sem numeração formal usa
+// só coordenadas; endereço urbano normal dispensa coordenadas).
+const hasCoordinates = (dto: CompanySettingsDto) => dto.originLat != null && dto.originLng != null;
+const hasAddress = (dto: CompanySettingsDto) => Boolean(dto.baseAddress && dto.baseAddress.trim());
 
 export class CompanySettingsDto {
   @IsNotEmpty()
@@ -16,18 +22,21 @@ export class CompanySettingsDto {
   @MaxLength(20)
   cnpj?: string;
 
-  @IsNotEmpty()
+  @ValidateIf((dto: CompanySettingsDto) => !hasCoordinates(dto))
+  @IsNotEmpty({ message: 'Informe o endereço de partida ou as coordenadas (latitude e longitude)' })
   @Transform(({ value }) => clean(value))
   @IsString()
   @MaxLength(300)
-  baseAddress!: string;
+  baseAddress?: string;
 
-  @IsOptional()
+  @ValidateIf((dto: CompanySettingsDto) => !hasAddress(dto))
+  @IsNotEmpty({ message: 'Informe a latitude ou o endereço de partida' })
   @IsLatitude()
   @Type(() => Number)
   originLat?: number;
 
-  @IsOptional()
+  @ValidateIf((dto: CompanySettingsDto) => !hasAddress(dto))
+  @IsNotEmpty({ message: 'Informe a longitude ou o endereço de partida' })
   @IsLongitude()
   @Type(() => Number)
   originLng?: number;

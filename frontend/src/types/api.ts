@@ -496,7 +496,7 @@ export type CompanySettings = MongoDocument & {
   userId: ApiId;
   companyName: string;
   cnpj?: string;
-  baseAddress: string;
+  baseAddress?: string;
   originLat?: number;
   originLng?: number;
   phone?: string;

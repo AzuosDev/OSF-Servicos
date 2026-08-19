@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { FileText, Plus, TrendingUp, Wallet } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FileText, Loader2, Plus, TrendingUp, Wallet } from "lucide-react";
 
 import { api } from "../lib/api";
 import { formatCurrency } from "../lib/finance";
-import { BUDGET_STATUS_BADGE_CLASS, BUDGET_STATUS_LABEL } from "../lib/orcamentos";
+import { getApiErrorMessages } from "../lib/errors";
+import { useToast } from "../components/ui/Toast";
+import { BUDGET_STATUS_BADGE_CLASS, BUDGET_STATUS_LABEL, BUDGET_STATUS_TRANSITIONS } from "../lib/orcamentos";
 import { cn } from "../lib/utils";
 import type { Budget, BudgetConversionStats, BudgetsListResponse, BudgetStatus, Client } from "../types/api";
 
@@ -24,7 +26,10 @@ function formatDateBR(iso: string) {
 }
 
 export function OrcamentosPage() {
+  const queryClient = useQueryClient();
+  const { addToast } = useToast();
   const [status, setStatus] = useState<BudgetStatus | "TODOS">("TODOS");
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const statsQuery = useQuery<BudgetConversionStats>({
     queryKey: ["orcamentos-conversion-stats"],
@@ -45,6 +50,32 @@ export function OrcamentosPage() {
     queryKey: ["orcamentos-clients"],
     queryFn: () => api.get<Client[]>("/api/orcamentos/clients").then((r) => r.data),
   });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status: newStatus, reason }: { id: string; status: BudgetStatus; reason?: string }) => {
+      const { data } = await api.patch<Budget>(`/api/orcamentos/budgets/${id}/status`, { status: newStatus, reason });
+      return data;
+    },
+    onMutate: ({ id }) => setUpdatingId(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orcamentos-budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["orcamentos-conversion-stats"] });
+    },
+    onError: (error) => {
+      addToast(getApiErrorMessages(error, "Não foi possível atualizar o status.")[0], "error");
+    },
+    onSettled: () => setUpdatingId(null),
+  });
+
+  const changeStatus = (budget: Budget, newStatus: BudgetStatus) => {
+    let reason: string | undefined;
+    if (newStatus === "REJEITADO" || newStatus === "CANCELADO") {
+      const input = window.prompt("Motivo (opcional):", "");
+      if (input === null) return;
+      reason = input.trim() || undefined;
+    }
+    updateStatusMutation.mutate({ id: budget._id, status: newStatus, reason });
+  };
 
   const clientNameById = useMemo(() => {
     const map = new Map<string, string>();

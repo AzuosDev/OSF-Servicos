@@ -45,6 +45,7 @@ function CompanySettingsSection() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<CompanySettingsFormState>(emptyCompanySettingsForm());
   const [saved, setSaved] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const settingsQuery = useQuery<CompanySettings | null>({
     queryKey: ["orcamentos-company-settings"],
@@ -57,7 +58,7 @@ function CompanySettingsSection() {
     setForm({
       companyName: settings.companyName,
       cnpj: settings.cnpj ?? "",
-      baseAddress: settings.baseAddress,
+      baseAddress: settings.baseAddress ?? "",
       originLat: settings.originLat != null ? String(settings.originLat) : "",
       originLng: settings.originLng != null ? String(settings.originLng) : "",
       phone: settings.phone ?? "",
@@ -74,7 +75,7 @@ function CompanySettingsSection() {
       const payload = {
         companyName: form.companyName.trim(),
         cnpj: form.cnpj.trim() || undefined,
-        baseAddress: form.baseAddress.trim(),
+        baseAddress: form.baseAddress.trim() || undefined,
         originLat: form.originLat.trim() ? Number(form.originLat) : undefined,
         originLng: form.originLng.trim() ? Number(form.originLng) : undefined,
         phone: form.phone.trim() || undefined,
@@ -115,6 +116,16 @@ function CompanySettingsSection() {
           onSubmit={(e) => {
             e.preventDefault();
             setSaved(false);
+
+            const hasAddress = Boolean(form.baseAddress.trim());
+            const hasCoords = Boolean(form.originLat.trim() && form.originLng.trim());
+            if (!hasAddress && !hasCoords) {
+              setFormError(
+                "Informe o endereço de partida ou as coordenadas (latitude e longitude).",
+              );
+              return;
+            }
+            setFormError(null);
             mutation.mutate();
           }}
         >
@@ -131,11 +142,12 @@ function CompanySettingsSection() {
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm text-text-secondary">Endereço de partida</span>
+            <span className="mb-1 block text-sm text-text-secondary">
+              Endereço de partida (opcional se preencher as coordenadas)
+            </span>
             <input
               type="text"
               maxLength={300}
-              required
               placeholder="Endereço usado quando não houver coordenadas abaixo"
               value={form.baseAddress}
               onChange={(e) => setForm((f) => ({ ...f, baseAddress: e.target.value }))}
@@ -145,7 +157,9 @@ function CompanySettingsSection() {
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-sm text-text-secondary">Latitude (opcional)</span>
+              <span className="mb-1 block text-sm text-text-secondary">
+                Latitude {form.baseAddress.trim() ? "(opcional)" : ""}
+              </span>
               <input
                 type="text"
                 inputMode="decimal"
@@ -156,7 +170,9 @@ function CompanySettingsSection() {
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-sm text-text-secondary">Longitude (opcional)</span>
+              <span className="mb-1 block text-sm text-text-secondary">
+                Longitude {form.baseAddress.trim() ? "(opcional)" : ""}
+              </span>
               <input
                 type="text"
                 inputMode="decimal"
@@ -168,9 +184,10 @@ function CompanySettingsSection() {
             </label>
           </div>
           <p className="-mt-2 text-xs text-text-secondary">
-            Preencha se o ponto de partida não tem endereço formal (ex.: zona rural) — quando informadas, as
-            coordenadas são usadas no lugar do endereço acima.
+            Preencha ao menos um dos dois: o endereço ou as coordenadas. Quando as coordenadas estiverem
+            preenchidas, elas são usadas no lugar do endereço para o cálculo de deslocamento.
           </p>
+          {formError && <p className="-mt-2 text-xs text-accent-red">{formError}</p>}
 
           <div className="grid grid-cols-3 gap-3">
             <label className="block">
