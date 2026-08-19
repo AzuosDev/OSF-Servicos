@@ -11,6 +11,20 @@ import { UpdateServiceDto } from './dto/update-service.dto';
 // ganhos consistente quando o usuário não escolhe uma cor na hora de cadastrar o serviço.
 const DEFAULT_SERVICE_COLOR = '#22C55E';
 
+// Serviços que todo usuário tem por padrão, sem precisar cadastrar.
+// A limpeza de placas não tem preço fixo: o valor sai da faixa por quantidade de placas
+// (ver modules/orcamentos/pricing/panel-cleaning-pricing.ts). O defaultValue abaixo é só
+// a referência de R$/placa até 10 placas e não é usado no cálculo do orçamento.
+const BUILT_IN_SERVICES = [
+  {
+    name: 'Limpeza de Placas',
+    type: 'Limpeza',
+    defaultValue: 20,
+    color: '#0EA5E9',
+    categorySlug: 'servicos-prestados',
+  },
+] as const;
+
 @Injectable()
 export class ServicesService {
   constructor(
@@ -45,7 +59,43 @@ export class ServicesService {
     });
   }
 
+  /**
+   * Garante que os serviços padrão existam para o usuário. Idempotente: usa upsert com
+   * $setOnInsert, então nunca sobrescreve alterações feitas pelo usuário (preço, cor,
+   * desativação). Roda na listagem para cobrir também contas criadas antes deste recurso.
+   */
+  async ensureBuiltInServices(userId: string) {
+    const userObjectId = new Types.ObjectId(userId);
+
+    for (const builtIn of BUILT_IN_SERVICES) {
+      const category = await this.categoriesService.findDefaultBySlug(builtIn.categorySlug);
+      if (!category) {
+        continue;
+      }
+
+      await this.serviceModel
+        .findOneAndUpdate(
+          { userId: userObjectId, name: builtIn.name },
+          {
+            $setOnInsert: {
+              userId: userObjectId,
+              name: builtIn.name,
+              type: builtIn.type,
+              defaultValue: builtIn.defaultValue,
+              color: builtIn.color,
+              categoryId: category._id,
+              active: true,
+            },
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true },
+        )
+        .exec();
+    }
+  }
+
   async findAll(userId: string, activeOnly = false) {
+    await this.ensureBuiltInServices(userId);
+
     const filter: Record<string, unknown> = { userId: new Types.ObjectId(userId) };
     if (activeOnly) {
       filter.active = true;

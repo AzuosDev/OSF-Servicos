@@ -11,10 +11,10 @@ export const BUDGET_STATUS_LABEL: Record<BudgetStatus, string> = {
 
 export const BUDGET_STATUS_BADGE_CLASS: Record<BudgetStatus, string> = {
   RASCUNHO: "bg-bg-overlay text-text-secondary",
-  ENVIADO: "bg-accent-blue/20 text-accent-blue",
-  APROVADO: "bg-accent-green/15 text-accent-green",
-  REJEITADO: "bg-accent-red/15 text-accent-red",
-  EXPIRADO: "bg-accent-orange/15 text-accent-orange",
+  ENVIADO: "bg-accent-blueHover/10 text-accent-blueHover",
+  APROVADO: "bg-accent-green/10 text-accent-green",
+  REJEITADO: "bg-accent-red/10 text-accent-red",
+  EXPIRADO: "bg-accent-orange/10 text-accent-orange",
   CANCELADO: "bg-bg-muted text-text-muted",
 };
 
@@ -31,4 +31,31 @@ export function defaultValidUntilInputValue(daysFromNow = 7): string {
   const date = new Date();
   date.setDate(date.getDate() + daysFromNow);
   return date.toISOString().slice(0, 10);
+}
+
+// Mantido em espelho com backend/src/modules/orcamentos/pricing/panel-cleaning-pricing.ts
+const PANEL_CLEANING_SERVICE_NAMES = ["limpeza de placas", "limpeza de placa"];
+
+export function isPanelCleaningService(serviceName: string): boolean {
+  return PANEL_CLEANING_SERVICE_NAMES.includes(serviceName.trim().toLowerCase());
+}
+
+// Até 10 placas: R$20/placa. Acima de 10: R$200 (equivalente às 10 primeiras) + R$15 por placa adicional.
+export function calculatePanelCleaningSubtotal(quantity: number): number {
+  if (quantity <= 10) {
+    return quantity * 20;
+  }
+  return 200 + (quantity - 10) * 15;
+}
+
+export function calculateBudgetItemSubtotal(
+  serviceName: string,
+  defaultValue: number,
+  quantity: number,
+  unitPriceOverride?: number,
+): number {
+  if (unitPriceOverride == null && isPanelCleaningService(serviceName)) {
+    return calculatePanelCleaningSubtotal(quantity);
+  }
+  return (unitPriceOverride ?? defaultValue) * quantity;
 }

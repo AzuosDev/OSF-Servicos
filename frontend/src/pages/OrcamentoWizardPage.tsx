@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -9,6 +9,7 @@ import {
   Loader2,
   MapPin,
   Minus,
+  Pencil,
   Plus,
   Search,
   Trash2,
@@ -19,6 +20,12 @@ import { formatCurrency } from "../lib/finance";
 import { getApiErrorMessages } from "../lib/errors";
 import { cn } from "../lib/utils";
 import { ClientFormModal } from "../components/modals/ClientFormModal";
+import { PanelQuantityModal } from "../components/modals/PanelQuantityModal";
+import {
+  calculateBudgetItemSubtotal,
+  calculatePanelCleaningSubtotal,
+  isPanelCleaningService,
+} from "../lib/orcamentos";
 import type {
   Budget,
   Client,
@@ -67,6 +74,7 @@ export function OrcamentoWizardPage() {
   const [clientModalOpen, setClientModalOpen] = useState(false);
 
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [panelModalService, setPanelModalService] = useState<Service | null>(null);
 
   const [destinationAddress, setDestinationAddress] = useState("");
   const [skipDistance, setSkipDistance] = useState(false);
@@ -106,11 +114,52 @@ export function OrcamentoWizardPage() {
   }, [clientsQuery.data, clientSearch]);
 
   const itemsTotal = useMemo(
-    () => cart.reduce((sum, item) => sum + (item.unitPriceOverride ?? item.service.defaultValue) * item.quantity, 0),
+    () =>
+      cart.reduce(
+        (sum, item) =>
+          sum +
+          calculateBudgetItemSubtotal(item.service.name, item.service.defaultValue, item.quantity, item.unitPriceOverride),
+        0,
+      ),
     [cart],
   );
   const travelCost = distancePreview?.travelCost ?? 0;
   const total = Math.max(0, itemsTotal + travelCost - discount);
+
+  // Memória de cálculo da limpeza de placas — entra nas observações do orçamento
+  // automaticamente, já que o valor não vem de um preço fixo do serviço.
+  const panelCleaningNote = useMemo(
+    () =>
+      cart
+        .filter((item) => isPanelCleaningService(item.service.name))
+        .map((item) => {
+          const { quantity } = item;
+          const breakdown =
+            quantity <= 10
+              ? `${quantity} × ${formatCurrency(20)}`
+              : `${formatCurrency(200)} (10 primeiras) + ${quantity - 10} × ${formatCurrency(15)}`;
+          const unit = quantity === 1 ? "placa" : "placas";
+          return `${item.service.name}: ${quantity} ${unit} — ${breakdown} = ${formatCurrency(
+            calculatePanelCleaningSubtotal(quantity),
+          )}`;
+        })
+        .join("\n"),
+    [cart],
+  );
+
+  const previousPanelNoteRef = useRef("");
+  useEffect(() => {
+    const previous = previousPanelNoteRef.current;
+    if (previous === panelCleaningNote) return;
+    setNotes((current) => {
+      if (previous && current.includes(previous)) {
+        return current.replace(previous, panelCleaningNote).trim();
+      }
+      if (!panelCleaningNote) return current;
+      return current.trim() ? `${current.trim()}\n${panelCleaningNote}` : panelCleaningNote;
+    });
+    previousPanelNoteRef.current = panelCleaningNote;
+  }, [panelCleaningNote]);
 
   const calculateDistanceMutation = useMutation({
     mutationFn: async () => {
@@ -169,6 +218,11 @@ export function OrcamentoWizardPage() {
   };
 
   const addToCart = (service: Service) => {
+    // Limpeza de placas não tem valor fixo — a quantidade de placas é sempre informada no modal.
+    if (isPanelCleaningService(service.name)) {
+      setPanelModalService(service);
+      return;
+    }
     setCart((prev) => {
       const existing = prev.find((item) => item.service._id === service._id);
       if (existing) {
@@ -178,6 +232,17 @@ export function OrcamentoWizardPage() {
       }
       return [...prev, { service, quantity: 1 }];
     });
+  };
+
+  const setPanelQuantity = (service: Service, quantity: number) => {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.service._id === service._id);
+      if (existing) {
+        return prev.map((item) => (item.service._id === service._id ? { ...item, quantity } : item));
+      }
+      return [...prev, { service, quantity }];
+    });
+    setPanelModalService(null);
   };
 
   const updateQuantity = (serviceId: string, delta: number) => {
@@ -345,7 +410,7 @@ export function OrcamentoWizardPage() {
                   >
                     <span className="text-sm font-semibold text-white">{service.name}</span>
                     <span className="text-sm font-bold text-accent-gold">
-                      {formatCurrency(service.defaultValue)}
+                      {isPanelCleaningService(service.name) ? "Por placa" : formatCurrency(service.defaultValue)}
                     </span>
                   </button>
                 ))}
@@ -362,28 +427,48 @@ export function OrcamentoWizardPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{item.service.name}</p>
                       <p className="text-xs text-text-secondary">
-                        {formatCurrency(item.unitPriceOverride ?? item.service.defaultValue)} / un.
+                        {isPanelCleaningService(item.service.name)
+                          ? "Até 10 placas: R$20/placa · acima: R$200 + R$15/placa adicional"
+                          : `${formatCurrency(item.unitPriceOverride ?? item.service.defaultValue)} / un.`}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1">
+                    {isPanelCleaningService(item.service.name) ? (
                       <button
                         type="button"
-                        onClick={() => updateQuantity(item.service._id, -1)}
-                        className="grid h-8 w-8 place-items-center rounded-lg bg-bg-muted text-text-secondary hover:bg-bg-overlay"
+                        onClick={() => setPanelModalService(item.service)}
+                        className="flex items-center gap-1.5 rounded-lg bg-bg-muted px-3 py-1.5 text-xs font-semibold text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
                       >
-                        <Minus className="h-3.5 w-3.5" />
+                        <Pencil className="h-3 w-3" />
+                        {item.quantity} {item.quantity === 1 ? "placa" : "placas"}
                       </button>
-                      <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
-                      <button
-                        type="button"
-                        onClick={() => updateQuantity(item.service._id, 1)}
-                        className="grid h-8 w-8 place-items-center rounded-lg bg-bg-muted text-text-secondary hover:bg-bg-overlay"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.service._id, -1)}
+                          className="grid h-8 w-8 place-items-center rounded-lg bg-bg-muted text-text-secondary hover:bg-bg-overlay"
+                        >
+                          <Minus className="h-3.5 w-3.5" />
+                        </button>
+                        <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.service._id, 1)}
+                          className="grid h-8 w-8 place-items-center rounded-lg bg-bg-muted text-text-secondary hover:bg-bg-overlay"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
                     <span className="w-24 shrink-0 text-right text-sm font-bold text-accent-gold">
-                      {formatCurrency((item.unitPriceOverride ?? item.service.defaultValue) * item.quantity)}
+                      {formatCurrency(
+                        calculateBudgetItemSubtotal(
+                          item.service.name,
+                          item.service.defaultValue,
+                          item.quantity,
+                          item.unitPriceOverride,
+                        ),
+                      )}
                     </span>
                     <button
                       type="button"
@@ -481,10 +566,19 @@ export function OrcamentoWizardPage() {
               {cart.map((item) => (
                 <div key={item.service._id} className="flex justify-between text-sm">
                   <span className="text-text-secondary">
-                    {item.quantity}x {item.service.name}
+                    {isPanelCleaningService(item.service.name)
+                      ? `${item.quantity} ${item.quantity === 1 ? "placa" : "placas"} · ${item.service.name}`
+                      : `${item.quantity}x ${item.service.name}`}
                   </span>
                   <span className="font-semibold">
-                    {formatCurrency((item.unitPriceOverride ?? item.service.defaultValue) * item.quantity)}
+                    {formatCurrency(
+                      calculateBudgetItemSubtotal(
+                        item.service.name,
+                        item.service.defaultValue,
+                        item.quantity,
+                        item.unitPriceOverride,
+                      ),
+                    )}
                   </span>
                 </div>
               ))}
@@ -524,12 +618,17 @@ export function OrcamentoWizardPage() {
             <label className="block">
               <span className="mb-1 block text-sm text-text-secondary">Observações (opcional)</span>
               <textarea
-                rows={2}
+                rows={panelCleaningNote ? 4 : 2}
                 maxLength={1000}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full resize-none rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+                className="w-full resize-y rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
               />
+              {panelCleaningNote && (
+                <p className="mt-1 text-xs text-text-muted">
+                  A memória de cálculo da limpeza de placas foi adicionada automaticamente. Você pode editá-la.
+                </p>
+              )}
             </label>
 
             <div className="flex items-center justify-between rounded-xl bg-bg-muted px-5 py-4">
@@ -634,6 +733,18 @@ export function OrcamentoWizardPage() {
         onSaved={(client) => {
           setClientModalOpen(false);
           selectClient(client);
+        }}
+      />
+
+      <PanelQuantityModal
+        open={panelModalService !== null}
+        serviceName={panelModalService?.name ?? ""}
+        initialQuantity={
+          cart.find((item) => item.service._id === panelModalService?._id)?.quantity ?? 1
+        }
+        onClose={() => setPanelModalService(null)}
+        onConfirm={(quantity) => {
+          if (panelModalService) setPanelQuantity(panelModalService, quantity);
         }}
       />
     </section>

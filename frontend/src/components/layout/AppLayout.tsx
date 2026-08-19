@@ -39,7 +39,6 @@ import { cn } from "../../lib/utils";
 import type { User } from "../../types/api";
 import { useToast } from "../ui/Toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { UserProfileModal } from "../modals/UserProfileModal";
 import { WebAuthnSuggestionModal } from "../modals/WebAuthnSuggestionModal";
 import { PixBillingReminderModal } from "../modals/PixBillingReminderModal";
 import { useWebAuthnSuggestion } from "../../hooks/useWebAuthnSuggestion";
@@ -487,8 +486,8 @@ function SidebarContent({
               type="button"
               onClick={collapsed ? () => setUserMenuOpen((v) => !v) : onOpenProfile}
               className="shrink-0 rounded-full transition hover:ring-2 hover:ring-accent-gold/50 focus:outline-none"
-              title={collapsed ? (name || email) : "Abrir perfil"}
-              aria-label={collapsed ? "Menu do usuário" : "Abrir perfil do usuário"}
+              title={collapsed ? (name || email) : "Abrir configurações"}
+              aria-label={collapsed ? "Menu do usuário" : "Abrir configurações"}
             >
               <Avatar email={email} name={name} avatarUrl={avatarUrl} />
             </button>
@@ -572,7 +571,6 @@ export function AppLayout() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [txOpen, setTxOpen] = useState(false);
   const [txTab, setTxTab] = useState<"INCOME" | "EXPENSE" | "TRANSFER">("EXPENSE");
-  const [userProfileOpen, setUserProfileOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
   const [billingReminderOpen, setBillingReminderOpen] = useState(false);
@@ -662,7 +660,7 @@ export function AppLayout() {
           name={name}
           avatarUrl={avatarUrl}
           onLogout={handleLogout}
-          onOpenProfile={() => setUserProfileOpen(true)}
+          onOpenProfile={() => navigate("/configuracoes")}
           onBillingReminderClick={() => setBillingReminderOpen(true)}
           collapsed={desktopSidebarCollapsed}
           onToggleCollapse={() =>
@@ -695,7 +693,7 @@ export function AppLayout() {
               name={name}
               avatarUrl={avatarUrl}
               onLogout={handleLogout}
-              onOpenProfile={() => { setMobileSidebarOpen(false); setUserProfileOpen(true); }}
+              onOpenProfile={() => { setMobileSidebarOpen(false); navigate("/configuracoes"); }}
               onBillingReminderClick={() => { setMobileSidebarOpen(false); setBillingReminderOpen(true); }}
               onNavigate={() => setMobileSidebarOpen(false)}
             />
@@ -719,9 +717,9 @@ export function AppLayout() {
         <div className="flex shrink-0 items-center gap-2">
           <MobileNotificationBell onBillingReminderClick={() => setBillingReminderOpen(true)} />
           <button
-            onClick={() => setUserProfileOpen(true)}
+            onClick={() => navigate("/configuracoes")}
             className="rounded-full transition hover:ring-2 hover:ring-accent-gold/50 focus:outline-none"
-            aria-label="Abrir perfil do usuário"
+            aria-label="Abrir configurações"
           >
             <Avatar email={email} name={name} avatarUrl={avatarUrl} />
           </button>
@@ -836,11 +834,6 @@ export function AppLayout() {
       <Suspense fallback={null}>
         <WhatsNewModal open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
       </Suspense>
-
-      <UserProfileModal
-        open={userProfileOpen}
-        onClose={() => setUserProfileOpen(false)}
-      />
 
       <WebAuthnSuggestionModal
         open={webAuthnSuggestion.open && !whatsNewOpen}

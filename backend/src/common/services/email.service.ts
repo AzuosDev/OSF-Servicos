@@ -14,7 +14,8 @@ export class EmailService {
   }
 
   private getFromAddress() {
-    return this.configService.get<string>('EMAIL_FROM')?.trim() || this.configService.get<string>('EMAIL_USER')?.trim();
+    const address = this.configService.get<string>('EMAIL_FROM')?.trim() || this.configService.get<string>('EMAIL_USER')?.trim();
+    return address ? `"OSF Serviços" <${address}>` : undefined;
   }
 
   private getTransport() {
@@ -72,13 +73,13 @@ export class EmailService {
     const verifyUrl = `${this.getBaseUrl()}/verify-email?token=${encodeURIComponent(token)}`;
     return this.sendMail(
       to,
-      'Confirme seu email - AKLAVAJATO',
+      'Confirme seu email - OSF Serviços',
       `Clique no link para confirmar seu email: ${verifyUrl}`,
       `
         <p>Olá!</p>
         <p>Para confirmar seu email, clique no link abaixo:</p>
         <p><a href="${verifyUrl}">${verifyUrl}</a></p>
-        <p>Se você não criou uma conta no AKLAVAJATO, ignore esta mensagem.</p>
+        <p>Se você não criou uma conta no OSF Serviços, ignore esta mensagem.</p>
       `,
     );
   }
@@ -87,7 +88,7 @@ export class EmailService {
     const resetUrl = `${this.getBaseUrl()}/reset-password?token=${encodeURIComponent(token)}`;
     return this.sendMail(
       to,
-      'Redefinição de senha - AKLAVAJATO',
+      'Redefinição de senha - OSF Serviços',
       `Clique no link para redefinir sua senha: ${resetUrl}`,
       `
         <p>Olá!</p>

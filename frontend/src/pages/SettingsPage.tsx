@@ -1,15 +1,78 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, Building2, CreditCard, Fingerprint, Loader2, ShieldCheck, Trash2, AlertCircle } from "lucide-react";
-import { startRegistration, platformAuthenticatorIsAvailable } from "@simplewebauthn/browser";
+import { useNavigate } from "react-router-dom";
+import { z } from "zod";
+import {
+  AlertCircle,
+  AlertTriangle,
+  Bell,
+  Building2,
+  Camera,
+  Check,
+  CreditCard,
+  Fingerprint,
+  Globe,
+  KeyRound,
+  Loader2,
+  LogOut,
+  Moon,
+  Settings as SettingsIcon,
+  ShieldCheck,
+  Sun,
+  Trash2,
+  Upload,
+  User as UserIcon,
+  X,
+} from "lucide-react";
+import {
+  browserSupportsWebAuthn,
+  platformAuthenticatorIsAvailable,
+  startAuthentication,
+  startRegistration,
+} from "@simplewebauthn/browser";
 
 import { api } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
+import { clearTokens, getRefreshToken } from "../lib/auth";
+import { useTheme } from "../hooks/useTheme";
 import { getApiErrorMessages, getApiErrorText } from "../lib/errors";
 import { PushNotificationToggle } from "../components/PushNotificationToggle";
 import { CurrencyInput } from "../components/ui/CurrencyInput";
-import type { BillingPortalResponse, CompanySettings } from "../types/api";
-import type { PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/browser";
+import type { BillingPortalResponse, CompanySettings, User } from "../types/api";
+import type {
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+} from "@simplewebauthn/browser";
+
+const inputClass =
+  "w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold";
+
+function SettingsCard({
+  title,
+  description,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  description?: string;
+  icon: typeof UserIcon;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl bg-bg-card p-6 space-y-4">
+      <div className="flex items-center gap-3">
+        <Icon className="h-5 w-5 text-accent-gold shrink-0" />
+        <div>
+          <h2 className="font-semibold text-text-primary">{title}</h2>
+          {description && <p className="text-xs text-text-secondary">{description}</p>}
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
 
 type CompanySettingsFormState = {
   companyName: string;
@@ -256,6 +319,546 @@ function CompanySettingsSection() {
   );
 }
 
+// ─── Perfil (avatar + nome) ─────────────────────────────────────────────────
+
+const nameSchema = z.object({ name: z.string().max(100, "Use até 100 caracteres.") });
+type NameValues = z.infer<typeof nameSchema>;
+
+function compressImage(file: File, maxSize = 200): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = ({ target }) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height) {
+          if (width > maxSize) { height = Math.round((height * maxSize) / width); width = maxSize; }
+        } else {
+          if (height > maxSize) { width = Math.round((width * maxSize) / height); height = maxSize; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("canvas not supported")); return; }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
+      };
+      img.onerror = reject;
+      img.src = target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function ProfileSection() {
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imgError, setImgError] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [hasGravatar, setHasGravatar] = useState<boolean | null>(null);
+  const [nameSaved, setNameSaved] = useState(false);
+
+  const userQuery = useQuery<User>({
+    queryKey: ["user-profile"],
+    queryFn: () => api.get<User>("/api/users/me").then((r) => r.data),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const user = userQuery.data;
+  const email = user?.email ?? "";
+  const avatarUrl = user?.avatarUrl;
+  const gravatarUrl = user?.gravatarUrl;
+  const initial = (user?.name || email).charAt(0).toUpperCase();
+
+  useEffect(() => setImgError(false), [avatarUrl]);
+
+  useEffect(() => {
+    if (!gravatarUrl) return;
+    setHasGravatar(null);
+    const img = new Image();
+    img.onload = () => setHasGravatar(true);
+    img.onerror = () => setHasGravatar(false);
+    img.src = gravatarUrl.replace("d=mp", "d=404");
+  }, [gravatarUrl]);
+
+  const nameForm = useForm<NameValues>({
+    resolver: zodResolver(nameSchema),
+    values: { name: user?.name ?? "" },
+  });
+
+  const updateAvatarMutation = useMutation({
+    mutationFn: (url: string | null) =>
+      api.patch<User>("/api/users/me/avatar", { avatarUrl: url }).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+      setUploadError(null);
+    },
+    onError: (error) => setUploadError(getApiErrorMessages(error, "Erro ao salvar imagem.").join(" ")),
+  });
+
+  const updateNameMutation = useMutation({
+    mutationFn: (data: NameValues) => api.patch<User>("/api/users/me", data).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+      setNameSaved(true);
+      setTimeout(() => setNameSaved(false), 2500);
+    },
+  });
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Selecione um arquivo de imagem válido.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError("A imagem deve ter menos de 10 MB.");
+      return;
+    }
+    setUploadError(null);
+    try {
+      updateAvatarMutation.mutate(await compressImage(file));
+    } catch {
+      setUploadError("Não foi possível processar a imagem.");
+    }
+  };
+
+  return (
+    <SettingsCard title="Perfil" description="Sua foto e nome de exibição no app." icon={UserIcon}>
+      <div className="flex flex-col items-center gap-3">
+        <div className="group relative">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={updateAvatarMutation.isPending}
+            className="relative block overflow-hidden rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
+            aria-label="Alterar foto de perfil"
+          >
+            {avatarUrl && !imgError ? (
+              <img
+                src={avatarUrl}
+                alt={user?.name || email}
+                className="h-20 w-20 rounded-full object-cover ring-4 ring-accent-gold/20"
+                onError={() => setImgError(true)}
+              />
+            ) : (
+              <div className="grid h-20 w-20 place-items-center rounded-full bg-bg-muted text-3xl font-bold text-accent-gold ring-4 ring-accent-gold/20">
+                {userQuery.isLoading ? <Loader2 className="h-6 w-6 animate-spin text-text-muted" /> : initial || "?"}
+              </div>
+            )}
+            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition group-hover:opacity-100">
+              <Camera className="h-6 w-6 text-white" />
+            </div>
+          </button>
+          {updateAvatarMutation.isPending && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60">
+              <Loader2 className="h-6 w-6 animate-spin text-white" />
+            </div>
+          )}
+        </div>
+
+        {userQuery.isLoading ? (
+          <div className="h-4 w-40 animate-pulse rounded bg-bg-muted" />
+        ) : (
+          <p className="text-sm text-text-secondary">{email}</p>
+        )}
+
+        <div className="flex flex-wrap justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={updateAvatarMutation.isPending}
+            className="flex items-center gap-1.5 rounded-lg bg-bg-muted px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary disabled:opacity-50"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Carregar foto
+          </button>
+          <button
+            type="button"
+            onClick={() => gravatarUrl && updateAvatarMutation.mutate(gravatarUrl)}
+            disabled={updateAvatarMutation.isPending || hasGravatar !== true}
+            className="flex items-center gap-1.5 rounded-lg bg-bg-muted px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary disabled:opacity-50"
+            title={
+              hasGravatar === null
+                ? "Verificando Gravatar..."
+                : hasGravatar
+                  ? "Usar a foto do seu perfil Gravatar (gravatar.com)"
+                  : "Nenhuma foto encontrada no Gravatar com este e-mail"
+            }
+          >
+            <Globe className="h-3.5 w-3.5" />
+            {hasGravatar === null ? "Verificando..." : "Usar Gravatar"}
+          </button>
+          {avatarUrl && (
+            <button
+              type="button"
+              onClick={() => updateAvatarMutation.mutate(null)}
+              disabled={updateAvatarMutation.isPending}
+              className="flex items-center gap-1.5 rounded-lg bg-bg-muted px-3 py-1.5 text-xs font-medium text-accent-red transition hover:bg-accent-red/10 disabled:opacity-50"
+            >
+              <X className="h-3.5 w-3.5" />
+              Remover foto
+            </button>
+          )}
+        </div>
+
+        {uploadError && <p className="text-center text-xs text-accent-red">{uploadError}</p>}
+
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+      </div>
+
+      <form
+        onSubmit={nameForm.handleSubmit((data) => updateNameMutation.mutate(data))}
+        className="space-y-3 border-t border-border-default pt-4"
+      >
+        <label className="block">
+          <span className="mb-1 block text-sm text-text-secondary">Nome de exibição</span>
+          <input type="text" placeholder="Seu nome" autoComplete="name" className={inputClass} {...nameForm.register("name")} />
+        </label>
+        {nameForm.formState.errors.name && (
+          <p className="text-xs text-accent-red">{nameForm.formState.errors.name.message}</p>
+        )}
+        {updateNameMutation.isError && (
+          <p className="text-xs text-accent-red">
+            {getApiErrorMessages(updateNameMutation.error, "Erro ao salvar nome.").join(" ")}
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={updateNameMutation.isPending}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent-gold px-4 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:opacity-70"
+        >
+          {updateNameMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          {nameSaved && <Check className="h-4 w-4" />}
+          {nameSaved ? "Salvo!" : "Salvar nome"}
+        </button>
+      </form>
+    </SettingsCard>
+  );
+}
+
+// ─── Alterar senha ──────────────────────────────────────────────────────────
+
+const passwordSchema = z
+  .object({
+    currentPassword: z.string().optional(),
+    newPassword: z
+      .string()
+      .min(8, "Mínimo de 8 caracteres.")
+      .regex(/(?=.*[A-Z])/, "Deve conter ao menos uma letra maiúscula.")
+      .regex(/(?=.*\d)/, "Deve conter ao menos um número."),
+    confirmPassword: z.string().min(1, "Confirme a nova senha."),
+  })
+  .refine((d) => d.newPassword === d.confirmPassword, {
+    message: "As senhas não coincidem.",
+    path: ["confirmPassword"],
+  });
+type PasswordValues = z.infer<typeof passwordSchema>;
+
+function PasswordSection() {
+  const [passwordSaved, setPasswordSaved] = useState(false);
+  const [reauthedToken, setReauthedToken] = useState<string | null>(null);
+  const [biometricLoading, setBiometricLoading] = useState(false);
+  const [biometricError, setBiometricError] = useState<string | null>(null);
+
+  const credentialsQuery = useQuery<{ credentialId: string }[]>({
+    queryKey: ["webauthn-credentials"],
+    queryFn: () => api.get<{ credentialId: string }[]>("/api/auth/webauthn/credentials").then((r) => r.data),
+    staleTime: 1000 * 60 * 5,
+  });
+  const webAuthnAvailable = (credentialsQuery.data?.length ?? 0) > 0 && browserSupportsWebAuthn();
+
+  const form = useForm<PasswordValues>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
+  });
+
+  const mutation = useMutation({
+    mutationFn: (data: { currentPassword?: string; reauthedToken?: string; newPassword: string }) =>
+      api.patch("/api/users/me/password", data),
+    onSuccess: () => {
+      form.reset();
+      setReauthedToken(null);
+      setBiometricError(null);
+      setPasswordSaved(true);
+      setTimeout(() => setPasswordSaved(false), 2500);
+    },
+    onError: (error) => {
+      const [msg] = getApiErrorMessages(error, "Erro ao alterar a senha.");
+      form.setError("currentPassword", { message: msg });
+    },
+  });
+
+  const handleBiometricConfirm = async () => {
+    setBiometricError(null);
+    setBiometricLoading(true);
+    try {
+      const { data: options } = await api.post<PublicKeyCredentialRequestOptionsJSON>("/api/auth/webauthn/reauth/options");
+      const response = await startAuthentication({ optionsJSON: options });
+      const { data } = await api.post<{ reauthedToken: string }>("/api/auth/webauthn/reauth/verify", response);
+      setReauthedToken(data.reauthedToken);
+    } catch (err: unknown) {
+      if ((err as { name?: string })?.name === "NotAllowedError") {
+        setBiometricError("Operação cancelada pelo dispositivo.");
+      } else {
+        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+        setBiometricError(msg ?? "Não foi possível autenticar via biometria.");
+      }
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
+
+  return (
+    <SettingsCard title="Alterar senha" description="Atualize sua senha de acesso." icon={KeyRound}>
+      <form
+        onSubmit={form.handleSubmit((data) => {
+          if (reauthedToken) {
+            return mutation.mutate({ reauthedToken, newPassword: data.newPassword });
+          }
+          if (!data.currentPassword) {
+            form.setError("currentPassword", { message: "Informe a senha atual." });
+            return;
+          }
+          return mutation.mutate({ currentPassword: data.currentPassword, newPassword: data.newPassword });
+        })}
+        className="space-y-3"
+      >
+        {reauthedToken ? (
+          <div className="flex items-center justify-between rounded-xl bg-accent-gold/10 px-4 py-3">
+            <div className="flex items-center gap-2 text-sm text-accent-gold">
+              <ShieldCheck className="h-4 w-4 shrink-0" />
+              Biometria confirmada
+            </div>
+            <button
+              type="button"
+              onClick={() => setReauthedToken(null)}
+              className="text-xs text-text-secondary underline hover:text-text-primary"
+            >
+              Trocar
+            </button>
+          </div>
+        ) : (
+          <div>
+            <input
+              type="password"
+              placeholder="Senha atual"
+              autoComplete="current-password"
+              className={inputClass}
+              {...form.register("currentPassword")}
+            />
+            {form.formState.errors.currentPassword && (
+              <p className="mt-1 text-xs text-accent-red">{form.formState.errors.currentPassword.message}</p>
+            )}
+            {webAuthnAvailable && (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={handleBiometricConfirm}
+                  disabled={biometricLoading}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary disabled:opacity-50"
+                >
+                  {biometricLoading ? (
+                    <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Aguardando biometria...</>
+                  ) : (
+                    <><Fingerprint className="h-3.5 w-3.5 text-accent-gold" /> Confirmar com biometria</>
+                  )}
+                </button>
+                {biometricError && <p className="mt-1 text-xs text-accent-red">{biometricError}</p>}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div>
+          <input
+            type="password"
+            placeholder="Nova senha"
+            autoComplete="new-password"
+            className={inputClass}
+            {...form.register("newPassword")}
+          />
+          {form.formState.errors.newPassword && (
+            <p className="mt-1 text-xs text-accent-red">{form.formState.errors.newPassword.message}</p>
+          )}
+        </div>
+        <div>
+          <input
+            type="password"
+            placeholder="Confirmar nova senha"
+            autoComplete="new-password"
+            className={inputClass}
+            {...form.register("confirmPassword")}
+          />
+          {form.formState.errors.confirmPassword && (
+            <p className="mt-1 text-xs text-accent-red">{form.formState.errors.confirmPassword.message}</p>
+          )}
+        </div>
+
+        {passwordSaved && (
+          <p className="flex items-center gap-1 text-xs text-accent-gold">
+            <Check className="h-3.5 w-3.5" /> Senha alterada com sucesso!
+          </p>
+        )}
+
+        <button
+          type="submit"
+          disabled={mutation.isPending}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent-gold px-4 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:opacity-70"
+        >
+          {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          <KeyRound className="h-4 w-4" />
+          Alterar senha
+        </button>
+      </form>
+    </SettingsCard>
+  );
+}
+
+// ─── Ações da conta ─────────────────────────────────────────────────────────
+
+function AccountActionsSection() {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === "dark";
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const resetDataMutation = useMutation({
+    mutationFn: () => api.delete("/api/users/me/data"),
+    onSuccess: () => {
+      queryClient.clear();
+      window.location.reload();
+    },
+  });
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: () => api.delete("/api/users/me"),
+    onSuccess: async () => {
+      try {
+        await api.post("/api/auth/logout", { refreshToken: getRefreshToken() });
+      } catch { /* ignored — account already deleted */ }
+      clearTokens();
+      navigate("/login", { replace: true });
+    },
+  });
+
+  const handleLogout = async () => {
+    try {
+      await api.post("/api/auth/logout", { refreshToken: getRefreshToken() });
+    } catch { /* ignored */ }
+    clearTokens();
+    queryClient.clear();
+    navigate("/login", { replace: true });
+  };
+
+  const actionClass =
+    "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary";
+  const destructiveClass =
+    "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-accent-red transition hover:bg-accent-red/10";
+
+  return (
+    <SettingsCard title="Conta" description="Tema, sessão e dados da sua conta." icon={SettingsIcon}>
+      <div className="space-y-1">
+        <button type="button" onClick={toggleTheme} className={actionClass}>
+          {isDark ? <Sun className="h-5 w-5 shrink-0" /> : <Moon className="h-5 w-5 shrink-0" />}
+          {isDark ? "Ativar tema claro" : "Ativar tema escuro"}
+        </button>
+
+        <button type="button" onClick={handleLogout} className={actionClass}>
+          <LogOut className="h-5 w-5 shrink-0" />
+          Trocar de conta
+        </button>
+
+        {!showResetConfirm ? (
+          <button type="button" onClick={() => setShowResetConfirm(true)} className={destructiveClass}>
+            <Trash2 className="h-5 w-5 shrink-0" />
+            Limpar todos os dados
+          </button>
+        ) : (
+          <div className="space-y-3 rounded-xl border border-accent-red/30 bg-accent-red/5 p-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-accent-red" />
+              <p className="text-xs text-text-secondary">
+                Esta ação é <span className="font-semibold text-accent-red">irreversível</span>. Todas as suas
+                transações e carteiras serão apagadas permanentemente.
+              </p>
+            </div>
+            {resetDataMutation.isError && (
+              <p className="text-xs text-accent-red">
+                {getApiErrorMessages(resetDataMutation.error, "Erro ao limpar dados.").join(" ")}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowResetConfirm(false)}
+                className="flex-1 rounded-xl border border-bg-overlay px-3 py-2 text-xs font-semibold text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => resetDataMutation.mutate()}
+                disabled={resetDataMutation.isPending}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-accent-red px-3 py-2 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-70"
+              >
+                {resetDataMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Confirmar reset
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!showDeleteConfirm ? (
+          <button type="button" onClick={() => setShowDeleteConfirm(true)} className={destructiveClass}>
+            <Trash2 className="h-5 w-5 shrink-0" />
+            Excluir conta
+          </button>
+        ) : (
+          <div className="space-y-3 rounded-xl border border-accent-red/30 bg-accent-red/5 p-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-accent-red" />
+              <p className="text-xs text-text-secondary">
+                Esta ação é <span className="font-semibold text-accent-red">irreversível</span>. Todos os seus dados
+                serão excluídos permanentemente.
+              </p>
+            </div>
+            {deleteAccountMutation.isError && (
+              <p className="text-xs text-accent-red">
+                {getApiErrorMessages(deleteAccountMutation.error, "Erro ao excluir conta.").join(" ")}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 rounded-xl border border-bg-overlay px-3 py-2 text-xs font-semibold text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteAccountMutation.mutate()}
+                disabled={deleteAccountMutation.isPending}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-accent-red px-3 py-2 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-70"
+              >
+                {deleteAccountMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Confirmar exclusão
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </SettingsCard>
+  );
+}
+
 const SUBSCRIPTION_STATUS_LABEL: Record<string, string> = {
   trial: "Período de teste",
   active: "Ativa",
@@ -368,6 +971,9 @@ export function SettingsPage() {
         <h1 className="font-sans text-2xl font-bold text-text-primary">Configurações</h1>
         <p className="mt-1 text-sm text-text-secondary">Gerencie sua conta e segurança.</p>
       </div>
+
+      {/* Seção perfil */}
+      <ProfileSection />
 
       {/* Seção assinatura */}
       {subscription && (
@@ -552,6 +1158,12 @@ export function SettingsPage() {
           </>
         )}
       </div>
+
+      {/* Seção alterar senha */}
+      <PasswordSection />
+
+      {/* Seção ações da conta */}
+      <AccountActionsSection />
     </section>
   );
 }

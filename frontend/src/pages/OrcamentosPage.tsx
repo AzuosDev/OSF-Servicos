@@ -7,6 +7,7 @@ import { api } from "../lib/api";
 import { formatCurrency } from "../lib/finance";
 import { getApiErrorMessages } from "../lib/errors";
 import { useToast } from "../components/ui/Toast";
+import { BudgetStatusReasonModal } from "../components/modals/BudgetStatusReasonModal";
 import { BUDGET_STATUS_BADGE_CLASS, BUDGET_STATUS_LABEL, BUDGET_STATUS_TRANSITIONS } from "../lib/orcamentos";
 import { cn } from "../lib/utils";
 import type { Budget, BudgetConversionStats, BudgetsListResponse, BudgetStatus, Client } from "../types/api";
@@ -30,6 +31,7 @@ export function OrcamentosPage() {
   const { addToast } = useToast();
   const [status, setStatus] = useState<BudgetStatus | "TODOS">("TODOS");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [reasonModal, setReasonModal] = useState<{ budget: Budget; status: BudgetStatus } | null>(null);
 
   const statsQuery = useQuery<BudgetConversionStats>({
     queryKey: ["orcamentos-conversion-stats"],
@@ -68,13 +70,19 @@ export function OrcamentosPage() {
   });
 
   const changeStatus = (budget: Budget, newStatus: BudgetStatus) => {
-    let reason: string | undefined;
     if (newStatus === "REJEITADO" || newStatus === "CANCELADO") {
-      const input = window.prompt("Motivo (opcional):", "");
-      if (input === null) return;
-      reason = input.trim() || undefined;
+      setReasonModal({ budget, status: newStatus });
+      return;
     }
-    updateStatusMutation.mutate({ id: budget._id, status: newStatus, reason });
+    updateStatusMutation.mutate({ id: budget._id, status: newStatus });
+  };
+
+  const confirmReasonModal = (reason?: string) => {
+    if (!reasonModal) return;
+    updateStatusMutation.mutate(
+      { id: reasonModal.budget._id, status: reasonModal.status, reason },
+      { onSuccess: () => setReasonModal(null) },
+    );
   };
 
   const clientNameById = useMemo(() => {
@@ -209,7 +217,7 @@ export function OrcamentosPage() {
                         return (
                           <span
                             className={cn(
-                              "inline-flex rounded-full px-3 py-1 text-xs font-bold",
+                              "inline-flex rounded-full px-3 py-1 text-xs font-semibold",
                               BUDGET_STATUS_BADGE_CLASS[budget.status],
                             )}
                           >
@@ -224,15 +232,15 @@ export function OrcamentosPage() {
                             disabled={isUpdating}
                             onChange={(e) => changeStatus(budget, e.target.value as BudgetStatus)}
                             className={cn(
-                              "cursor-pointer appearance-none rounded-full border-0 px-3 py-1 pr-6 text-xs font-bold outline-none disabled:cursor-wait disabled:opacity-60",
+                              "cursor-pointer appearance-none rounded-full border-0 px-3 py-1 pr-6 text-xs font-semibold outline-none disabled:cursor-wait disabled:opacity-60",
                               BUDGET_STATUS_BADGE_CLASS[budget.status],
                             )}
                           >
-                            <option value={budget.status} disabled>
+                            <option value={budget.status} disabled className="bg-bg-card text-text-primary">
                               {BUDGET_STATUS_LABEL[budget.status]}
                             </option>
                             {allowed.map((next) => (
-                              <option key={next} value={next}>
+                              <option key={next} value={next} className="bg-bg-card text-text-primary">
                                 {BUDGET_STATUS_LABEL[next]}
                               </option>
                             ))}
@@ -248,6 +256,14 @@ export function OrcamentosPage() {
           </table>
         )}
       </div>
+
+      <BudgetStatusReasonModal
+        open={reasonModal !== null}
+        status={reasonModal?.status ?? null}
+        isPending={updateStatusMutation.isPending}
+        onClose={() => setReasonModal(null)}
+        onConfirm={confirmReasonModal}
+      />
     </section>
   );
 }
