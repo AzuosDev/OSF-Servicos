@@ -983,7 +983,7 @@ export function SettingsPage() {
             <div>
               <h2 className="font-semibold text-text-primary">Assinatura</h2>
               <p className="text-xs text-text-secondary">
-                {subscription.plan ?? "AkLavajato App"} · {SUBSCRIPTION_STATUS_LABEL[subscription.status ?? ""] ?? "Sem assinatura"}
+                {subscription.plan ?? "OSF Serviços"} · {SUBSCRIPTION_STATUS_LABEL[subscription.status ?? ""] ?? "Sem assinatura"}
               </p>
             </div>
           </div>

@@ -37,7 +37,7 @@ export class NotificationsCronController {
   async testPush(@Query('token') token?: string) {
     this.assertValidToken(token);
     const sent = await this.pushService.sendToAllSubscribed({
-      title: 'AK LavaJato',
+      title: 'OSF Serviços',
       body: 'Notificação de teste — se você recebeu isso, o push está funcionando! 🎉',
     });
     return { subscriptionsNotified: sent };
