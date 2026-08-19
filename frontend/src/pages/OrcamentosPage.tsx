@@ -202,14 +202,45 @@ export function OrcamentosPage() {
                   </td>
                   <td className="px-5 py-4 font-bold">{formatCurrency(budget.total)}</td>
                   <td className="px-5 py-4">
-                    <span
-                      className={cn(
-                        "inline-flex rounded-full px-3 py-1 text-xs font-bold",
-                        BUDGET_STATUS_BADGE_CLASS[budget.status],
-                      )}
-                    >
-                      {BUDGET_STATUS_LABEL[budget.status]}
-                    </span>
+                    {(() => {
+                      const allowed = BUDGET_STATUS_TRANSITIONS[budget.status];
+                      const isUpdating = updatingId === budget._id;
+                      if (allowed.length === 0) {
+                        return (
+                          <span
+                            className={cn(
+                              "inline-flex rounded-full px-3 py-1 text-xs font-bold",
+                              BUDGET_STATUS_BADGE_CLASS[budget.status],
+                            )}
+                          >
+                            {BUDGET_STATUS_LABEL[budget.status]}
+                          </span>
+                        );
+                      }
+                      return (
+                        <div className="relative inline-flex items-center gap-2">
+                          <select
+                            value={budget.status}
+                            disabled={isUpdating}
+                            onChange={(e) => changeStatus(budget, e.target.value as BudgetStatus)}
+                            className={cn(
+                              "cursor-pointer appearance-none rounded-full border-0 px-3 py-1 pr-6 text-xs font-bold outline-none disabled:cursor-wait disabled:opacity-60",
+                              BUDGET_STATUS_BADGE_CLASS[budget.status],
+                            )}
+                          >
+                            <option value={budget.status} disabled>
+                              {BUDGET_STATUS_LABEL[budget.status]}
+                            </option>
+                            {allowed.map((next) => (
+                              <option key={next} value={next}>
+                                {BUDGET_STATUS_LABEL[next]}
+                              </option>
+                            ))}
+                          </select>
+                          {isUpdating && <Loader2 className="h-3.5 w-3.5 animate-spin text-text-secondary" />}
+                        </div>
+                      );
+                    })()}
                   </td>
                 </tr>
               ))}
