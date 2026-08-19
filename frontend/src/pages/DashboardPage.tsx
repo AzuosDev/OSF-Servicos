@@ -436,7 +436,7 @@ export function DashboardPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setAddModalOpen(true)}
-            className="hidden md:flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition-opacity hover:brightness-110"
+            className="hidden md:flex items-center gap-2 rounded-xl bg-accent-gold px-4 py-3 text-sm font-bold text-black transition-opacity hover:brightness-110"
             aria-label="Adicionar transação"
           >
             <Plus className="h-6 w-6" /> Nova
@@ -444,7 +444,7 @@ export function DashboardPage() {
           <select
             value={month}
             onChange={(event) => setMonth(Number(event.target.value))}
-            className="rounded-xl border border-bg-muted bg-bg-card px-4 py-3 text-sm text-white outline-none transition focus:border-accent-lime"
+            className="rounded-xl border border-bg-muted bg-bg-card px-4 py-3 text-sm text-white outline-none transition focus:border-accent-gold"
           >
             {monthOptions.map((label, index) => (
               <option key={label} value={index + 1}>
@@ -455,7 +455,7 @@ export function DashboardPage() {
           <select
             value={year}
             onChange={(event) => setYear(Number(event.target.value))}
-            className="rounded-xl border border-bg-muted bg-bg-card px-4 py-3 text-sm text-white outline-none transition focus:border-accent-lime"
+            className="rounded-xl border border-bg-muted bg-bg-card px-4 py-3 text-sm text-white outline-none transition focus:border-accent-gold"
           >
             {years.map((option) => (
               <option key={option} value={option}>
@@ -475,7 +475,7 @@ export function DashboardPage() {
       <div className="rounded-2xl bg-bg-card p-6">
         <p className="text-sm uppercase tracking-widest text-text-secondary">Saldo</p>
         <div className="mt-3 flex items-center gap-3">
-          <strong className={cn("font-sans text-3xl font-extrabold sm:text-5xl", dashboard.balance < 0 ? "text-accent-red" : "text-accent-lime")}>
+          <strong className={cn("font-sans text-3xl font-extrabold sm:text-5xl", dashboard.balance < 0 ? "text-accent-red" : "text-accent-gold")}>
             {fmt(dashboard.balance)}
           </strong>
           <button
@@ -487,7 +487,7 @@ export function DashboardPage() {
           </button>
         </div>
         <div className="mt-5 flex flex-wrap gap-4 text-sm">
-          <span className="text-accent-lime">
+          <span className="text-accent-gold">
             Entradas: {fmt(dashboard.totalIncome)}
           </span>
           <span className="text-accent-red">
@@ -501,7 +501,7 @@ export function DashboardPage() {
         <div>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-sans text-lg font-bold">Carteiras</h2>
-            <Link to="/carteiras" className="text-sm font-semibold text-accent-lime">
+            <Link to="/carteiras" className="text-sm font-semibold text-accent-gold">
               Gerenciar
             </Link>
           </div>
@@ -514,7 +514,7 @@ export function DashboardPage() {
               >
                 <BankLogo nome={wallet.nome} icone={wallet.icone} className="h-5 w-5" />
                 <span className="max-w-[120px] truncate text-text-secondary">{wallet.nome}</span>
-                <strong className={cn("font-sans font-bold", wallet.saldo < 0 ? "text-accent-red" : "text-accent-lime")}>
+                <strong className={cn("font-sans font-bold", wallet.saldo < 0 ? "text-accent-red" : "text-accent-gold")}>
                   {fmt(wallet.saldo)}
                 </strong>
               </Link>
@@ -528,7 +528,7 @@ export function DashboardPage() {
           <h2 className="font-sans text-xl font-bold">Evolução Mensal</h2>
           <div className="flex gap-4 text-xs text-text-secondary">
             <span className="flex items-center gap-2">
-              <i className="h-2.5 w-2.5 rounded-full bg-accent-lime" />{" "}
+              <i className="h-2.5 w-2.5 rounded-full bg-accent-gold" />{" "}
               Entradas
             </span>
             <span className="flex items-center gap-2">
@@ -568,7 +568,7 @@ export function DashboardPage() {
           </h2>
           <button
             onClick={() => navigate("/transactions?type=EXPENSE&action=create")}
-            className="mt-5 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110"
+            className="mt-5 rounded-xl bg-accent-gold px-5 py-3 text-sm font-bold text-black transition hover:brightness-110"
           >
             Adicionar primeiro gasto
           </button>
@@ -580,7 +580,7 @@ export function DashboardPage() {
               icon={TrendingUp}
               label="Entradas"
               value={fmt(dashboard.totalIncome)}
-              iconClassName="text-accent-lime"
+              iconClassName="text-accent-gold"
               onClick={() => navigate("/resumo?type=INCOME")}
             />
             <SummaryCard
@@ -606,7 +606,7 @@ export function DashboardPage() {
               icon={PiggyBank}
               label="Taxa de Poupança"
               value={show ? `${dashboard.savingsRate.toFixed(1)}%` : "••••"}
-              iconClassName="text-accent-lime"
+              iconClassName="text-accent-gold"
             />
           </div>
 
@@ -617,7 +617,7 @@ export function DashboardPage() {
               </h2>
               <Link
                 to="/resumo"
-                className="text-sm font-semibold text-accent-lime"
+                className="text-sm font-semibold text-accent-gold"
               >
                 Ver todas
               </Link>
@@ -663,7 +663,7 @@ export function DashboardPage() {
               </h2>
               <Link
                 to="/transactions"
-                className="text-sm font-semibold text-accent-lime"
+                className="text-sm font-semibold text-accent-gold"
               >
                 Ver todas
               </Link>
@@ -705,7 +705,7 @@ export function DashboardPage() {
                     className={cn(
                       "text-sm",
                       transaction.type === "INCOME"
-                        ? "text-accent-lime"
+                        ? "text-accent-gold"
                         : "text-accent-red",
                     )}
                   >

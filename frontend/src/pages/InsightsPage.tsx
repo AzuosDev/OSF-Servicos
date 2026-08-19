@@ -92,8 +92,8 @@ function ChartTooltip({
 // ─── Aba Visão Geral ────────────────────────────────────────────────────────
 
 const scoreLabelClass: Record<InsightsOverview["healthScore"]["label"], string> = {
-  Excelente: "text-accent-lime",
-  Boa: "text-accent-lime",
+  Excelente: "text-accent-gold",
+  Boa: "text-accent-gold",
   "Atenção": "text-accent-yellow",
   "Crítica": "text-accent-red",
 };
@@ -172,7 +172,7 @@ function CashflowPreview({ onNavigate }: { onNavigate: () => void }) {
         </>
       )}
 
-      <button type="button" onClick={onNavigate} className="mt-3 text-sm font-semibold text-accent-lime hover:underline">
+      <button type="button" onClick={onNavigate} className="mt-3 text-sm font-semibold text-accent-gold hover:underline">
         Ver mais →
       </button>
     </div>
@@ -225,7 +225,7 @@ function GoalsPreview({ onNavigate }: { onNavigate: () => void }) {
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-bg-muted">
                 <div
-                  className="h-full rounded-full bg-accent-lime transition-all"
+                  className="h-full rounded-full bg-accent-gold transition-all"
                   style={{ width: `${Math.max(0, Math.min(100, featured.percentComplete))}%` }}
                 />
               </div>
@@ -234,7 +234,7 @@ function GoalsPreview({ onNavigate }: { onNavigate: () => void }) {
         </>
       )}
 
-      <button type="button" onClick={onNavigate} className="mt-3 text-sm font-semibold text-accent-lime hover:underline">
+      <button type="button" onClick={onNavigate} className="mt-3 text-sm font-semibold text-accent-gold hover:underline">
         Ver mais →
       </button>
     </div>
@@ -270,7 +270,7 @@ function ContasPreview({ onNavigate }: { onNavigate: () => void }) {
         </p>
       )}
 
-      <button type="button" onClick={onNavigate} className="mt-3 text-sm font-semibold text-accent-lime hover:underline">
+      <button type="button" onClick={onNavigate} className="mt-3 text-sm font-semibold text-accent-gold hover:underline">
         Ver mais →
       </button>
     </div>
@@ -313,7 +313,7 @@ function OverviewTab({ onNavigateTab }: { onNavigateTab: (tab: InsightsTab) => v
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <OverviewCard
             icon={Tag}
-            iconClassName="text-accent-lime"
+            iconClassName="text-accent-gold"
             label="Maior categoria de gasto (mês atual)"
             value={overview.topCategoryThisMonth ? overview.topCategoryThisMonth.name : "Sem gastos"}
             secondary={
@@ -325,7 +325,7 @@ function OverviewTab({ onNavigateTab }: { onNavigateTab: (tab: InsightsTab) => v
 
           <OverviewCard
             icon={ArrowLeftRight}
-            iconClassName="text-accent-lime"
+            iconClassName="text-accent-gold"
             label="Comparação mensal"
             value={
               overview.monthComparison.hasPreviousMonthData
@@ -341,7 +341,7 @@ function OverviewTab({ onNavigateTab }: { onNavigateTab: (tab: InsightsTab) => v
 
           <OverviewCard
             icon={CalendarClock}
-            iconClassName="text-accent-lime"
+            iconClassName="text-accent-gold"
             label="Projeção de fim de mês"
             value={formatCurrency(overview.monthEndProjection.projectedBalance)}
             secondary={`Baseado em ${overview.monthEndProjection.daysElapsed}/${overview.monthEndProjection.daysInMonth} dias · gasto projetado ${formatCurrency(overview.monthEndProjection.projectedExpense)}`}
@@ -456,7 +456,7 @@ function PeriodFilterControls(filter: PeriodFilterState) {
             onClick={() => filter.setPeriod(option)}
             className={cn(
               "rounded-lg px-4 py-2 text-sm font-semibold transition",
-              filter.period === option ? "bg-accent-lime text-black" : "text-text-primary hover:bg-bg-overlay",
+              filter.period === option ? "bg-accent-gold text-black" : "text-text-primary hover:bg-bg-overlay",
             )}
           >
             {PERIOD_LABELS[option]}
@@ -469,7 +469,7 @@ function PeriodFilterControls(filter: PeriodFilterState) {
           type="month"
           value={filter.monthValue}
           onChange={(event) => filter.setMonthValue(event.target.value)}
-          className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
+          className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold"
         />
       )}
 
@@ -478,7 +478,7 @@ function PeriodFilterControls(filter: PeriodFilterState) {
           <select
             value={filter.quarter}
             onChange={(event) => filter.setQuarter(Number(event.target.value))}
-            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
+            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold"
           >
             {[1, 2, 3, 4].map((q) => (
               <option key={q} value={q}>
@@ -489,7 +489,7 @@ function PeriodFilterControls(filter: PeriodFilterState) {
           <select
             value={filter.quarterYear}
             onChange={(event) => filter.setQuarterYear(Number(event.target.value))}
-            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
+            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold"
           >
             {YEAR_OPTIONS.map((option) => (
               <option key={option} value={option}>
@@ -504,7 +504,7 @@ function PeriodFilterControls(filter: PeriodFilterState) {
         <select
           value={filter.year}
           onChange={(event) => filter.setYear(Number(event.target.value))}
-          className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
+          className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold"
         >
           {YEAR_OPTIONS.map((option) => (
             <option key={option} value={option}>
@@ -520,14 +520,14 @@ function PeriodFilterControls(filter: PeriodFilterState) {
             type="date"
             value={filter.customFrom}
             onChange={(event) => filter.setCustomFrom(event.target.value)}
-            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
+            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold"
           />
           <span className="text-sm text-text-secondary">até</span>
           <input
             type="date"
             value={filter.customTo}
             onChange={(event) => filter.setCustomTo(event.target.value)}
-            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
+            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold"
           />
         </>
       )}
@@ -616,9 +616,9 @@ function CashflowTab() {
       {result && chartData && (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <OverviewCard icon={ArrowLeftRight} iconClassName="text-accent-lime" label="Total de entradas" value={formatCurrency(result.totals.income)} />
+            <OverviewCard icon={ArrowLeftRight} iconClassName="text-accent-gold" label="Total de entradas" value={formatCurrency(result.totals.income)} />
             <OverviewCard icon={ArrowLeftRight} iconClassName="text-accent-red" label="Total de saídas" value={formatCurrency(result.totals.expense)} />
-            <OverviewCard icon={ArrowLeftRight} iconClassName="text-accent-lime" label="Saldo do período" value={formatCurrency(result.totals.balance)} />
+            <OverviewCard icon={ArrowLeftRight} iconClassName="text-accent-gold" label="Saldo do período" value={formatCurrency(result.totals.balance)} />
           </div>
 
           <CashflowChart data={chartData} />
@@ -661,7 +661,7 @@ function GoalCard({ goal }: { goal: GoalProgress }) {
   }));
 
   const percent = Math.max(0, Math.min(100, goal.percentComplete));
-  const progressColor = goal.completed ? "bg-accent-lime" : percent >= 70 ? "bg-accent-lime" : percent >= 30 ? "bg-accent-yellow" : "bg-accent-red";
+  const progressColor = goal.completed ? "bg-accent-gold" : percent >= 70 ? "bg-accent-gold" : percent >= 30 ? "bg-accent-yellow" : "bg-accent-red";
 
   return (
     <div className="rounded-2xl bg-bg-card p-5">
@@ -1030,7 +1030,7 @@ function InstallmentRow({ item }: { item: AccountsOverview["installmentsInProgre
         </span>
       </div>
       <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-bg-overlay">
-        <div className="h-full rounded-full bg-accent-lime transition-all" style={{ width: `${percent}%` }} />
+        <div className="h-full rounded-full bg-accent-gold transition-all" style={{ width: `${percent}%` }} />
       </div>
       <div className="mt-2 flex items-center justify-between text-xs text-text-secondary">
         <span>{formatCurrency(item.valorParcela)}/parcela</span>
@@ -1077,7 +1077,7 @@ function ContasTab() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <OverviewCard
               icon={Clock}
-              iconClassName="text-accent-lime"
+              iconClassName="text-accent-gold"
               label="Pagas"
               value={formatCurrency(result.paidVsPending.paidValue)}
               secondary={`${result.paidVsPending.paidCount} conta(s)`}
@@ -1091,7 +1091,7 @@ function ContasTab() {
             />
             <OverviewCard
               icon={Repeat}
-              iconClassName="text-accent-lime"
+              iconClassName="text-accent-gold"
               label="Recorrentes ativas"
               value={String(result.activeRecurringCount)}
             />
@@ -1224,7 +1224,7 @@ function CarteirasTab() {
               <OverviewCard
                 key={wallet.id}
                 icon={Landmark}
-                iconClassName="text-accent-lime"
+                iconClassName="text-accent-gold"
                 label={wallet.nome}
                 value={formatCurrency(wallet.currentBalance)}
               />
@@ -1327,9 +1327,9 @@ function ReportCashflowSection({ params }: { params: PeriodFilterState["params"]
       {result && chartData && (
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <OverviewCard icon={ArrowLeftRight} iconClassName="text-accent-lime" label="Entradas" value={formatCurrency(result.totals.income)} />
+            <OverviewCard icon={ArrowLeftRight} iconClassName="text-accent-gold" label="Entradas" value={formatCurrency(result.totals.income)} />
             <OverviewCard icon={ArrowLeftRight} iconClassName="text-accent-red" label="Saídas" value={formatCurrency(result.totals.expense)} />
-            <OverviewCard icon={ArrowLeftRight} iconClassName="text-accent-lime" label="Saldo" value={formatCurrency(result.totals.balance)} />
+            <OverviewCard icon={ArrowLeftRight} iconClassName="text-accent-gold" label="Saldo" value={formatCurrency(result.totals.balance)} />
           </div>
           <CashflowChart data={chartData} />
         </>
@@ -1492,7 +1492,7 @@ function ReportContasSection() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <OverviewCard
               icon={Clock}
-              iconClassName="text-accent-lime"
+              iconClassName="text-accent-gold"
               label="Pagas"
               value={formatCurrency(result.paidVsPending.paidValue)}
               secondary={`${result.paidVsPending.paidCount} conta(s)`}
@@ -1504,7 +1504,7 @@ function ReportContasSection() {
               value={formatCurrency(result.paidVsPending.pendingValue)}
               secondary={`${result.paidVsPending.pendingCount} conta(s)`}
             />
-            <OverviewCard icon={Repeat} iconClassName="text-accent-lime" label="Recorrentes ativas" value={String(result.activeRecurringCount)} />
+            <OverviewCard icon={Repeat} iconClassName="text-accent-gold" label="Recorrentes ativas" value={String(result.activeRecurringCount)} />
           </div>
 
           {result.overdue.count > 0 && (
@@ -1565,7 +1565,7 @@ function ReportCarteirasSection({ params }: { params: PeriodFilterState["params"
           <>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {wallets.map((wallet) => (
-                <OverviewCard key={wallet.id} icon={Landmark} iconClassName="text-accent-lime" label={wallet.nome} value={formatCurrency(wallet.currentBalance)} />
+                <OverviewCard key={wallet.id} icon={Landmark} iconClassName="text-accent-gold" label={wallet.nome} value={formatCurrency(wallet.currentBalance)} />
               ))}
             </div>
             <WalletsChart wallets={wallets} data={chartData} />
@@ -1603,7 +1603,7 @@ function ReportAnnualSection({ year }: { year: number }) {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <OverviewCard
               icon={ArrowLeftRight}
-              iconClassName="text-accent-lime"
+              iconClassName="text-accent-gold"
               label={`Renda média/mês (${result.year})`}
               value={formatCurrency(result.current.avgMonthlyIncome)}
               secondary={`${formatPct(result.yoyChange.incomePct)} vs ${result.previousYear}`}
@@ -1617,7 +1617,7 @@ function ReportAnnualSection({ year }: { year: number }) {
             />
             <OverviewCard
               icon={ArrowLeftRight}
-              iconClassName="text-accent-lime"
+              iconClassName="text-accent-gold"
               label="Saldo médio/mês"
               value={formatCurrency(result.current.avgMonthlyBalance)}
               secondary={`${formatPct(result.yoyChange.balancePct)} vs ${result.previousYear}`}
@@ -1688,7 +1688,7 @@ function PersonalizedReportModal({
                 type="checkbox"
                 checked={selected.has(section.id)}
                 onChange={() => onToggleSection(section.id)}
-                className="h-4 w-4 shrink-0 accent-accent-lime"
+                className="h-4 w-4 shrink-0 accent-accent-gold"
               />
               {section.label}
               {section.id === "contas" && <span className="ml-auto text-xs text-text-secondary">dados de hoje</span>}
@@ -1708,7 +1708,7 @@ function PersonalizedReportModal({
             type="button"
             disabled={!canGenerate}
             onClick={onGenerate}
-            className="rounded-xl bg-accent-lime px-4 py-2 text-sm font-bold text-black transition disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl bg-accent-gold px-4 py-2 text-sm font-bold text-black transition disabled:cursor-not-allowed disabled:opacity-50"
           >
             Gerar
           </button>
@@ -1720,7 +1720,7 @@ function PersonalizedReportModal({
 
 function GeneratedReport({ config, onReset }: { config: GeneratedReportConfig; onReset: () => void }) {
   return (
-    <div className="space-y-4 rounded-2xl border border-accent-lime/30 bg-bg-muted/40 p-5">
+    <div className="space-y-4 rounded-2xl border border-accent-gold/30 bg-bg-muted/40 p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-sans text-xl font-bold">Relatório Personalizado</h2>
         <button
@@ -1778,7 +1778,7 @@ function PersonalizedReportSection() {
         <button
           type="button"
           onClick={() => setModalOpen(true)}
-          className="flex items-center gap-2 rounded-xl border border-border-default px-4 py-2 text-sm font-semibold text-text-primary transition hover:border-accent-lime hover:text-accent-lime"
+          className="flex items-center gap-2 rounded-xl border border-border-default px-4 py-2 text-sm font-semibold text-text-primary transition hover:border-accent-gold hover:text-accent-gold"
         >
           <FileText className="h-4 w-4" />
           Relatório Personalizado
@@ -1835,7 +1835,7 @@ export function InsightsPage() {
             onClick={() => setActiveTab(tab.id)}
             className={cn(
               "shrink-0 rounded-lg px-4 py-2 text-sm font-semibold transition",
-              activeTab === tab.id ? "bg-accent-lime text-black" : "text-text-primary hover:bg-bg-overlay",
+              activeTab === tab.id ? "bg-accent-gold text-black" : "text-text-primary hover:bg-bg-overlay",
             )}
           >
             {tab.label}

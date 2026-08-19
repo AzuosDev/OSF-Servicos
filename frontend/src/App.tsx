@@ -28,12 +28,16 @@ const AgendaPage = lazy(() => import("./pages/AgendaPage").then((m) => ({ defaul
 const ServicosPage = lazy(() => import("./pages/ServicosPage").then((m) => ({ default: m.ServicosPage })));
 const ContasReceberPage = lazy(() => import("./pages/ContasReceberPage").then((m) => ({ default: m.ContasReceberPage })));
 const RelatoriosPage = lazy(() => import("./pages/RelatoriosPage").then((m) => ({ default: m.RelatoriosPage })));
+const OrcamentosPage = lazy(() => import("./pages/OrcamentosPage").then((m) => ({ default: m.OrcamentosPage })));
+const OrcamentoWizardPage = lazy(() =>
+  import("./pages/OrcamentoWizardPage").then((m) => ({ default: m.OrcamentoWizardPage })),
+);
 const CheckoutPage = lazy(() => import("./pages/CheckoutPage").then((m) => ({ default: m.CheckoutPage })));
 
 function PageLoader() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-base">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-bg-overlay border-t-accent-lime" />
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-bg-overlay border-t-accent-gold" />
     </div>
   );
 }
@@ -101,7 +105,7 @@ function AppBoot({ children }: { children: React.ReactNode }) {
   if (status === 'booting') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-base">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-bg-overlay border-t-accent-lime" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-bg-overlay border-t-accent-gold" />
       </div>
     );
   }
@@ -112,7 +116,7 @@ function AppBoot({ children }: { children: React.ReactNode }) {
         <p className="text-sm text-text-muted">Sem conexão com o servidor.</p>
         <button
           onClick={tryRefresh}
-          className="rounded-lg bg-accent-lime px-4 py-2 text-sm font-medium text-bg-base"
+          className="rounded-lg bg-accent-gold px-4 py-2 text-sm font-medium text-bg-base"
         >
           Tentar novamente
         </button>
@@ -145,6 +149,8 @@ export default function App() {
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/agenda" element={<AgendaPage />} />
                   <Route path="/servicos" element={<ServicosPage />} />
+                  <Route path="/orcamentos" element={<OrcamentosPage />} />
+                  <Route path="/orcamentos/novo" element={<OrcamentoWizardPage />} />
                   <Route path="/contas-a-receber" element={<ContasReceberPage />} />
                   <Route path="/relatorios" element={<RelatoriosPage />} />
                   <Route path="/insights" element={<InsightsPage />} />

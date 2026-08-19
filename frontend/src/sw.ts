@@ -78,13 +78,13 @@ self.addEventListener('push', (event) => {
   try {
     payload = event.data.json();
   } catch {
-    payload = { title: 'AK LavaJato', body: event.data.text() };
+    payload = { title: 'OSF Serviços', body: event.data.text() };
   }
 
   const iconUrl = new URL('/pwa-192x192.png', self.location.origin).href;
 
   event.waitUntil(
-    self.registration.showNotification(payload.title ?? 'AK LavaJato', {
+    self.registration.showNotification(payload.title ?? 'OSF Serviços', {
       body: payload.body ?? '',
       icon: iconUrl,
       badge: iconUrl,

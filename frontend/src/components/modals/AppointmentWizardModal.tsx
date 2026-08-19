@@ -166,7 +166,7 @@ export function AppointmentWizardModal({
       open={open}
       onClose={onClose}
       title="Novo Agendamento"
-      icon={<CalendarCheck className="h-6 w-6 text-accent-lime" />}
+      icon={<CalendarCheck className="h-6 w-6 text-accent-gold" />}
       containerClassName="max-w-xl"
       footer={
         step === 4 ? (
@@ -182,7 +182,7 @@ export function AppointmentWizardModal({
               type="submit"
               form="wizard-step-4"
               disabled={createMutation.isPending || !clientName.trim()}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-gold px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Confirmar Agendamento
@@ -219,14 +219,14 @@ export function AppointmentWizardModal({
                 className="flex w-full items-center justify-between rounded-xl bg-bg-muted px-4 py-3 text-left transition hover:bg-bg-overlay"
               >
                 <span className="font-semibold text-white">{s.name}</span>
-                <span className="text-sm font-bold text-accent-lime">{formatCurrency(s.defaultValue)}</span>
+                <span className="text-sm font-bold text-accent-gold">{formatCurrency(s.defaultValue)}</span>
               </button>
             ))
           )}
           <button
             type="button"
             onClick={() => setServiceModalOpen(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-bg-muted px-4 py-3 text-sm font-semibold text-text-secondary transition hover:border-accent-lime hover:text-accent-lime"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-bg-muted px-4 py-3 text-sm font-semibold text-text-secondary transition hover:border-accent-gold hover:text-accent-gold"
           >
             <Plus className="h-4 w-4" />
             Novo Serviço
@@ -255,7 +255,7 @@ export function AppointmentWizardModal({
                 >
                   <span className="text-[10px] font-semibold uppercase">{formatWeekdayShort(day)}</span>
                   <span className="text-base font-bold">{day.getUTCDate()}</span>
-                  {isToday(day) && <span className="text-[9px] text-accent-lime">Hoje</span>}
+                  {isToday(day) && <span className="text-[9px] text-accent-gold">Hoje</span>}
                   {full && <span className="text-[9px] text-accent-red">Cheio</span>}
                 </button>
               );
@@ -265,7 +265,7 @@ export function AppointmentWizardModal({
           <button
             type="button"
             onClick={() => setCalendarOpen((v) => !v)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-bg-muted px-4 py-2.5 text-sm font-semibold text-text-secondary transition hover:border-accent-lime hover:text-accent-lime"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-bg-muted px-4 py-2.5 text-sm font-semibold text-text-secondary transition hover:border-accent-gold hover:text-accent-gold"
           >
             <CalendarDays className="h-4 w-4" />
             Ver calendário completo
@@ -333,7 +333,7 @@ export function AppointmentWizardModal({
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
               placeholder="Nome completo"
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
             />
           </label>
 
@@ -345,7 +345,7 @@ export function AppointmentWizardModal({
               value={clientPhone}
               onChange={(e) => setClientPhone(e.target.value)}
               placeholder="(11) 99999-9999"
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
             />
           </label>
 
@@ -354,7 +354,7 @@ export function AppointmentWizardModal({
             <CurrencyInput
               value={chargedValue}
               onChange={setChargedValue}
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
             />
           </label>
 

@@ -117,14 +117,14 @@ export function WeekDayNav({
               className={cn(
                 "flex flex-col items-center gap-0.5 rounded-xl px-1 py-2.5 transition",
                 active
-                  ? "bg-accent-lime text-black"
+                  ? "bg-accent-gold text-black"
                   : "text-text-secondary hover:bg-bg-overlay hover:text-text-primary",
               )}
             >
               <span className="text-[10px] font-semibold uppercase">{formatWeekdayShort(day)}</span>
               <span className="text-lg font-bold">{day.getUTCDate()}</span>
               {today && (
-                <span className={cn("h-1 w-1 rounded-full", active ? "bg-black" : "bg-accent-lime")} />
+                <span className={cn("h-1 w-1 rounded-full", active ? "bg-black" : "bg-accent-gold")} />
               )}
             </button>
           );

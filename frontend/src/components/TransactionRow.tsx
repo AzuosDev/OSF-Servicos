@@ -62,7 +62,7 @@ export const TransactionRow = memo(function TransactionRow({
       <strong
         className={cn(
           "shrink-0 text-sm font-semibold",
-          isIncome ? "text-accent-lime" : "text-accent-red",
+          isIncome ? "text-accent-gold" : "text-accent-red",
         )}
       >
         {isIncome ? "+" : "-"}

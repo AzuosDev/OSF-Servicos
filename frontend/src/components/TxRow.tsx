@@ -35,7 +35,7 @@ export function TxRow({
   const amountCls = tx.agendado
     ? "text-text-muted"
     : isIncome
-      ? "text-accent-lime"
+      ? "text-accent-gold"
       : isTransfer
         ? "text-blue-400"
         : "text-accent-red";
@@ -51,7 +51,7 @@ export function TxRow({
             type="checkbox"
             checked={Boolean(selected)}
             onChange={() => onToggleSelect?.(tx)}
-            className="h-4 w-4 shrink-0 cursor-pointer rounded border-bg-muted bg-bg-muted accent-accent-lime"
+            className="h-4 w-4 shrink-0 cursor-pointer rounded border-bg-muted bg-bg-muted accent-accent-gold"
             aria-label="Selecionar transação para associar a uma carteira"
           />
         )}

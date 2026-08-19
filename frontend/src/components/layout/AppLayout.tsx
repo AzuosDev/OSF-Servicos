@@ -4,10 +4,12 @@ import {
   ArrowLeftRight,
   BarChart2,
   CalendarDays,
+  ChevronDown,
   ChevronLeft,
   CircleDollarSign,
   Clock,
   FileBarChart,
+  FileText,
   Home,
   Landmark,
   LayoutDashboard,
@@ -21,7 +23,9 @@ import {
   Sun,
   Target,
   TrendingDown,
+  Wrench,
   X,
+  Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -47,25 +51,71 @@ const WhatsNewModal = lazy(() =>
   import("../modals/WhatsNewModal").then((m) => ({ default: m.WhatsNewModal }))
 );
 
-type NavItem = {
+type NavLeaf = {
   to: string;
   match?: string;
   label: string;
   icon: LucideIcon;
 };
 
-const navigation: NavItem[] = [
+type NavGroup = {
+  label: string;
+  icon: LucideIcon;
+  children: NavLeaf[];
+};
+
+type NavEntry = NavLeaf | NavGroup;
+
+function isNavGroup(entry: NavEntry): entry is NavGroup {
+  return "children" in entry;
+}
+
+function isLeafActive(item: NavLeaf, currentPath: string, currentUrl: string) {
+  if (item.match) {
+    return currentUrl === item.match;
+  }
+  return currentPath === item.to || currentPath.startsWith(`${item.to}/`);
+}
+
+function activeGroupLabels(entries: NavEntry[], currentPath: string, currentUrl: string) {
+  return entries
+    .filter(isNavGroup)
+    .filter((group) => group.children.some((child) => isLeafActive(child, currentPath, currentUrl)))
+    .map((group) => group.label);
+}
+
+const navigation: NavEntry[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/agenda", label: "Agenda", icon: CalendarDays },
-  { to: "/contas-a-receber", label: "A Receber", icon: CircleDollarSign },
-  { to: "/relatorios", label: "Relatórios", icon: FileBarChart },
-  { to: "/insights", label: "Insights", icon: Sparkles },
-  { to: "/resumo", label: "Resumo", icon: TrendingDown },
-  { to: "/transactions", label: "Transações", icon: List },
-  { to: "/carteiras", label: "Carteiras", icon: Landmark },
-  { to: "/contas", label: "Contas", icon: Clock },
-  { to: "/goals", label: "Metas Financeiras", icon: Target },
-] as const;
+  { to: "/orcamentos", label: "Orçamentos", icon: FileText },
+  {
+    label: "Serviços",
+    icon: Wrench,
+    children: [
+      { to: "/agenda", label: "Agenda", icon: CalendarDays },
+      { to: "/servicos", label: "Serviços", icon: Zap },
+    ],
+  },
+  {
+    label: "Finanças",
+    icon: Landmark,
+    children: [
+      { to: "/contas-a-receber", label: "A Receber", icon: CircleDollarSign },
+      { to: "/transactions", label: "Transações", icon: List },
+      { to: "/carteiras", label: "Carteiras", icon: Landmark },
+      { to: "/contas", label: "Contas", icon: Clock },
+      { to: "/goals", label: "Metas Financeiras", icon: Target },
+    ],
+  },
+  {
+    label: "Relatórios",
+    icon: FileBarChart,
+    children: [
+      { to: "/relatorios", label: "Relatórios", icon: FileBarChart },
+      { to: "/insights", label: "Insights", icon: Sparkles },
+      { to: "/resumo", label: "Resumo", icon: TrendingDown },
+    ],
+  },
+];
 
 const mobileNavigation = [
   { to: "/dashboard", label: "Início", icon: Home },
@@ -78,6 +128,8 @@ const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/agenda": "Agenda",
   "/servicos": "Serviços",
+  "/orcamentos": "Orçamentos",
+  "/orcamentos/novo": "Novo Orçamento",
   "/contas-a-receber": "Contas a Receber",
   "/relatorios": "Relatórios",
   "/insights": "Insights",
@@ -131,7 +183,7 @@ function Avatar({ email, name, avatarUrl }: { email: string; name?: string; avat
   }
 
   return (
-    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-bg-muted text-sm font-bold text-accent-lime">
+    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-bg-muted text-sm font-bold text-accent-gold">
       {letter}
     </span>
   );
@@ -192,6 +244,33 @@ function SidebarContent({
   onBillingReminderClick,
 }: SidebarContentProps) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    () => new Set(activeGroupLabels(navigation, currentPath, currentUrl)),
+  );
+  const { theme } = useTheme();
+  const logoSrc = theme === "light" ? "/branding/osf-logo-light.png" : "/branding/osf-logo-dark.png";
+
+  useEffect(() => {
+    const active = activeGroupLabels(navigation, currentPath, currentUrl);
+    if (active.length === 0) return;
+    setExpandedGroups((prev) => {
+      const missing = active.filter((label) => !prev.has(label));
+      if (missing.length === 0) return prev;
+      return new Set([...prev, ...missing]);
+    });
+  }, [currentPath, currentUrl]);
+
+  const toggleGroup = (label: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) {
+        next.delete(label);
+      } else {
+        next.add(label);
+      }
+      return next;
+    });
+  };
 
   return (
     <>
@@ -211,9 +290,9 @@ function SidebarContent({
               title={collapsed ? "Expandir menu" : "Comprimir menu"}
             >
               <img
-                src="/icons/icon.svg"
-                alt="AK LavaJato"
-                className="h-7 w-7 object-contain"
+                src={logoSrc}
+                alt="OSF Serviços"
+                className="h-7 w-7 rounded-md object-contain"
               />
             </button>
             {!collapsed && (
@@ -222,7 +301,7 @@ function SidebarContent({
                 onClick={onNavigate}
                 className="truncate font-sans text-xl font-bold text-text-primary"
               >
-                AK Estetica
+                OSF Serviços
               </Link>
             )}
           </>
@@ -234,14 +313,14 @@ function SidebarContent({
               "flex min-w-0 items-center gap-3 font-sans text-xl font-bold text-text-primary",
               collapsed && "justify-center",
             )}
-            title={collapsed ? "AK Estetica" : undefined}
+            title={collapsed ? "OSF Serviços" : undefined}
           >
             <img
-              src="/icons/icon.svg"
-              alt="AK LavaJato"
-              className="h-7 w-7 shrink-0 object-contain"
+              src={logoSrc}
+              alt="OSF Serviços"
+              className="h-7 w-7 shrink-0 rounded-md object-contain"
             />
-            {!collapsed && <span className="truncate">AK Estetica</span>}
+            {!collapsed && <span className="truncate">OSF Serviços</span>}
           </Link>
         )}
 
@@ -263,33 +342,126 @@ function SidebarContent({
           collapsed ? "px-3" : "px-4",
         )}
       >
-        {navigation.map(({ to, match, label, icon: Icon }) => {
-          const active = match
-            ? currentUrl === match
-            : currentPath === to || (to === "/carteiras" && currentPath.startsWith("/carteiras"));
+        {navigation.map((entry) => {
+          if (!isNavGroup(entry)) {
+            const { to, label, icon: Icon } = entry;
+            const active = isLeafActive(entry, currentPath, currentUrl);
+
+            return (
+              <Link
+                key={to}
+                to={to}
+                onClick={onNavigate}
+                title={collapsed ? label : undefined}
+                className={cn(
+                  "group relative flex items-center rounded-xl py-3 text-sm font-medium transition",
+                  collapsed ? "justify-center px-3" : "gap-3 px-4",
+                  active
+                    ? "bg-bg-muted text-text-primary"
+                    : "text-text-secondary hover:bg-bg-overlay hover:text-text-primary",
+                )}
+              >
+                <Icon className={cn("h-5 w-5", active && "text-accent-gold")} />
+                {!collapsed && <span>{label}</span>}
+                {collapsed && (
+                  <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-border-default bg-bg-card px-3 py-2 text-xs font-semibold text-text-primary opacity-0 shadow-xl transition group-hover:opacity-100">
+                    {label}
+                  </span>
+                )}
+              </Link>
+            );
+          }
+
+          const GroupIcon = entry.icon;
+          const groupActive = entry.children.some((child) => isLeafActive(child, currentPath, currentUrl));
+
+          if (collapsed) {
+            return (
+              <div key={entry.label} className="group relative">
+                <div
+                  className={cn(
+                    "flex items-center justify-center rounded-xl px-3 py-3",
+                    groupActive ? "text-accent-gold" : "text-text-secondary",
+                  )}
+                  title={entry.label}
+                >
+                  <GroupIcon className="h-5 w-5" />
+                </div>
+                <div className="pointer-events-none absolute left-full top-0 z-50 ml-3 min-w-[180px] rounded-xl border border-border-default bg-bg-card p-1.5 opacity-0 shadow-xl transition group-hover:pointer-events-auto group-hover:opacity-100">
+                  <p className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                    {entry.label}
+                  </p>
+                  {entry.children.map((child) => {
+                    const ChildIcon = child.icon;
+                    const active = isLeafActive(child, currentPath, currentUrl);
+                    return (
+                      <Link
+                        key={child.to}
+                        to={child.to}
+                        onClick={onNavigate}
+                        className={cn(
+                          "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition",
+                          active
+                            ? "bg-bg-muted text-text-primary"
+                            : "text-text-secondary hover:bg-bg-overlay hover:text-text-primary",
+                        )}
+                      >
+                        <ChildIcon className={cn("h-4 w-4", active && "text-accent-gold")} />
+                        {child.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          }
+
+          const expanded = expandedGroups.has(entry.label);
 
           return (
-            <Link
-              key={`${to}-${label}`}
-              to={to}
-              onClick={onNavigate}
-              title={collapsed ? label : undefined}
-              className={cn(
-                "group relative flex items-center rounded-xl py-3 text-sm font-medium transition",
-                collapsed ? "justify-center px-3" : "gap-3 px-4",
-                active
-                  ? "bg-bg-muted text-text-primary"
-                  : "text-text-secondary hover:bg-bg-overlay hover:text-text-primary",
+            <div key={entry.label}>
+              <button
+                type="button"
+                onClick={() => toggleGroup(entry.label)}
+                aria-expanded={expanded}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition",
+                  groupActive
+                    ? "text-text-primary"
+                    : "text-text-secondary hover:bg-bg-overlay hover:text-text-primary",
+                )}
+              >
+                <GroupIcon className={cn("h-5 w-5", groupActive && "text-accent-gold")} />
+                <span className="flex-1 text-left">{entry.label}</span>
+                <ChevronDown
+                  className={cn("h-4 w-4 shrink-0 transition-transform", expanded && "rotate-180")}
+                />
+              </button>
+              {expanded && (
+                <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-border-default pl-3">
+                  {entry.children.map((child) => {
+                    const ChildIcon = child.icon;
+                    const active = isLeafActive(child, currentPath, currentUrl);
+                    return (
+                      <Link
+                        key={child.to}
+                        to={child.to}
+                        onClick={onNavigate}
+                        className={cn(
+                          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
+                          active
+                            ? "bg-bg-muted text-text-primary"
+                            : "text-text-secondary hover:bg-bg-overlay hover:text-text-primary",
+                        )}
+                      >
+                        <ChildIcon className={cn("h-4 w-4", active && "text-accent-gold")} />
+                        {child.label}
+                      </Link>
+                    );
+                  })}
+                </div>
               )}
-            >
-              <Icon className={cn("h-5 w-5", active && "text-accent-lime")} />
-              {!collapsed && <span>{label}</span>}
-              {collapsed && (
-                <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-border-default bg-bg-card px-3 py-2 text-xs font-semibold text-text-primary opacity-0 shadow-xl transition group-hover:opacity-100">
-                  {label}
-                </span>
-              )}
-            </Link>
+            </div>
           );
         })}
       </nav>
@@ -314,7 +486,7 @@ function SidebarContent({
             <button
               type="button"
               onClick={collapsed ? () => setUserMenuOpen((v) => !v) : onOpenProfile}
-              className="shrink-0 rounded-full transition hover:ring-2 hover:ring-accent-lime/50 focus:outline-none"
+              className="shrink-0 rounded-full transition hover:ring-2 hover:ring-accent-gold/50 focus:outline-none"
               title={collapsed ? (name || email) : "Abrir perfil"}
               aria-label={collapsed ? "Menu do usuário" : "Abrir perfil do usuário"}
             >
@@ -420,7 +592,7 @@ export function AppLayout() {
 
   const currentPath = location.pathname;
   const currentUrl = `${location.pathname}${location.search}`;
-  const title = pageTitles[currentPath] ?? "AK Estetica";
+  const title = pageTitles[currentPath] ?? "OSF Serviços";
 
   useEffect(() => {
     setMobileSidebarOpen(false);
@@ -548,7 +720,7 @@ export function AppLayout() {
           <MobileNotificationBell onBillingReminderClick={() => setBillingReminderOpen(true)} />
           <button
             onClick={() => setUserProfileOpen(true)}
-            className="rounded-full transition hover:ring-2 hover:ring-accent-lime/50 focus:outline-none"
+            className="rounded-full transition hover:ring-2 hover:ring-accent-gold/50 focus:outline-none"
             aria-label="Abrir perfil do usuário"
           >
             <Avatar email={email} name={name} avatarUrl={avatarUrl} />
@@ -576,7 +748,7 @@ export function AppLayout() {
               to={to}
               className={cn(
                 "flex flex-col items-center gap-1 text-xs",
-                active ? "text-accent-lime" : "text-text-muted",
+                active ? "text-accent-gold" : "text-text-muted",
               )}
             >
               <Icon className="h-5 w-5" />
@@ -587,7 +759,7 @@ export function AppLayout() {
 
         <button
           onClick={() => setAddModalOpen(true)}
-          className="-mt-6 mx-auto grid h-12 w-12 place-items-center rounded-full bg-accent-lime text-black shadow-lg shadow-accent-lime/20"
+          className="-mt-6 mx-auto grid h-12 w-12 place-items-center rounded-full bg-accent-gold text-black shadow-lg shadow-accent-gold/20"
           aria-label="Adicionar transação"
         >
           <Plus className="h-6 w-6" />
@@ -601,7 +773,7 @@ export function AppLayout() {
               to={to}
               className={cn(
                 "flex flex-col items-center gap-1 text-xs",
-                active ? "text-accent-lime" : "text-text-muted",
+                active ? "text-accent-gold" : "text-text-muted",
               )}
             >
               <Icon className="h-5 w-5" />
@@ -628,7 +800,7 @@ export function AppLayout() {
                 onClick={() => openTx("EXPENSE")}
                 className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
               >
-                <ArrowLeftRight className="h-5 w-5 text-accent-lime" />
+                <ArrowLeftRight className="h-5 w-5 text-accent-gold" />
                 <span className="font-semibold">Nova Movimentação</span>
               </button>
               <button
@@ -642,7 +814,7 @@ export function AppLayout() {
                 onClick={() => { setAddModalOpen(false); navigate("/goals?action=create"); }}
                 className="flex items-center gap-3 rounded-xl bg-bg-muted p-4 text-left hover:bg-bg-overlay"
               >
-                <Target className="h-5 w-5 text-accent-lime" />
+                <Target className="h-5 w-5 text-accent-gold" />
                 <span className="font-semibold">Nova Meta</span>
               </button>
               <button

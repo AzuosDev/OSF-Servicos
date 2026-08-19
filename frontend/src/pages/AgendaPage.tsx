@@ -83,12 +83,12 @@ export function AgendaPage() {
           <p className="text-lg font-semibold capitalize text-white">
             {formatWeekdayLong(selectedDay)}, {formatFullDate(selectedDay)}
           </p>
-          {isToday(selectedDay) && <p className="text-xs font-semibold text-accent-lime">Hoje</p>}
+          {isToday(selectedDay) && <p className="text-xs font-semibold text-accent-gold">Hoje</p>}
         </div>
         <button
           type="button"
           onClick={() => setWizardOpen(true)}
-          className="inline-flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
+          className="inline-flex items-center gap-2 rounded-xl bg-accent-gold px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
         >
           <Plus className="h-4 w-4" />
           Novo Agendamento

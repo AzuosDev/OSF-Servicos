@@ -144,7 +144,7 @@ export function WalletPage() {
     return (
       <div className="rounded-2xl bg-bg-card p-8 text-center text-text-secondary">
         Carteira não encontrada.{" "}
-        <Link to="/carteiras" className="text-accent-lime underline">
+        <Link to="/carteiras" className="text-accent-gold underline">
           Voltar
         </Link>
       </div>
@@ -176,7 +176,7 @@ export function WalletPage() {
               {wallet.fisica && (
                 <span
                   title="Carteira física (dinheiro em espécie)"
-                  className="flex items-center gap-1 rounded-full bg-accent-lime/10 px-2 py-0.5 text-[11px] font-semibold text-accent-lime"
+                  className="flex items-center gap-1 rounded-full bg-accent-gold/10 px-2 py-0.5 text-[11px] font-semibold text-accent-gold"
                 >
                   <Banknote className="h-3 w-3" />
                   Físico
@@ -187,7 +187,7 @@ export function WalletPage() {
             <strong
               className={cn(
                 "mt-1 block font-sans text-3xl font-extrabold",
-                wallet.saldo < 0 ? "text-accent-red" : "text-accent-lime",
+                wallet.saldo < 0 ? "text-accent-red" : "text-accent-gold",
               )}
             >
               {fmt(wallet.saldo)}
@@ -231,7 +231,7 @@ export function WalletPage() {
                 const auto = detectBankIcon(e.target.value);
                 if (auto) setIcone(auto);
               }}
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
             />
           </label>
           <label className="block">
@@ -240,7 +240,7 @@ export function WalletPage() {
               value={icone}
               onChange={(e) => setIcone(e.target.value)}
               placeholder="🏦"
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
             />
           </label>
           <label className="flex items-center gap-2 text-sm text-text-secondary">
@@ -248,7 +248,7 @@ export function WalletPage() {
               type="checkbox"
               checked={fisica}
               onChange={(e) => setFisica(e.target.checked)}
-              className="h-4 w-4 rounded border-bg-muted bg-bg-muted accent-accent-lime"
+              className="h-4 w-4 rounded border-bg-muted bg-bg-muted accent-accent-gold"
             />
             Carteira física (dinheiro em espécie)
           </label>
@@ -262,7 +262,7 @@ export function WalletPage() {
             <button
               onClick={() => updateMutation.mutate()}
               disabled={updateMutation.isPending}
-              className="flex-1 rounded-xl bg-accent-lime py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:opacity-60"
+              className="flex-1 rounded-xl bg-accent-gold py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:opacity-60"
             >
               Salvar
             </button>

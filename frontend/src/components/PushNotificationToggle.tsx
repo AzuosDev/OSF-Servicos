@@ -92,7 +92,7 @@ export function PushNotificationToggle() {
             onClick={handleToggle}
             className={cn(
               "relative h-7 w-12 shrink-0 rounded-full transition-colors",
-              enabled ? "bg-accent-lime" : "bg-bg-overlay",
+              enabled ? "bg-accent-gold" : "bg-bg-overlay",
             )}
           >
             <span

@@ -21,6 +21,7 @@ import { ServicesModule } from './modules/services/services.module';
 import { AgendaModule } from './modules/agenda/agenda.module';
 import { AgendaReportsModule } from './modules/agenda-reports/agenda-reports.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { OrcamentosModule } from './modules/orcamentos/orcamentos.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { BillingModule } from './modules/billing/billing.module';
     AgendaModule,
     AgendaReportsModule,
     BillingModule,
+    OrcamentosModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

@@ -60,7 +60,7 @@ export function AmountField<TFieldValues extends FieldValues>({
   return (
     <label className="block">
       <span className="mb-2 block text-sm text-text-secondary">Valor</span>
-      <div className="flex items-center rounded-2xl border border-bg-muted bg-bg-muted px-4 py-3 focus-within:border-accent-lime">
+      <div className="flex items-center rounded-2xl border border-bg-muted bg-bg-muted px-4 py-3 focus-within:border-accent-gold">
         <Controller
           control={control}
           name={"amount" as Path<TFieldValues>}
@@ -69,7 +69,7 @@ export function AmountField<TFieldValues extends FieldValues>({
               value={field.value ?? 0}
               onChange={field.onChange}
               onBlur={field.onBlur}
-              className="w-full bg-transparent text-center font-sans text-3xl font-bold text-accent-lime outline-none"
+              className="w-full bg-transparent text-center font-sans text-3xl font-bold text-accent-gold outline-none"
             />
           )}
         />
@@ -128,7 +128,7 @@ export function CategoryField({
                       className={cn(
                         "flex min-h-20 w-full flex-col items-center justify-center gap-2 rounded-xl border bg-bg-muted p-3 text-center text-xs font-semibold transition",
                         active
-                          ? "border-accent-lime text-white"
+                          ? "border-accent-gold text-white"
                           : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-text-primary",
                       )}
                     >
@@ -215,7 +215,7 @@ export function GoalField({
         <select
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-lime"
+          className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-gold"
         >
           <option value="">Nenhuma meta</option>
           {goals.map((goal) => (
@@ -259,7 +259,7 @@ export function WalletField({
       <select
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-lime"
+        className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-gold"
       >
         <option value="">Selecione uma carteira…</option>
         {wallets.map((w) => (
@@ -291,7 +291,7 @@ export function DateAndDescriptionFields({
         <span className="mb-2 block text-sm text-text-secondary">Data</span>
         <input
           type="date"
-          className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-lime"
+          className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-gold"
           {...register("date")}
         />
         {errors.date && (
@@ -307,7 +307,7 @@ export function DateAndDescriptionFields({
         <textarea
           rows={4}
           maxLength={500}
-          className="w-full resize-none rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition placeholder:text-text-muted focus:border-accent-lime"
+          className="w-full resize-none rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition placeholder:text-text-muted focus:border-accent-gold"
           placeholder={descriptionPlaceholder}
           {...register("description")}
         />

@@ -79,7 +79,7 @@ export function PixBillingReminderModal({ open, onClose }: { open: boolean; onCl
   const summary = summaryQuery.data;
 
   return (
-    <ModalShell open={open} onClose={handleClose} title="Mensalidade pendente" icon={<QrCode className="h-6 w-6 text-accent-lime" />}>
+    <ModalShell open={open} onClose={handleClose} title="Mensalidade pendente" icon={<QrCode className="h-6 w-6 text-accent-gold" />}>
       {summaryQuery.isLoading && (
         <div className="flex items-center justify-center gap-2 py-8 text-sm text-text-secondary">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -89,7 +89,7 @@ export function PixBillingReminderModal({ open, onClose }: { open: boolean; onCl
 
       {pixConfirmed && (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <PartyPopper className="h-10 w-10 text-accent-lime" />
+          <PartyPopper className="h-10 w-10 text-accent-gold" />
           <p className="text-sm font-semibold text-text-primary">Pagamento confirmado!</p>
           <p className="text-xs text-text-secondary">Obrigado por manter sua assinatura em dia.</p>
         </div>
@@ -97,7 +97,7 @@ export function PixBillingReminderModal({ open, onClose }: { open: boolean; onCl
 
       {!pixConfirmed && summary && !summary.hasPending && (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <PartyPopper className="h-10 w-10 text-accent-lime" />
+          <PartyPopper className="h-10 w-10 text-accent-gold" />
           <p className="text-sm text-text-secondary">Nenhuma mensalidade pendente no momento.</p>
         </div>
       )}
@@ -118,7 +118,7 @@ export function PixBillingReminderModal({ open, onClose }: { open: boolean; onCl
               onClick={handleCopy}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-border-default bg-bg-muted px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-overlay"
             >
-              {copied ? <Check className="h-4 w-4 text-accent-lime" /> : <Copy className="h-4 w-4" />}
+              {copied ? <Check className="h-4 w-4 text-accent-gold" /> : <Copy className="h-4 w-4" />}
               {copied ? "Código copiado!" : "Copiar código PIX"}
             </button>
             <div className="flex items-center justify-center gap-2 text-sm text-text-secondary">

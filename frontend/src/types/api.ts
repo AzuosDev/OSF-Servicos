@@ -479,3 +479,83 @@ export type ApiValidationError = {
   error?: string;
   message?: string | string[];
 };
+
+export type Client = MongoDocument & {
+  userId: ApiId;
+  name: string;
+  phone?: string;
+  email?: string;
+  address: string;
+  city?: string;
+  state?: string;
+  notes?: string;
+  active: boolean;
+};
+
+export type CompanySettings = MongoDocument & {
+  userId: ApiId;
+  companyName: string;
+  cnpj?: string;
+  baseAddress?: string;
+  originLat?: number;
+  originLng?: number;
+  phone?: string;
+  email?: string;
+  logoUrl?: string;
+  pricePerKm: number;
+  minimumTravelFee: number;
+  freeRadiusKm: number;
+  pdfFooterNote?: string;
+};
+
+export type BudgetStatus = "RASCUNHO" | "ENVIADO" | "APROVADO" | "REJEITADO" | "EXPIRADO" | "CANCELADO";
+
+export type BudgetItem = {
+  serviceId: ApiId;
+  name: string;
+  unitPrice: number;
+  quantity: number;
+  subtotal: number;
+};
+
+export type Budget = MongoDocument & {
+  userId: ApiId;
+  sequenceNumber: number;
+  clientId: ApiId;
+  items: BudgetItem[];
+  itemsTotal: number;
+  travelCost: number;
+  discount: number;
+  total: number;
+  distanceCalculationId?: ApiId;
+  status: BudgetStatus;
+  notes?: string;
+  statusReason?: string;
+  validUntil?: ApiDate;
+  sentAt?: ApiDate;
+  respondedAt?: ApiDate;
+};
+
+export type BudgetsListResponse = {
+  items: Budget[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
+export type DistanceCalculationResult = {
+  distanceKm: number;
+  durationMin: number;
+  travelCost: number;
+  distanceCalculationId: ApiId;
+  cached: boolean;
+};
+
+export type BudgetConversionStats = {
+  total: number;
+  sent: number;
+  approved: number;
+  rejected: number;
+  conversionRate: number;
+  totalValueApproved: number;
+};

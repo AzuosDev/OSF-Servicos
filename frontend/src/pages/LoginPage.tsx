@@ -150,7 +150,7 @@ export function LoginPage() {
       footer={
         <>
           Não tem conta?{" "}
-          <Link to="/register" className="font-semibold text-accent-lime hover:underline">
+          <Link to="/register" className="font-semibold text-accent-gold hover:underline">
             Criar conta
           </Link>
         </>
@@ -186,7 +186,7 @@ export function LoginPage() {
         />
 
         <div className="flex justify-end">
-          <Link to="/forgot-password" className="text-xs font-medium text-accent-lime hover:underline">
+          <Link to="/forgot-password" className="text-xs font-medium text-accent-gold hover:underline">
             Esqueci minha senha
           </Link>
         </div>
@@ -219,7 +219,7 @@ export function LoginPage() {
             {biometricLoading ? (
               <><Loader2 className="h-4 w-4 animate-spin" /> Aguardando biometria...</>
             ) : (
-              <><Fingerprint className="h-4 w-4 text-accent-lime" /> Entrar com biometria</>
+              <><Fingerprint className="h-4 w-4 text-accent-gold" /> Entrar com biometria</>
             )}
           </button>
 

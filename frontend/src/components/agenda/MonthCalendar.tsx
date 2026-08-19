@@ -83,12 +83,12 @@ export function MonthCalendar({
                 "flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 text-sm transition",
                 disabled && "cursor-not-allowed text-text-muted opacity-40",
                 !disabled && !selected && "text-white hover:bg-bg-overlay",
-                !disabled && today && !selected && "font-semibold text-accent-lime ring-1 ring-inset ring-accent-lime",
-                selected && "bg-accent-lime font-bold text-black",
+                !disabled && today && !selected && "font-semibold text-accent-gold ring-1 ring-inset ring-accent-gold",
+                selected && "bg-accent-gold font-bold text-black",
               )}
             >
               {day.getUTCDate()}
-              {today && !selected && <span className="h-1 w-1 rounded-full bg-accent-lime" />}
+              {today && !selected && <span className="h-1 w-1 rounded-full bg-accent-gold" />}
             </button>
           );
         })}
