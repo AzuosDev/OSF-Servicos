@@ -9,7 +9,7 @@ export class EmailService {
   constructor(private readonly configService: ConfigService) { }
 
   private getBaseUrl() {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL')?.trim();
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL')?.split(',')[0]?.trim();
     return frontendUrl ? frontendUrl.replace(/\/$/, '') : 'http://localhost:5173';
   }
 
