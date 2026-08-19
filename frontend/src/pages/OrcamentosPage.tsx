@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Loader2, Plus, TrendingUp, Wallet } from "lucide-react";
+import { Download, FileText, Loader2, Plus, TrendingUp, Wallet } from "lucide-react";
 
 import { api } from "../lib/api";
 import { formatCurrency } from "../lib/finance";
@@ -31,6 +31,7 @@ export function OrcamentosPage() {
   const { addToast } = useToast();
   const [status, setStatus] = useState<BudgetStatus | "TODOS">("TODOS");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [reasonModal, setReasonModal] = useState<{ budget: Budget; status: BudgetStatus } | null>(null);
 
   const statsQuery = useQuery<BudgetConversionStats>({
@@ -67,6 +68,28 @@ export function OrcamentosPage() {
       addToast(getApiErrorMessages(error, "Não foi possível atualizar o status.")[0], "error");
     },
     onSettled: () => setUpdatingId(null),
+  });
+
+  // O endpoint devolve o PDF como `inline`; o atributo `download` do link é o que faz o
+  // navegador salvar o arquivo direto em vez de abri-lo numa aba.
+  const downloadPdfMutation = useMutation({
+    mutationFn: async (budget: Budget) => {
+      const response = await api.get(`/api/orcamentos/budgets/${budget._id}/pdf`, { responseType: "blob" });
+      const url = URL.createObjectURL(response.data as Blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `orcamento-${String(budget.sequenceNumber).padStart(4, "0")}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      // Revogar na hora aborta o download em alguns navegadores.
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+    },
+    onMutate: (budget: Budget) => setDownloadingId(budget._id),
+    onError: (error) => {
+      addToast(getApiErrorMessages(error, "Não foi possível baixar o PDF do orçamento.")[0], "error");
+    },
+    onSettled: () => setDownloadingId(null),
   });
 
   const changeStatus = (budget: Budget, newStatus: BudgetStatus) => {
@@ -194,6 +217,7 @@ export function OrcamentosPage() {
                 <th className="px-5 py-3">Data</th>
                 <th className="px-5 py-3">Total</th>
                 <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3 text-right">PDF</th>
               </tr>
             </thead>
             <tbody>
@@ -249,6 +273,23 @@ export function OrcamentosPage() {
                         </div>
                       );
                     })()}
+                  </td>
+                  <td className="px-5 py-4 text-right">
+                    <button
+                      type="button"
+                      onClick={() => downloadPdfMutation.mutate(budget)}
+                      disabled={downloadingId === budget._id}
+                      title="Baixar PDF do orçamento"
+                      aria-label={`Baixar PDF do orçamento #${String(budget.sequenceNumber).padStart(4, "0")}`}
+                      className="inline-flex items-center gap-2 rounded-xl border border-border-default px-3 py-2 text-xs font-semibold text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {downloadingId === budget._id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                      PDF
+                    </button>
                   </td>
                 </tr>
               ))}
