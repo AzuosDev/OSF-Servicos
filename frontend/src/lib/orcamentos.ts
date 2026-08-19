@@ -32,3 +32,30 @@ export function defaultValidUntilInputValue(daysFromNow = 7): string {
   date.setDate(date.getDate() + daysFromNow);
   return date.toISOString().slice(0, 10);
 }
+
+// Mantido em espelho com backend/src/modules/orcamentos/pricing/panel-cleaning-pricing.ts
+const PANEL_CLEANING_SERVICE_NAMES = ["limpeza de placas", "limpeza de placa"];
+
+export function isPanelCleaningService(serviceName: string): boolean {
+  return PANEL_CLEANING_SERVICE_NAMES.includes(serviceName.trim().toLowerCase());
+}
+
+// Até 10 placas: R$20/placa. Acima de 10: R$200 (equivalente às 10 primeiras) + R$15 por placa adicional.
+export function calculatePanelCleaningSubtotal(quantity: number): number {
+  if (quantity <= 10) {
+    return quantity * 20;
+  }
+  return 200 + (quantity - 10) * 15;
+}
+
+export function calculateBudgetItemSubtotal(
+  serviceName: string,
+  defaultValue: number,
+  quantity: number,
+  unitPriceOverride?: number,
+): number {
+  if (unitPriceOverride == null && isPanelCleaningService(serviceName)) {
+    return calculatePanelCleaningSubtotal(quantity);
+  }
+  return (unitPriceOverride ?? defaultValue) * quantity;
+}

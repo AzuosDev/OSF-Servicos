@@ -7,6 +7,7 @@ import { CompanySettingsService, companyOrigin } from './company-settings.servic
 import { CountersService } from './counters.service';
 import { DistanceService } from './distance.service';
 import { ServicesService } from '../services/services.service';
+import { calculatePanelCleaningSubtotal, isPanelCleaningService } from './pricing/panel-cleaning-pricing';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { GetBudgetsDto } from './dto/get-budgets.dto';
 import { UpdateBudgetStatusDto } from './dto/update-budget-status.dto';
@@ -40,6 +41,18 @@ export class BudgetsService {
     const items = await Promise.all(
       dto.items.map(async (itemDto) => {
         const service = await this.servicesService.findOne(userId, itemDto.serviceId);
+
+        if (itemDto.unitPriceOverride == null && isPanelCleaningService(service.name)) {
+          const subtotal = calculatePanelCleaningSubtotal(itemDto.quantity);
+          return {
+            serviceId: service._id,
+            name: service.name,
+            unitPrice: subtotal / itemDto.quantity,
+            quantity: itemDto.quantity,
+            subtotal,
+          };
+        }
+
         const unitPrice = itemDto.unitPriceOverride ?? service.defaultValue;
         return {
           serviceId: service._id,

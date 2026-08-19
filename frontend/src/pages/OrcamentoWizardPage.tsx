@@ -19,6 +19,7 @@ import { formatCurrency } from "../lib/finance";
 import { getApiErrorMessages } from "../lib/errors";
 import { cn } from "../lib/utils";
 import { ClientFormModal } from "../components/modals/ClientFormModal";
+import { calculateBudgetItemSubtotal, isPanelCleaningService } from "../lib/orcamentos";
 import type {
   Budget,
   Client,
@@ -106,7 +107,13 @@ export function OrcamentoWizardPage() {
   }, [clientsQuery.data, clientSearch]);
 
   const itemsTotal = useMemo(
-    () => cart.reduce((sum, item) => sum + (item.unitPriceOverride ?? item.service.defaultValue) * item.quantity, 0),
+    () =>
+      cart.reduce(
+        (sum, item) =>
+          sum +
+          calculateBudgetItemSubtotal(item.service.name, item.service.defaultValue, item.quantity, item.unitPriceOverride),
+        0,
+      ),
     [cart],
   );
   const travelCost = distancePreview?.travelCost ?? 0;
@@ -362,7 +369,9 @@ export function OrcamentoWizardPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{item.service.name}</p>
                       <p className="text-xs text-text-secondary">
-                        {formatCurrency(item.unitPriceOverride ?? item.service.defaultValue)} / un.
+                        {isPanelCleaningService(item.service.name)
+                          ? "Até 10 placas: R$20/placa · acima: R$200 + R$15/placa adicional"
+                          : `${formatCurrency(item.unitPriceOverride ?? item.service.defaultValue)} / un.`}
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
@@ -383,7 +392,14 @@ export function OrcamentoWizardPage() {
                       </button>
                     </div>
                     <span className="w-24 shrink-0 text-right text-sm font-bold text-accent-gold">
-                      {formatCurrency((item.unitPriceOverride ?? item.service.defaultValue) * item.quantity)}
+                      {formatCurrency(
+                        calculateBudgetItemSubtotal(
+                          item.service.name,
+                          item.service.defaultValue,
+                          item.quantity,
+                          item.unitPriceOverride,
+                        ),
+                      )}
                     </span>
                     <button
                       type="button"
@@ -484,7 +500,14 @@ export function OrcamentoWizardPage() {
                     {item.quantity}x {item.service.name}
                   </span>
                   <span className="font-semibold">
-                    {formatCurrency((item.unitPriceOverride ?? item.service.defaultValue) * item.quantity)}
+                    {formatCurrency(
+                      calculateBudgetItemSubtotal(
+                        item.service.name,
+                        item.service.defaultValue,
+                        item.quantity,
+                        item.unitPriceOverride,
+                      ),
+                    )}
                   </span>
                 </div>
               ))}
