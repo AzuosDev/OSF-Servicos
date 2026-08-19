@@ -408,8 +408,10 @@ export function OrcamentoWizardPage() {
                     onClick={() => addToCart(service)}
                     className="flex items-center justify-between gap-2 rounded-xl bg-bg-muted px-4 py-3 text-left transition hover:bg-bg-overlay"
                   >
-                    <span className="text-sm font-semibold text-white">{service.name}</span>
-                    <span className="text-sm font-bold text-accent-gold">
+                    <span className="min-w-0 flex-1 text-sm font-semibold leading-snug text-white">
+                      {service.name}
+                    </span>
+                    <span className="shrink-0 text-sm font-bold text-accent-gold">
                       {isPanelCleaningService(service.name) ? "Por placa" : formatCurrency(service.defaultValue)}
                     </span>
                   </button>
@@ -422,61 +424,66 @@ export function OrcamentoWizardPage() {
                 {cart.map((item) => (
                   <div
                     key={item.service._id}
-                    className="flex items-center gap-3 rounded-xl border border-border-default px-4 py-3"
+                    className="flex flex-col gap-3 rounded-xl border border-border-default p-3 sm:flex-row sm:items-center sm:px-4"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">{item.service.name}</p>
-                      <p className="text-xs text-text-secondary">
+                      <p className="text-sm font-semibold leading-snug">{item.service.name}</p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-text-secondary">
                         {isPanelCleaningService(item.service.name)
-                          ? "Até 10 placas: R$20/placa · acima: R$200 + R$15/placa adicional"
+                          ? `${formatCurrency(20)}/placa até 10 · ${formatCurrency(15)}/placa acima`
                           : `${formatCurrency(item.unitPriceOverride ?? item.service.defaultValue)} / un.`}
                       </p>
                     </div>
-                    {isPanelCleaningService(item.service.name) ? (
+
+                    <div className="flex items-center justify-between gap-3 sm:justify-end">
+                      {isPanelCleaningService(item.service.name) ? (
+                        <button
+                          type="button"
+                          onClick={() => setPanelModalService(item.service)}
+                          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-bg-muted px-3 py-2 text-xs font-semibold text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          {item.quantity} {item.quantity === 1 ? "placa" : "placas"}
+                        </button>
+                      ) : (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => updateQuantity(item.service._id, -1)}
+                            className="grid h-8 w-8 place-items-center rounded-lg bg-bg-muted text-text-secondary hover:bg-bg-overlay"
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                          </button>
+                          <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => updateQuantity(item.service._id, 1)}
+                            className="grid h-8 w-8 place-items-center rounded-lg bg-bg-muted text-text-secondary hover:bg-bg-overlay"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
+                      <span className="ml-auto shrink-0 text-sm font-bold text-accent-gold sm:ml-0 sm:w-24 sm:text-right">
+                        {formatCurrency(
+                          calculateBudgetItemSubtotal(
+                            item.service.name,
+                            item.service.defaultValue,
+                            item.quantity,
+                            item.unitPriceOverride,
+                          ),
+                        )}
+                      </span>
+
                       <button
                         type="button"
-                        onClick={() => setPanelModalService(item.service)}
-                        className="flex items-center gap-1.5 rounded-lg bg-bg-muted px-3 py-1.5 text-xs font-semibold text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
+                        onClick={() => removeFromCart(item.service._id)}
+                        aria-label={`Remover ${item.service.name}`}
+                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-accent-red transition hover:bg-accent-red/10"
                       >
-                        <Pencil className="h-3 w-3" />
-                        {item.quantity} {item.quantity === 1 ? "placa" : "placas"}
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => updateQuantity(item.service._id, -1)}
-                          className="grid h-8 w-8 place-items-center rounded-lg bg-bg-muted text-text-secondary hover:bg-bg-overlay"
-                        >
-                          <Minus className="h-3.5 w-3.5" />
-                        </button>
-                        <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
-                        <button
-                          type="button"
-                          onClick={() => updateQuantity(item.service._id, 1)}
-                          className="grid h-8 w-8 place-items-center rounded-lg bg-bg-muted text-text-secondary hover:bg-bg-overlay"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    )}
-                    <span className="w-24 shrink-0 text-right text-sm font-bold text-accent-gold">
-                      {formatCurrency(
-                        calculateBudgetItemSubtotal(
-                          item.service.name,
-                          item.service.defaultValue,
-                          item.quantity,
-                          item.unitPriceOverride,
-                        ),
-                      )}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeFromCart(item.service._id)}
-                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-accent-red hover:bg-accent-red/10"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    </div>
                   </div>
                 ))}
                 <div className="flex items-center justify-between pt-2 text-sm font-bold">
