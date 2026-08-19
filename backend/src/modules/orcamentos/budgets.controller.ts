@@ -9,6 +9,7 @@ import { ICurrentUser } from '../../common/types/current-user.type';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { GetBudgetsDto } from './dto/get-budgets.dto';
 import { UpdateBudgetStatusDto } from './dto/update-budget-status.dto';
+import { UpdateBudgetDto } from './dto/update-budget.dto';
 
 @ApiTags('Orçamentos')
 @ApiBearerAuth()
@@ -51,6 +52,16 @@ export class BudgetsController {
     @Body() dto: UpdateBudgetStatusDto,
   ) {
     return this.budgetsService.updateStatus(user._id.toString(), id, dto);
+  }
+
+  // Declarado depois de ':id/status' para que a rota mais específica seja resolvida primeiro.
+  @Patch(':id')
+  async update(
+    @CurrentUser() user: ICurrentUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateBudgetDto,
+  ) {
+    return this.budgetsService.update(user._id.toString(), id, dto);
   }
 
   @Get(':id/pdf')

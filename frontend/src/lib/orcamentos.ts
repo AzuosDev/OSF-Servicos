@@ -85,3 +85,17 @@ export function budgetPdfFileName(clientName: string, createdAt?: string): strin
 
   return `${slug || "cliente"}_${day}-${month}-${year}`;
 }
+
+/** Preço unitário equivalente da limpeza de placas para uma quantidade, dado o preço por faixa. */
+export function panelTierUnitPrice(quantity: number): number {
+  return calculatePanelCleaningSubtotal(quantity) / quantity;
+}
+
+/**
+ * Diz se o preço unitário gravado num item ainda corresponde à tabela por faixa. Um item criado
+ * com preço manual não bate com a faixa — é assim que os dois casos são distinguidos na edição,
+ * já que o orçamento guarda só o preço final, sem marcar se houve override.
+ */
+export function followsPanelTier(name: string, quantity: number, unitPrice: number): boolean {
+  return isPanelCleaningService(name) && Math.abs(unitPrice - panelTierUnitPrice(quantity)) < 0.01;
+}

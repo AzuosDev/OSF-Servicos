@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { budgetPdfFileName } from "./orcamentos";
+import { budgetPdfFileName, followsPanelTier, panelTierUnitPrice } from "./orcamentos";
 
 describe("budgetPdfFileName", () => {
   const createdAt = "2026-08-18T12:00:00.000Z";
@@ -28,5 +28,26 @@ describe("budgetPdfFileName", () => {
 
   it("reads the date in UTC, matching the backend filename and the PDF header", () => {
     expect(budgetPdfFileName("Cliente", "2026-08-19T02:00:00.000Z")).toBe("cliente_19-08-26");
+  });
+});
+
+describe("panelTierUnitPrice", () => {
+  it("spreads the tiered price across the quantity", () => {
+    expect(panelTierUnitPrice(10)).toBe(20); // 10 x R$20
+    expect(panelTierUnitPrice(20)).toBe(17.5); // (200 + 10 x R$15) / 20
+  });
+});
+
+describe("followsPanelTier", () => {
+  it("recognises an item still priced by the tier table", () => {
+    expect(followsPanelTier("Limpeza de placas", 20, 17.5)).toBe(true);
+  });
+
+  it("rejects an item whose price was overridden by hand", () => {
+    expect(followsPanelTier("Limpeza de placas", 20, 30)).toBe(false);
+  });
+
+  it("never applies to a service outside the panel-cleaning rule", () => {
+    expect(followsPanelTier("Instalação de painel solar", 20, 17.5)).toBe(false);
   });
 });
