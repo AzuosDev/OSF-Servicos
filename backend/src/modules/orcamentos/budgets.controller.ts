@@ -55,11 +55,9 @@ export class BudgetsController {
 
   @Get(':id/pdf')
   async pdf(@CurrentUser() user: ICurrentUser, @Param('id') id: string, @Res() res: Response) {
-    const budget = await this.budgetsService.findOne(user._id.toString(), id);
-    const buffer = await this.pdfService.generateBudgetPdf(user._id.toString(), id);
-    const sequenceLabel = String(budget.sequenceNumber).padStart(4, '0');
+    const { buffer, fileName } = await this.pdfService.generateBudgetPdf(user._id.toString(), id);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="orcamento-${sequenceLabel}.pdf"`);
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}.pdf"`);
     res.send(buffer);
   }
 }

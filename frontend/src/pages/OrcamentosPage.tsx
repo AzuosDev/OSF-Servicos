@@ -8,7 +8,12 @@ import { formatCurrency } from "../lib/finance";
 import { getApiErrorMessages } from "../lib/errors";
 import { useToast } from "../components/ui/Toast";
 import { BudgetStatusReasonModal } from "../components/modals/BudgetStatusReasonModal";
-import { BUDGET_STATUS_BADGE_CLASS, BUDGET_STATUS_LABEL, BUDGET_STATUS_TRANSITIONS } from "../lib/orcamentos";
+import {
+  budgetPdfFileName,
+  BUDGET_STATUS_BADGE_CLASS,
+  BUDGET_STATUS_LABEL,
+  BUDGET_STATUS_TRANSITIONS,
+} from "../lib/orcamentos";
 import { cn } from "../lib/utils";
 import type { Budget, BudgetConversionStats, BudgetsListResponse, BudgetStatus, Client } from "../types/api";
 
@@ -54,6 +59,12 @@ export function OrcamentosPage() {
     queryFn: () => api.get<Client[]>("/api/orcamentos/clients").then((r) => r.data),
   });
 
+  const clientNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    (clientsQuery.data ?? []).forEach((c) => map.set(c._id, c.name));
+    return map;
+  }, [clientsQuery.data]);
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status: newStatus, reason }: { id: string; status: BudgetStatus; reason?: string }) => {
       const { data } = await api.patch<Budget>(`/api/orcamentos/budgets/${id}/status`, { status: newStatus, reason });
@@ -78,7 +89,7 @@ export function OrcamentosPage() {
       const url = URL.createObjectURL(response.data as Blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `orcamento-${String(budget.sequenceNumber).padStart(4, "0")}.pdf`;
+      link.download = `${budgetPdfFileName(clientNameById.get(budget.clientId) ?? "", budget.createdAt)}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -107,12 +118,6 @@ export function OrcamentosPage() {
       { onSuccess: () => setReasonModal(null) },
     );
   };
-
-  const clientNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    (clientsQuery.data ?? []).forEach((c) => map.set(c._id, c.name));
-    return map;
-  }, [clientsQuery.data]);
 
   const stats = statsQuery.data;
   const budgets = budgetsQuery.data?.items ?? [];

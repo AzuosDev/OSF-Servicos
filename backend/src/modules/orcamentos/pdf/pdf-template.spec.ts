@@ -28,11 +28,22 @@ describe('buildBudgetHtml', () => {
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
   });
 
-  it('includes the sequence number, items, and totals', () => {
+  it('includes the items and totals', () => {
     const html = buildBudgetHtml(budget, client, company);
-    expect(html).toContain('#0007');
     expect(html).toContain('Instalação de painel solar');
     expect(html).toContain('R$');
+  });
+
+  it('does not print the budget sequence number in the header', () => {
+    const html = buildBudgetHtml(budget, client, company);
+    expect(html).not.toContain('#0007');
+    expect(html).not.toContain('Orçamento #');
+  });
+
+  it('keeps the creation and validity dates in the header', () => {
+    const html = buildBudgetHtml(budget, client, company);
+    expect(html).toContain('Data:');
+    expect(html).toContain('Válido até:');
   });
 
   it('escapes notes even though they may contain unsafe html', () => {

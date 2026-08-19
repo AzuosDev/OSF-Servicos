@@ -22,8 +22,6 @@ export function buildBudgetHtml(
   client: ClientDocument,
   company: CompanySettingsDocument,
 ): string {
-  const sequenceLabel = `#${String(budget.sequenceNumber).padStart(4, '0')}`;
-
   const itemsRows = budget.items
     .map(
       (item) => `
@@ -75,7 +73,6 @@ export function buildBudgetHtml(
       </div>
     </div>
     <div>
-      <div><strong>Orçamento ${sequenceLabel}</strong></div>
       <div>Data: ${formatDate(budget.createdAt)}</div>
       <div>Válido até: ${formatDate(budget.validUntil)}</div>
     </div>
