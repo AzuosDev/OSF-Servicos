@@ -191,7 +191,7 @@ export function AppointmentDetailsModal({
       open={open}
       onClose={onClose}
       title="Detalhes do Agendamento"
-      icon={<ClipboardList className="h-6 w-6 text-accent-lime" />}
+      icon={<ClipboardList className="h-6 w-6 text-accent-gold" />}
       footer={
         mode === "view" ? undefined : (
           <div className="flex gap-3">
@@ -206,7 +206,7 @@ export function AppointmentDetailsModal({
               type="submit"
               form={`details-form-${mode}`}
               disabled={editMutation.isPending || rescheduleMutation.isPending || paymentMutation.isPending}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-gold px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {(editMutation.isPending || rescheduleMutation.isPending || paymentMutation.isPending) && (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -254,7 +254,7 @@ export function AppointmentDetailsModal({
             </div>
             <div className="rounded-xl bg-bg-muted/40 p-3">
               <p className="text-[10px] uppercase text-text-secondary">Recebido</p>
-              <p className="mt-1 text-sm font-bold text-accent-lime">{formatCurrency(appointment.totalPaid)}</p>
+              <p className="mt-1 text-sm font-bold text-accent-gold">{formatCurrency(appointment.totalPaid)}</p>
             </div>
             <div className="rounded-xl bg-bg-muted/40 p-3">
               <p className="text-[10px] uppercase text-text-secondary">Pendente</p>
@@ -282,7 +282,7 @@ export function AppointmentDetailsModal({
                 <button
                   type="button"
                   onClick={() => setMode("payment")}
-                  className="inline-flex items-center gap-2 rounded-xl bg-accent-lime px-3 py-2 text-xs font-bold text-black transition hover:brightness-110"
+                  className="inline-flex items-center gap-2 rounded-xl bg-accent-gold px-3 py-2 text-xs font-bold text-black transition hover:brightness-110"
                 >
                   <Banknote className="h-4 w-4" /> Registrar pagamento
                 </button>
@@ -339,7 +339,7 @@ export function AppointmentDetailsModal({
               type="text"
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
             />
           </label>
           <label className="block">
@@ -348,7 +348,7 @@ export function AppointmentDetailsModal({
               type="tel"
               value={editPhone}
               onChange={(e) => setEditPhone(e.target.value)}
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
             />
           </label>
           <label className="block">
@@ -356,7 +356,7 @@ export function AppointmentDetailsModal({
             <CurrencyInput
               value={editValue}
               onChange={setEditValue}
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
             />
           </label>
           {error && <div className="rounded-xl bg-accent-red/10 p-3 text-sm text-accent-red">{error}</div>}
@@ -376,7 +376,7 @@ export function AppointmentDetailsModal({
               type="date"
               value={rescheduleDate}
               onChange={(e) => setRescheduleDate(e.target.value)}
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
             />
           </label>
           <label className="block">
@@ -385,7 +385,7 @@ export function AppointmentDetailsModal({
               type="time"
               value={rescheduleTime}
               onChange={(e) => setRescheduleTime(e.target.value)}
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
             />
           </label>
           <DurationPicker value={rescheduleDuration} onChange={setRescheduleDuration} />
@@ -409,7 +409,7 @@ export function AppointmentDetailsModal({
                 className={cn(
                   "flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition",
                   paymentMethod === opt.value
-                    ? "bg-accent-lime text-black"
+                    ? "bg-accent-gold text-black"
                     : "bg-bg-muted text-text-secondary hover:bg-bg-overlay hover:text-text-primary",
                 )}
               >
@@ -424,7 +424,7 @@ export function AppointmentDetailsModal({
             <CurrencyInput
               value={paymentValue}
               onChange={setPaymentValue}
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
             />
           </label>
           {error && <div className="rounded-xl bg-accent-red/10 p-3 text-sm text-accent-red">{error}</div>}

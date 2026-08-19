@@ -111,7 +111,7 @@ export function CheckoutPage() {
               onClick={handleCopy}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-border-default bg-bg-muted px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-overlay"
             >
-              {copied ? <Check className="h-4 w-4 text-accent-lime" /> : <Copy className="h-4 w-4" />}
+              {copied ? <Check className="h-4 w-4 text-accent-gold" /> : <Copy className="h-4 w-4" />}
               {copied ? "Código copiado!" : "Copiar código PIX"}
             </button>
             <div className="flex items-center justify-center gap-2 text-sm text-text-secondary">
@@ -128,7 +128,7 @@ export function CheckoutPage() {
                 className={cn(
                   "flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition",
                   method === "stripe"
-                    ? "border-accent-lime bg-accent-lime/10 text-text-primary"
+                    ? "border-accent-gold bg-accent-gold/10 text-text-primary"
                     : "border-border-default bg-bg-muted text-text-secondary hover:bg-bg-overlay",
                 )}
               >
@@ -140,7 +140,7 @@ export function CheckoutPage() {
                 className={cn(
                   "flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition",
                   method === "pix"
-                    ? "border-accent-lime bg-accent-lime/10 text-text-primary"
+                    ? "border-accent-gold bg-accent-gold/10 text-text-primary"
                     : "border-border-default bg-bg-muted text-text-secondary hover:bg-bg-overlay",
                 )}
               >

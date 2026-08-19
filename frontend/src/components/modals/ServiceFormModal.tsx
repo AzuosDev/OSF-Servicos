@@ -99,7 +99,7 @@ export function ServiceFormModal({
       open={open}
       onClose={onClose}
       title={isEditing ? "Editar Serviço" : "Novo Serviço"}
-      icon={<Wrench className="h-6 w-6 text-accent-lime" />}
+      icon={<Wrench className="h-6 w-6 text-accent-gold" />}
       footer={
         <div className="flex gap-3">
           <button
@@ -114,7 +114,7 @@ export function ServiceFormModal({
             type="submit"
             form="service-form"
             disabled={mutation.isPending}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-gold px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             {isEditing ? "Salvar Alterações" : "Criar Serviço"}
@@ -130,7 +130,7 @@ export function ServiceFormModal({
             maxLength={150}
             placeholder="Ex.: Lavagem Completa"
             {...form.register("name")}
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
           />
           {form.formState.errors.name?.message && (
             <p className="mt-1 text-xs text-accent-red">{form.formState.errors.name.message}</p>
@@ -144,7 +144,7 @@ export function ServiceFormModal({
             maxLength={100}
             placeholder="Ex.: Lavagem, Polimento, Estética interna"
             {...form.register("type")}
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
           />
         </label>
 
@@ -158,7 +158,7 @@ export function ServiceFormModal({
                 value={Number(field.value ?? 0)}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
               />
             )}
           />

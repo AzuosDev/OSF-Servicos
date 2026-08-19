@@ -329,7 +329,7 @@ export function AccountModal({
       open={open}
       onClose={onClose}
       title={modalTitle}
-      icon={<Wallet className="h-6 w-6 text-accent-lime" />}
+      icon={<Wallet className="h-6 w-6 text-accent-gold" />}
       footer={
         <div className="flex items-center justify-end gap-4">
           <button
@@ -343,7 +343,7 @@ export function AccountModal({
           <button
             type="button"
             disabled={isSaving}
-            className="flex items-center justify-center gap-2 rounded-xl bg-accent-lime px-6 py-2.5 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+            className="flex items-center justify-center gap-2 rounded-xl bg-accent-gold px-6 py-2.5 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
             onClick={() => (editAccount ? editMutation.mutate() : createMutation.mutate())}
           >
             {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -365,7 +365,7 @@ export function AccountModal({
             type="button"
             className={cn(
               "flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition",
-              formTipo === t ? "bg-accent-lime text-black" : "text-white hover:bg-bg-overlay",
+              formTipo === t ? "bg-accent-gold text-black" : "text-white hover:bg-bg-overlay",
             )}
             onClick={() => setFormTipo(t)}
           >
@@ -383,7 +383,7 @@ export function AccountModal({
               (formIsParcelada && type === "Parcelada") ||
               (formIsRecorrente && type === "Recorrente") ||
               (!formIsParcelada && !formIsRecorrente && type === "Não parcelada")
-                ? "bg-accent-lime text-black"
+                ? "bg-accent-gold text-black"
                 : "text-white hover:bg-bg-overlay"
             }`}
             onClick={() => {
@@ -402,7 +402,7 @@ export function AccountModal({
           <input
             type="text"
             placeholder="Ex.: Conta de luz"
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-gold"
             value={formTitle}
             onChange={(e) => setFormTitle(e.target.value)}
           />
@@ -412,11 +412,11 @@ export function AccountModal({
           <label className="mb-2 block text-sm text-text-secondary">
             {formIsParcelada ? "Valor total" : "Valor"}
           </label>
-          <div className="flex items-center rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 focus-within:border-accent-lime">
+          <div className="flex items-center rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 focus-within:border-accent-gold">
             <CurrencyInput
               value={formValue}
               onChange={setFormValue}
-              className="flex-1 bg-transparent text-center text-xl font-bold text-accent-lime outline-none"
+              className="flex-1 bg-transparent text-center text-xl font-bold text-accent-gold outline-none"
             />
           </div>
         </div>
@@ -432,7 +432,7 @@ export function AccountModal({
                 placeholder="Ex.: 2"
                 value={formParcelas.totalParcelas ?? ""}
                 onChange={(e) => setFormParcelas((prev) => ({ ...prev, totalParcelas: e.target.value }))}
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-gold"
               />
               {formParcelas.totalParcelas && formValue > 0 && (
                 <p className="mt-1 text-xs text-text-secondary">
@@ -450,14 +450,14 @@ export function AccountModal({
                     setFormParcelas((prev) => ({ ...prev, dataInicio: e.target.value }));
                     if (!isPastMonth(e.target.value)) setFormAffectsBalance(true);
                   }}
-                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-gold"
                 />
               </label>
               {isPastMonth(formParcelas.dataInicio ?? "") && (
                 <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-3 transition hover:border-yellow-500/60">
                   <input
                     type="checkbox"
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-accent-lime"
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-accent-gold"
                     checked={!formAffectsBalance}
                     onChange={(e) => setFormAffectsBalance(!e.target.checked)}
                   />
@@ -493,7 +493,7 @@ export function AccountModal({
                 onChange={(e) =>
                   setFormRecorrencia((prev) => ({ ...prev, periodoRecorrencia: e.target.value }))
                 }
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-gold"
               >
                 <option value="Diário">Diário</option>
                 <option value="Semanal">Semanal</option>
@@ -507,7 +507,7 @@ export function AccountModal({
                 <span className="mb-1 block text-sm text-text-secondary">Data da primeira ocorrência</span>
                 <input
                   type="date"
-                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-gold"
                   value={formRecorrencia.dataProxima ?? ""}
                   onChange={(e) =>
                     setFormRecorrencia((prev) => ({ ...prev, dataProxima: e.target.value }))
@@ -523,7 +523,7 @@ export function AccountModal({
                   max="31"
                   step="1"
                   placeholder="Ex.: 10"
-                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-gold"
                   value={formRecorrenciaDay}
                   onChange={(e) => setFormRecorrenciaDay(e.target.value)}
                 />
@@ -544,7 +544,7 @@ export function AccountModal({
                     className={cn(
                       "flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition",
                       formRecorrenciaTermino === opt
-                        ? "bg-accent-lime text-black"
+                        ? "bg-accent-gold text-black"
                         : "text-white hover:bg-bg-overlay",
                     )}
                   >
@@ -560,7 +560,7 @@ export function AccountModal({
                   <span className="mb-1 block text-sm text-text-secondary">Data de término</span>
                   <input
                     type="date"
-                    className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+                    className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-gold"
                     value={formRecorrencia.dataTermino ?? ""}
                     onChange={(e) =>
                       setFormRecorrencia((prev) => ({ ...prev, dataTermino: e.target.value }))
@@ -575,7 +575,7 @@ export function AccountModal({
                     min="1"
                     step="1"
                     placeholder="Ex.: 12"
-                    className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+                    className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-gold"
                     value={formRecorrenciaNMeses}
                     onChange={(e) => setFormRecorrenciaNMeses(e.target.value)}
                   />
@@ -603,7 +603,7 @@ export function AccountModal({
                         className={cn(
                           "flex h-16 w-full flex-col items-center justify-center gap-1 rounded-lg border bg-bg-muted px-1.5 py-1.5 text-center text-[11px] font-semibold transition",
                           active
-                            ? "border-accent-lime text-white"
+                            ? "border-accent-gold text-white"
                             : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-text-primary",
                         )}
                       >
@@ -623,7 +623,7 @@ export function AccountModal({
                 className={cn(
                   "flex h-16 w-full flex-col items-center justify-center gap-1 rounded-lg border bg-bg-muted px-1.5 py-1.5 text-center text-[11px] font-semibold transition",
                   formCategoria === "Outro"
-                    ? "border-accent-lime text-white"
+                    ? "border-accent-gold text-white"
                     : "border-transparent text-text-secondary hover:border-bg-overlay hover:text-text-primary",
                 )}
               >
@@ -638,7 +638,7 @@ export function AccountModal({
             <input
               type="text"
               placeholder="Digite a categoria personalizada"
-              className="mt-2 w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+              className="mt-2 w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-gold"
               value={categoriaCustom}
               onChange={(e) => setCategoriaCustom(e.target.value)}
             />
@@ -653,7 +653,7 @@ export function AccountModal({
               setFormForma(e.target.value);
               if (e.target.value !== "Outro") setFormaCustom("");
             }}
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-gold"
           >
             <option value="">Selecione</option>
             {PAYMENT_FORMATS.map((format) => (
@@ -666,7 +666,7 @@ export function AccountModal({
             <input
               type="text"
               placeholder="Digite a forma de pagamento personalizada"
-              className="mt-2 w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+              className="mt-2 w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-gold"
               value={formaCustom}
               onChange={(e) => setFormaCustom(e.target.value)}
             />
@@ -680,7 +680,7 @@ export function AccountModal({
           <select
             value={formCarteiraId}
             onChange={(e) => setFormCarteiraId(e.target.value)}
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-gold"
           >
             <option value="">Nenhuma</option>
             {(walletsQuery.data ?? []).map((w) => (
@@ -695,7 +695,7 @@ export function AccountModal({
               <span className="mb-1 block text-sm text-text-secondary">Data de vencimento</span>
               <input
                 type="date"
-                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-lime"
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition focus:border-accent-gold"
                 value={formDueDate}
                 onChange={(e) => {
                   setFormDueDate(e.target.value);
@@ -707,7 +707,7 @@ export function AccountModal({
               <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-3 transition hover:border-yellow-500/60">
                 <input
                   type="checkbox"
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-accent-lime"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-accent-gold"
                   checked={!formAffectsBalance}
                   onChange={(e) => setFormAffectsBalance(!e.target.checked)}
                 />
@@ -728,7 +728,7 @@ export function AccountModal({
           <span className="mb-1 block text-sm text-text-secondary">Descrição (opcional)</span>
           <textarea
             rows={3}
-            className="w-full resize-none rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition placeholder:text-text-muted focus:border-accent-lime"
+            className="w-full resize-none rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-white outline-none transition placeholder:text-text-muted focus:border-accent-gold"
             placeholder="Observação opcional"
             value={formDescription}
             onChange={(e) => setFormDescription(e.target.value)}

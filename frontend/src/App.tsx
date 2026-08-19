@@ -33,7 +33,7 @@ const CheckoutPage = lazy(() => import("./pages/CheckoutPage").then((m) => ({ de
 function PageLoader() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-base">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-bg-overlay border-t-accent-lime" />
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-bg-overlay border-t-accent-gold" />
     </div>
   );
 }
@@ -101,7 +101,7 @@ function AppBoot({ children }: { children: React.ReactNode }) {
   if (status === 'booting') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-base">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-bg-overlay border-t-accent-lime" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-bg-overlay border-t-accent-gold" />
       </div>
     );
   }
@@ -112,7 +112,7 @@ function AppBoot({ children }: { children: React.ReactNode }) {
         <p className="text-sm text-text-muted">Sem conexão com o servidor.</p>
         <button
           onClick={tryRefresh}
-          className="rounded-lg bg-accent-lime px-4 py-2 text-sm font-medium text-bg-base"
+          className="rounded-lg bg-accent-gold px-4 py-2 text-sm font-medium text-bg-base"
         >
           Tentar novamente
         </button>

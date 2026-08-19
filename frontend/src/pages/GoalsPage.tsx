@@ -116,8 +116,8 @@ function getProgressColor(goal: GoalItem) {
     return {
       percent,
       stroke: "#11B7EA",
-      badgeClass: "bg-accent-lime/10 text-accent-lime",
-      borderClass: "border-accent-lime/30",
+      badgeClass: "bg-accent-gold/10 text-accent-gold",
+      borderClass: "border-accent-gold/30",
       label: "Concluída",
     };
   }
@@ -135,7 +135,7 @@ function getProgressColor(goal: GoalItem) {
   return {
     percent,
     stroke: "#22C55E",
-    badgeClass: "bg-accent-lime/10 text-accent-lime",
+    badgeClass: "bg-accent-gold/10 text-accent-gold",
     borderClass: "border-bg-muted",
     label: `${percent}%`,
   };
@@ -216,7 +216,7 @@ function GoalFormModal({
       open={open}
       onClose={onClose}
       title={mode === "create" ? "Nova Meta" : "Editar Meta"}
-      icon={<Target className="h-6 w-6 text-accent-lime" />}
+      icon={<Target className="h-6 w-6 text-accent-gold" />}
       footer={
         <div className="flex gap-3">
           <button
@@ -231,7 +231,7 @@ function GoalFormModal({
             type="submit"
             form="goal-form"
             disabled={mutation.isPending}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-gold px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             {mode === "create" ? "Criar Meta" : "Salvar Alterações"}
@@ -255,7 +255,7 @@ function GoalFormModal({
             maxLength={200}
             placeholder="Ex.: Reserva de emergência"
             {...form.register("name")}
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
           />
           {form.formState.errors.name?.message && (
             <p className="mt-1 text-xs text-accent-red">{form.formState.errors.name.message}</p>
@@ -273,7 +273,7 @@ function GoalFormModal({
                   value={Number(field.value ?? 0)}
                   onChange={field.onChange}
                   onBlur={field.onBlur}
-                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
                 />
               )}
             />
@@ -292,7 +292,7 @@ function GoalFormModal({
                   value={Number(field.value ?? 0)}
                   onChange={field.onChange}
                   onBlur={field.onBlur}
-                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
                 />
               )}
             />
@@ -307,7 +307,7 @@ function GoalFormModal({
           <input
             type="date"
             {...form.register("deadline")}
-            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-lime"
+            className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
           />
           {form.formState.errors.deadline?.message && (
             <p className="mt-1 text-xs text-accent-red">{form.formState.errors.deadline.message}</p>
@@ -385,7 +385,7 @@ function GoalValueModal({
       open={open}
       onClose={onClose}
       title="Atualizar Valor"
-      icon={<Target className="h-6 w-6 text-accent-lime" />}
+      icon={<Target className="h-6 w-6 text-accent-gold" />}
       footer={
         <div className="flex gap-3">
           <button
@@ -400,7 +400,7 @@ function GoalValueModal({
             type="submit"
             form="goal-value-form"
             disabled={mutation.isPending}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-lime px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-gold px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             Salvar Valor
@@ -425,7 +425,7 @@ function GoalValueModal({
       })}>
         <label className="block">
           <span className="mb-2 block text-sm text-text-secondary">Novo valor atual</span>
-          <div className="flex items-center rounded-2xl border border-bg-muted bg-bg-muted px-4 py-3 focus-within:border-accent-lime">
+          <div className="flex items-center rounded-2xl border border-bg-muted bg-bg-muted px-4 py-3 focus-within:border-accent-gold">
             <Controller
               control={form.control}
               name="currentValue"
@@ -434,7 +434,7 @@ function GoalValueModal({
                   value={Number(field.value ?? 0)}
                   onChange={field.onChange}
                   onBlur={field.onBlur}
-                  className="w-full bg-transparent text-center font-sans text-3xl font-bold text-accent-lime outline-none"
+                  className="w-full bg-transparent text-center font-sans text-3xl font-bold text-accent-gold outline-none"
                 />
               )}
             />
@@ -547,7 +547,7 @@ export function GoalsPage() {
         <button
           type="button"
           onClick={openCreateModal}
-          className="inline-flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
+          className="inline-flex items-center gap-2 rounded-xl bg-accent-gold px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
         >
           <Plus className="h-4 w-4" />
           Nova Meta
@@ -561,7 +561,7 @@ export function GoalsPage() {
         </article>
         <article className="rounded-2xl bg-bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-text-secondary">Concluídas</p>
-          <p className="mt-2 text-2xl font-bold text-accent-lime">{summary.completedGoals}</p>
+          <p className="mt-2 text-2xl font-bold text-accent-gold">{summary.completedGoals}</p>
         </article>
         <article className="rounded-2xl bg-bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-text-secondary">Acumulado</p>
@@ -577,7 +577,7 @@ export function GoalsPage() {
         <div className="rounded-2xl border border-bg-muted bg-bg-card p-5 text-sm text-text-secondary">Carregando metas...</div>
       ) : goals.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-bg-muted bg-bg-card p-8 text-center">
-          <Target className="mx-auto h-10 w-10 text-accent-lime" />
+          <Target className="mx-auto h-10 w-10 text-accent-gold" />
           <h2 className="mt-4 text-xl font-semibold text-white">Nenhuma meta cadastrada</h2>
           <p className="mt-2 text-sm text-text-secondary">
             Crie sua primeira meta para começar a acompanhar o progresso e receber a marcação automática de conclusão.
@@ -585,7 +585,7 @@ export function GoalsPage() {
           <button
             type="button"
             onClick={openCreateModal}
-            className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
+            className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-accent-gold px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
           >
             <Plus className="h-4 w-4" />
             Criar primeira meta
@@ -649,7 +649,7 @@ export function GoalsPage() {
                       Meta: <span className="font-semibold text-white">{formatCurrency(goal.targetValue)}</span>
                     </p>
                     <p>
-                      Faltam: <span className="font-semibold text-accent-lime">{formatCurrency(remaining)}</span>
+                      Faltam: <span className="font-semibold text-accent-gold">{formatCurrency(remaining)}</span>
                     </p>
                     <p className="flex items-center gap-2">
                       <CalendarDays className="h-4 w-4 text-text-secondary" />

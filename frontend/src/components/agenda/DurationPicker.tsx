@@ -27,7 +27,7 @@ export function DurationPicker({
             className={cn(
               "rounded-xl px-3 py-2 text-xs font-semibold transition",
               value === opt.minutes
-                ? "bg-accent-lime text-black"
+                ? "bg-accent-gold text-black"
                 : "bg-bg-muted text-text-secondary hover:bg-bg-overlay hover:text-text-primary",
             )}
           >
@@ -46,7 +46,7 @@ export function DurationPicker({
             const parsed = Number(e.target.value);
             onChange(Number.isFinite(parsed) && parsed > 0 ? parsed : 0);
           }}
-          className="w-24 rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-sm text-white outline-none focus:border-accent-lime"
+          className="w-24 rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-sm text-white outline-none focus:border-accent-gold"
         />
       </label>
     </div>

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTheme } from "../hooks/useTheme";
 
 export function AuthCard({
   title,
@@ -11,18 +12,21 @@ export function AuthCard({
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  const { theme } = useTheme();
+  const logoSrc = theme === "light" ? "/branding/osf-logo-light.png" : "/branding/osf-logo-dark.png";
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-base px-4">
       <div className="mx-auto mt-20 w-full max-w-sm rounded-card bg-bg-card p-8 shadow-xl ring-1 ring-bg-overlay">
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="mb-3 flex items-center gap-2">
             <img
-              src="/icons/icon.svg"
-              alt="AK LavaJato"
-              className="h-10 w-10 object-contain"
+              src={logoSrc}
+              alt="OSF Serviços"
+              className="h-10 w-10 rounded-md object-contain"
             />
             <span className="font-sans text-xl font-bold tracking-tight">
-              MeuGasto
+              OSF Serviços
             </span>
           </div>
           <h1 className="font-sans text-2xl font-bold text-text-primary">

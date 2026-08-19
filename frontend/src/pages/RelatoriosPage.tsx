@@ -103,7 +103,7 @@ function CategoryList({ rows }: { rows: CategoryReportRow[] }) {
           </div>
           <div className="mt-1 h-1.5 rounded-full bg-bg-muted">
             <div
-              className={`h-1.5 rounded-full ${row.isIncome ? "bg-accent-lime" : "bg-accent-red"}`}
+              className={`h-1.5 rounded-full ${row.isIncome ? "bg-accent-gold" : "bg-accent-red"}`}
               style={{ width: `${(row.total / max) * 100}%` }}
             />
           </div>
@@ -147,30 +147,30 @@ export function RelatoriosPage() {
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-sm text-white outline-none focus:border-accent-lime"
+            className="rounded-xl border border-bg-muted bg-bg-muted px-3 py-2 text-sm text-white outline-none focus:border-accent-gold"
           />
         </label>
       </header>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KpiCard label="Total recebido" value={formatCurrency(summary?.totalReceived ?? 0)} valueClassName="text-accent-lime" />
-        <KpiCard label="Entradas" value={formatCurrency(summary?.totalIncome ?? 0)} valueClassName="text-accent-lime" />
+        <KpiCard label="Total recebido" value={formatCurrency(summary?.totalReceived ?? 0)} valueClassName="text-accent-gold" />
+        <KpiCard label="Entradas" value={formatCurrency(summary?.totalIncome ?? 0)} valueClassName="text-accent-gold" />
         <KpiCard label="Saídas" value={formatCurrency(summary?.totalExpense ?? 0)} valueClassName="text-accent-red" />
         <KpiCard
           label="Lucro líquido"
           value={formatCurrency(summary?.netProfit ?? 0)}
-          valueClassName={(summary?.netProfit ?? 0) >= 0 ? "text-accent-lime" : "text-accent-red"}
+          valueClassName={(summary?.netProfit ?? 0) >= 0 ? "text-accent-gold" : "text-accent-red"}
         />
         <KpiCard label="Serviços concluídos" value={String(summary?.servicesCompletedCount ?? 0)} />
         <KpiCard label="Ticket médio" value={formatCurrency(summary?.avgTicket ?? 0)} />
-        <KpiCard label="Pagos" value={String(summary?.paidCount ?? 0)} valueClassName="text-accent-lime" />
+        <KpiCard label="Pagos" value={String(summary?.paidCount ?? 0)} valueClassName="text-accent-gold" />
         <KpiCard label="Pendentes" value={String(summary?.pendingCount ?? 0)} valueClassName="text-accent-red" />
       </div>
 
       <div className="rounded-2xl bg-bg-card p-4">
         <p className="mb-2 text-xs uppercase tracking-wide text-text-secondary">Painel de hoje</p>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <KpiCard label="Entradas hoje" value={formatCurrency(dashboard?.entradasHoje ?? 0)} valueClassName="text-accent-lime" />
+          <KpiCard label="Entradas hoje" value={formatCurrency(dashboard?.entradasHoje ?? 0)} valueClassName="text-accent-gold" />
           <KpiCard label="Saídas hoje" value={formatCurrency(dashboard?.saidasHoje ?? 0)} valueClassName="text-accent-red" />
           <KpiCard label="Contas pendentes" value={formatCurrency(dashboard?.contasPendentes.value ?? 0)} valueClassName="text-accent-red" />
           <KpiCard label="Agendamentos hoje" value={String(dashboard?.totalAgendamentosHoje ?? 0)} />

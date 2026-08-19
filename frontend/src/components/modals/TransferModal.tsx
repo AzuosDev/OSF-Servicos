@@ -33,7 +33,7 @@ function todayInputValue() {
 }
 
 const inputCls =
-  "w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-sm text-white outline-none focus:border-accent-lime";
+  "w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-sm text-white outline-none focus:border-accent-gold";
 const labelCls = "block text-sm text-text-secondary mb-1";
 
 export function TransferModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -126,7 +126,7 @@ export function TransferModal({ open, onClose }: { open: boolean; onClose: () =>
           <Link
             to="/carteiras"
             onClick={onClose}
-            className="mt-3 inline-block font-bold text-accent-lime underline underline-offset-2 hover:brightness-110"
+            className="mt-3 inline-block font-bold text-accent-gold underline underline-offset-2 hover:brightness-110"
           >
             Criar carteira agora →
           </Link>

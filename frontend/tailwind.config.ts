@@ -13,15 +13,17 @@ export default {
           overlay: "var(--bg-overlay)",
         },
         accent: {
-          // AK Lava Jato — azul primário (contornos, espuma, destaque)
-          lime: "#11B7EA",
-          // AK Lava Jato — azul secundário (hover, sombras suaves, detalhes)
-          limeHover: "#008FD1",
+          // OSF Serviços — dourado/âmbar (extraído por pixel do chip sólido no "F" da logo)
+          gold: "#F0AC28",
+          // OSF Serviços — dourado mais escuro (hover)
+          goldHover: "#C98A1A",
+          // OSF Serviços — azul do painel solar (extraído por pixel das células do painel)
+          blue: "#14345F",
+          // OSF Serviços — azul mais claro (hover, detalhes sobre fundo escuro)
+          blueHover: "#2F5B94",
           orange: "#F97316",
           red: "#EF4444",
-          // AK Lava Jato — amarelo primário (carro e "A.K")
           yellow: "#F9D33E",
-          // AK Lava Jato — amarelo secundário (gradientes e detalhes)
           yellowHover: "#E8B81A",
         },
         semantic: {

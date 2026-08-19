@@ -91,7 +91,7 @@ function statusLabel(item: PendingItem) {
   const paidLabel = item.tipo === "RECEBER" ? "Recebido" : "Pago";
 
   if (item.paid)
-    return { label: paidLabel, className: "bg-accent-lime/10 text-accent-lime" };
+    return { label: paidLabel, className: "bg-accent-gold/10 text-accent-gold" };
   if (due < today)
     return { label: "Vencida", className: "bg-accent-red/10 text-accent-red" };
   if (due === today)
@@ -364,13 +364,13 @@ export function ContasPage() {
       >
         <div className="flex items-start gap-3">
           <div className="rounded-2xl bg-bg-muted p-3">
-            <Clock className="h-5 w-5 text-accent-lime" />
+            <Clock className="h-5 w-5 text-accent-gold" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-semibold text-white">{item.title}</h2>
               {installmentLabel && (
-                <span className="rounded-full bg-accent-lime/10 px-2.5 py-1 text-[11px] font-semibold text-accent-lime">{installmentLabel}</span>
+                <span className="rounded-full bg-accent-gold/10 px-2.5 py-1 text-[11px] font-semibold text-accent-gold">{installmentLabel}</span>
               )}
               {(item.isRecorrente || item.isVirtual || item.recorrenciaTemplateId) && (
                 <span className="rounded-full bg-blue-500/10 px-2.5 py-1 text-[11px] font-semibold text-blue-400">Recorrente</span>
@@ -390,7 +390,7 @@ export function ContasPage() {
             <button
               type="button"
               onClick={() => setPayBillItem(item)}
-              className="inline-flex items-center gap-2 rounded-xl bg-accent-lime/10 px-3 py-2 text-sm font-semibold text-accent-lime hover:bg-accent-lime/20"
+              className="inline-flex items-center gap-2 rounded-xl bg-accent-gold/10 px-3 py-2 text-sm font-semibold text-accent-gold hover:bg-accent-gold/20"
             >
               <Check className="h-4 w-4" />
               {activeTab === "RECEBER" ? "Marcar como recebido" : "Marcar como pago"}
@@ -447,7 +447,7 @@ export function ContasPage() {
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black"
+            className="flex items-center gap-2 rounded-xl bg-accent-gold px-4 py-3 text-sm font-bold text-black"
           >
             <Plus className="h-4 w-4" />
             Nova
@@ -455,7 +455,7 @@ export function ContasPage() {
           <select
             value={selectedMonth}
             onChange={(event) => setSelectedMonth(Number(event.target.value))}
-            className="rounded-xl border border-bg-muted bg-bg-card px-4 py-3 text-sm text-white outline-none transition focus:border-accent-lime"
+            className="rounded-xl border border-bg-muted bg-bg-card px-4 py-3 text-sm text-white outline-none transition focus:border-accent-gold"
           >
             {monthOptions.map((label, index) => (
               <option key={label} value={index + 1}>
@@ -466,7 +466,7 @@ export function ContasPage() {
           <select
             value={selectedYear}
             onChange={(event) => setSelectedYear(Number(event.target.value))}
-            className="rounded-xl border border-bg-muted bg-bg-card px-4 py-3 text-sm text-white outline-none transition focus:border-accent-lime"
+            className="rounded-xl border border-bg-muted bg-bg-card px-4 py-3 text-sm text-white outline-none transition focus:border-accent-gold"
           >
             {years.map((option) => (
               <option key={option} value={option}>
@@ -485,7 +485,7 @@ export function ContasPage() {
             onClick={() => setActiveTab(tab)}
             className={cn(
               "rounded-lg px-4 py-2 text-sm font-semibold transition",
-              activeTab === tab ? "bg-accent-lime text-black" : "text-white hover:bg-bg-overlay",
+              activeTab === tab ? "bg-accent-gold text-black" : "text-white hover:bg-bg-overlay",
             )}
           >
             {tab === "PAGAR" ? "Contas a Pagar" : "Contas a Receber"}
@@ -509,7 +509,7 @@ export function ContasPage() {
           <div className="mt-4 flex gap-4 text-sm">
             <p>
               <span className="text-text-muted">Pago </span>
-              <span className="font-semibold text-accent-lime">{formatCurrency(pagarBreakdown.pago)}</span>
+              <span className="font-semibold text-accent-gold">{formatCurrency(pagarBreakdown.pago)}</span>
             </p>
             <p>
               <span className="text-text-muted">Pendente </span>
@@ -520,19 +520,19 @@ export function ContasPage() {
         <article
           className={cn(
             "rounded-2xl border bg-bg-card p-5 transition",
-            activeTab === "RECEBER" ? "border-accent-lime/40 ring-1 ring-accent-lime/20" : "border-accent-lime/10 opacity-70",
+            activeTab === "RECEBER" ? "border-accent-gold/40 ring-1 ring-accent-gold/20" : "border-accent-gold/10 opacity-70",
           )}
         >
           <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
             Total Mês a Receber
           </p>
-          <p className="mt-3 text-3xl font-bold text-accent-lime">
+          <p className="mt-3 text-3xl font-bold text-accent-gold">
             {formatCurrency(receberBreakdown.total)}
           </p>
           <div className="mt-4 flex gap-4 text-sm">
             <p>
               <span className="text-text-muted">Recebido </span>
-              <span className="font-semibold text-accent-lime">{formatCurrency(receberBreakdown.pago)}</span>
+              <span className="font-semibold text-accent-gold">{formatCurrency(receberBreakdown.pago)}</span>
             </p>
             <p>
               <span className="text-text-muted">Pendente </span>
@@ -613,7 +613,7 @@ export function ContasPage() {
               </div>
               {groupQuery.isLoading && (
                 <div className="flex items-center justify-center gap-2 py-2 text-sm text-text-secondary">
-                  <Loader2 className="h-4 w-4 animate-spin text-accent-lime" />
+                  <Loader2 className="h-4 w-4 animate-spin text-accent-gold" />
                   Carregando parcelas...
                 </div>
               )}
@@ -621,11 +621,11 @@ export function ContasPage() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-text-secondary">Progresso</span>
-                  <span className="font-semibold text-accent-lime">{paidCount}/{totalParcelas} pagas</span>
+                  <span className="font-semibold text-accent-gold">{paidCount}/{totalParcelas} pagas</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-bg-muted overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-accent-lime transition-all duration-300"
+                    className="h-full rounded-full bg-accent-gold transition-all duration-300"
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
@@ -640,8 +640,8 @@ export function ContasPage() {
                       title={`Parcela ${parcel.numeroParcela} — ${parcel.paid ? "Paga" : "Pendente"}`}
                       className={cn(
                         "flex h-8 w-8 items-center justify-center rounded-lg text-xs font-semibold",
-                        parcel.paid ? "bg-accent-lime/20 text-accent-lime" : "bg-bg-muted text-text-secondary",
-                        parcel.id === liveItem.id && "ring-2 ring-accent-lime",
+                        parcel.paid ? "bg-accent-gold/20 text-accent-gold" : "bg-bg-muted text-text-secondary",
+                        parcel.id === liveItem.id && "ring-2 ring-accent-gold",
                       )}
                     >
                       {parcel.numeroParcela}
@@ -663,7 +663,7 @@ export function ContasPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-text-secondary">Total pago</span>
-                  <span className="font-medium text-accent-lime">{formatCurrency(paidCount * liveItem.value)}</span>
+                  <span className="font-medium text-accent-gold">{formatCurrency(paidCount * liveItem.value)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-text-secondary">Falta pagar</span>
@@ -675,7 +675,7 @@ export function ContasPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-text-secondary">Status</span>
-                  <span className={cn("font-medium", liveItem.paid ? "text-accent-lime" : "text-accent-red")}>
+                  <span className={cn("font-medium", liveItem.paid ? "text-accent-gold" : "text-accent-red")}>
                     {liveItem.paid ? "Paga" : "Pendente"}
                   </span>
                 </div>

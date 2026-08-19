@@ -250,7 +250,7 @@ export function NotificationBell({
               <button
                 type="button"
                 onClick={() => { setOpen(false); navigate("/contas"); }}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold text-accent-lime transition hover:opacity-80"
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold text-accent-gold transition hover:opacity-80"
               >
                 <Clock className="h-3.5 w-3.5" />
                 Ver todas as contas

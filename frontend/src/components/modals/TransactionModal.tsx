@@ -82,9 +82,9 @@ const tabConfig = {
     label: "Ganho",
     icon: TrendingUp,
     activeCls: "bg-green-600 text-white",
-    iconCls: "text-accent-lime",
+    iconCls: "text-accent-gold",
     submitLabel: "Salvar Ganho",
-    submitCls: "bg-accent-lime text-black",
+    submitCls: "bg-accent-gold text-black",
   },
   EXPENSE: {
     label: "Gasto",
@@ -92,7 +92,7 @@ const tabConfig = {
     activeCls: "bg-red-600 text-white",
     iconCls: "text-accent-red",
     submitLabel: "Salvar Gasto",
-    submitCls: "bg-accent-lime text-black",
+    submitCls: "bg-accent-gold text-black",
   },
   TRANSFER: {
     label: "Transferência",
@@ -105,7 +105,7 @@ const tabConfig = {
 } as const;
 
 const selectCls =
-  "w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-lime";
+  "w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none transition focus:border-accent-gold";
 
 export function TransactionModal({
   open,
@@ -327,7 +327,7 @@ export function TransactionModal({
           <Link
             to="/carteiras"
             onClick={onClose}
-            className="mt-3 inline-block font-bold text-accent-lime underline underline-offset-2 hover:brightness-110"
+            className="mt-3 inline-block font-bold text-accent-gold underline underline-offset-2 hover:brightness-110"
           >
             Criar carteira agora →
           </Link>

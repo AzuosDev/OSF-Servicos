@@ -48,7 +48,7 @@ export function ContasReceberPage() {
         </div>
       ) : items.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-bg-muted bg-bg-card p-8 text-center">
-          <CircleDollarSign className="mx-auto h-10 w-10 text-accent-lime" />
+          <CircleDollarSign className="mx-auto h-10 w-10 text-accent-gold" />
           <h2 className="mt-4 text-xl font-semibold text-white">Nenhuma conta pendente</h2>
           <p className="mt-2 text-sm text-text-secondary">Todos os serviços agendados estão com o pagamento em dia.</p>
         </div>
@@ -82,7 +82,7 @@ export function ContasReceberPage() {
                     Total: <span className="font-semibold text-white">{formatCurrency(a.chargedValue)}</span>
                   </p>
                   <p className="text-text-secondary">
-                    Recebido: <span className="font-semibold text-accent-lime">{formatCurrency(a.totalPaid)}</span>
+                    Recebido: <span className="font-semibold text-accent-gold">{formatCurrency(a.totalPaid)}</span>
                   </p>
                   <p className="text-text-secondary">
                     Restante: <span className="font-semibold text-accent-red">{formatCurrency(pending)}</span>

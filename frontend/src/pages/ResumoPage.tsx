@@ -46,7 +46,7 @@ const typeCopy: Record<FundsType, {
     topLabel: "Mais recebido",
     emptyMessage: "Nenhuma categoria de ganho encontrada para o período selecionado.",
     icon: TrendingUp,
-    accentClass: "text-accent-lime",
+    accentClass: "text-accent-gold",
   },
 };
 
@@ -159,7 +159,7 @@ export function ResumoPage() {
         <button
           type="button"
           onClick={() => setAddOpen(true)}
-          className="flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
+          className="flex items-center gap-2 rounded-xl bg-accent-gold px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
         >
           <Plus className="h-4 w-4" />
           Nova
@@ -178,7 +178,7 @@ export function ResumoPage() {
                 onClick={() => setTxType(t)}
                 className={cn(
                   "flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition",
-                  txType === t ? "bg-accent-lime text-black" : "text-text-secondary hover:bg-bg-overlay hover:text-text-primary",
+                  txType === t ? "bg-accent-gold text-black" : "text-text-secondary hover:bg-bg-overlay hover:text-text-primary",
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -213,7 +213,7 @@ export function ResumoPage() {
             type="date"
             value={dailyDate}
             onChange={(e) => setDailyDate(e.target.value)}
-            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
+            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold"
           />
         )}
 
@@ -223,7 +223,7 @@ export function ResumoPage() {
               type="date"
               value={weeklyDate}
               onChange={(e) => setWeeklyDate(e.target.value)}
-              className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
+              className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold"
             />
             <span className="text-xs text-text-secondary">Semana: {weekRangeLabel(weeklyDate)}</span>
           </div>
@@ -234,7 +234,7 @@ export function ResumoPage() {
             type="month"
             value={monthValue}
             onChange={(e) => setMonthValue(e.target.value)}
-            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
+            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold"
           />
         )}
 
@@ -242,7 +242,7 @@ export function ResumoPage() {
           <select
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
-            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-lime"
+            className="rounded-xl border border-border-default bg-bg-muted px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold"
           >
             {YEAR_OPTIONS.map((option) => (
               <option key={option} value={option}>
@@ -256,7 +256,7 @@ export function ResumoPage() {
       {breakdownQuery.isLoading ? (
         <div className="rounded-2xl bg-bg-card p-6">
           <div className="flex items-center justify-center gap-2 text-sm text-text-secondary">
-            <Loader2 className="h-4 w-4 animate-spin text-accent-lime" />
+            <Loader2 className="h-4 w-4 animate-spin text-accent-gold" />
             Carregando categorias...
           </div>
         </div>

@@ -13,8 +13,8 @@
   --color-income: #22c55e;
   --color-expense: #ef4444;
   --color-pending: #eab308;
-  --accent-lime: #11b7ea;
-  --accent-lime-hover: #008fd1;
+  --accent-gold: #f0ac28;
+  --accent-gold-hover: #c98a1a;
 }
 
 /* ── Tema escuro ── */
@@ -32,8 +32,8 @@ html.dark {
   --color-income: #22c55e;
   --color-expense: #ef4444;
   --color-pending: #eab308;
-  --accent-lime: #11b7ea;
-  --accent-lime-hover: #008fd1;
+  --accent-gold: #f0ac28;
+  --accent-gold-hover: #c98a1a;
 }
 
 @tailwind base;
@@ -64,9 +64,9 @@ html.dark {
     --color-expense: #b94545; /* gastos  — AA  5.8:1 */
     --color-pending: #c97a2a; /* pendente — AA  4.6:1 */
 
-    /* accent — AK Lava Jato */
-    --accent-lime: #11b7ea; /* CTA principal — azul primário */
-    --accent-lime-hover: #008fd1; /* hover — azul secundário */
+    /* accent — OSF Serviços */
+    --accent-gold: #f0ac28; /* CTA principal — dourado da logo */
+    --accent-gold-hover: #c98a1a; /* hover — dourado mais escuro */
   }
 
   html.light .bg-bg-card.text-white,

@@ -72,7 +72,7 @@ export function ServicosPage() {
         <button
           type="button"
           onClick={openCreate}
-          className="inline-flex items-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
+          className="inline-flex items-center gap-2 rounded-xl bg-accent-gold px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
         >
           <Plus className="h-4 w-4" />
           Novo Serviço
@@ -85,7 +85,7 @@ export function ServicosPage() {
         </div>
       ) : services.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-bg-muted bg-bg-card p-8 text-center">
-          <Wrench className="mx-auto h-10 w-10 text-accent-lime" />
+          <Wrench className="mx-auto h-10 w-10 text-accent-gold" />
           <h2 className="mt-4 text-xl font-semibold text-white">Nenhum serviço cadastrado</h2>
           <p className="mt-2 text-sm text-text-secondary">
             Cadastre os serviços oferecidos para poder agendá-los na Agenda.
@@ -93,7 +93,7 @@ export function ServicosPage() {
           <button
             type="button"
             onClick={openCreate}
-            className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-accent-lime px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
+            className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-accent-gold px-4 py-3 text-sm font-bold text-black transition hover:brightness-110"
           >
             <Plus className="h-4 w-4" />
             Criar primeiro serviço
@@ -119,7 +119,7 @@ export function ServicosPage() {
                   {service.name}
                 </p>
                 {service.type && <p className="text-xs text-text-secondary">{service.type}</p>}
-                <p className="mt-1 text-sm font-semibold text-accent-lime">{formatCurrency(service.defaultValue)}</p>
+                <p className="mt-1 text-sm font-semibold text-accent-gold">{formatCurrency(service.defaultValue)}</p>
                 {!service.active && (
                   <span className="mt-1 inline-block rounded-full bg-bg-muted px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
                     Inativo

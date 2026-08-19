@@ -121,7 +121,7 @@ export const paymentStatusLabels: Record<AppointmentPaymentStatus, string> = {
 export const paymentStatusClasses: Record<AppointmentPaymentStatus, string> = {
   NAO_PAGO: "bg-accent-red/10 text-accent-red",
   PARCIALMENTE_PAGO: "bg-accent-yellow/10 text-accent-yellow",
-  PAGO: "bg-accent-lime/10 text-accent-lime",
+  PAGO: "bg-accent-gold/10 text-accent-gold",
 };
 
 export const appointmentStatusLabels: Record<AppointmentStatus, string> = {

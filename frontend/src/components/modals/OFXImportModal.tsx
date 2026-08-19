@@ -46,7 +46,7 @@ function CategorySelect({
     <select
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value || null)}
-      className="w-full rounded-lg bg-bg-muted px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-accent-lime"
+      className="w-full rounded-lg bg-bg-muted px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-accent-gold"
     >
       <option value="">Sem categoria</option>
       {cats.map((c) => (
@@ -168,7 +168,7 @@ export function OFXImportModal({ open, onClose }: { open: boolean; onClose: () =
     <ModalShell
       open={open}
       title="Importar Extrato OFX"
-      icon={<FileText className="h-5 w-5 text-accent-lime" />}
+      icon={<FileText className="h-5 w-5 text-accent-gold" />}
       onClose={handleClose}
       containerClassName={phase === "preview" ? "max-w-2xl" : ""}
       footer={
@@ -185,7 +185,7 @@ export function OFXImportModal({ open, onClose }: { open: boolean; onClose: () =
               type="button"
               onClick={() => previewMutation.mutate()}
               disabled={!file || !selectedWalletId || previewMutation.isPending}
-              className="flex items-center gap-2 rounded-xl bg-accent-lime px-5 py-2 text-sm font-bold text-black transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 rounded-xl bg-accent-gold px-5 py-2 text-sm font-bold text-black transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {previewMutation.isPending ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> Analisando...</>
@@ -212,7 +212,7 @@ export function OFXImportModal({ open, onClose }: { open: boolean; onClose: () =
                 type="button"
                 onClick={() => confirmMutation.mutate()}
                 disabled={selectedCount === 0 || isImporting}
-                className="flex items-center gap-2 rounded-xl bg-accent-lime px-5 py-2 text-sm font-bold text-black transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 rounded-xl bg-accent-gold px-5 py-2 text-sm font-bold text-black transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isImporting ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importando...</>
@@ -233,7 +233,7 @@ export function OFXImportModal({ open, onClose }: { open: boolean; onClose: () =
             <select
               value={selectedWalletId}
               onChange={(e) => setSelectedWalletId(e.target.value)}
-              className="w-full rounded-xl bg-bg-muted px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent-lime"
+              className="w-full rounded-xl bg-bg-muted px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent-gold"
             >
               <option value="">Selecione uma carteira</option>
               {wallets.filter((w) => w.tipo !== "VIRTUAL").map((w) => (
@@ -247,11 +247,11 @@ export function OFXImportModal({ open, onClose }: { open: boolean; onClose: () =
             <div
               className={cn(
                 "flex flex-col items-center gap-3 rounded-xl border-2 border-dashed px-6 py-8 text-center transition cursor-pointer",
-                file ? "border-accent-lime bg-accent-lime/5" : "border-bg-muted hover:border-accent-lime/50",
+                file ? "border-accent-gold bg-accent-gold/5" : "border-bg-muted hover:border-accent-gold/50",
               )}
               onClick={() => fileRef.current?.click()}
             >
-              <Upload className={cn("h-8 w-8", file ? "text-accent-lime" : "text-text-secondary")} />
+              <Upload className={cn("h-8 w-8", file ? "text-accent-gold" : "text-text-secondary")} />
               {file ? (
                 <>
                   <p className="font-semibold text-white">{file.name}</p>
@@ -302,7 +302,7 @@ export function OFXImportModal({ open, onClose }: { open: boolean; onClose: () =
                 type="checkbox"
                 checked={rows.filter((r) => !r.alreadyImported).every((r) => r.selected)}
                 onChange={(e) => toggleAll(e.target.checked)}
-                className="accent-accent-lime"
+                className="accent-accent-gold"
               />
               Selecionar todas
             </label>
@@ -322,7 +322,7 @@ export function OFXImportModal({ open, onClose }: { open: boolean; onClose: () =
                   checked={row.selected}
                   disabled={row.alreadyImported}
                   onChange={() => toggleRow(idx)}
-                  className="mt-0.5 accent-accent-lime shrink-0"
+                  className="mt-0.5 accent-accent-gold shrink-0"
                 />
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -345,7 +345,7 @@ export function OFXImportModal({ open, onClose }: { open: boolean; onClose: () =
                 <span
                   className={cn(
                     "shrink-0 text-sm font-semibold tabular-nums",
-                    row.type === "INCOME" ? "text-accent-lime" : "text-accent-red",
+                    row.type === "INCOME" ? "text-accent-gold" : "text-accent-red",
                   )}
                 >
                   {row.type === "INCOME" ? "+" : "-"}{brl.format(row.value)}
@@ -366,7 +366,7 @@ export function OFXImportModal({ open, onClose }: { open: boolean; onClose: () =
       {/* ── FASE 3: Concluído ──────────────────────────────────────────── */}
       {phase === "done" && result && (
         <div className="flex flex-col items-center gap-4 py-8 text-center">
-          <CheckCircle className="h-14 w-14 text-accent-lime" />
+          <CheckCircle className="h-14 w-14 text-accent-gold" />
           <div>
             <p className="text-lg font-bold text-white">Importação concluída!</p>
             <p className="mt-1 text-sm text-text-secondary">
@@ -379,7 +379,7 @@ export function OFXImportModal({ open, onClose }: { open: boolean; onClose: () =
           <button
             type="button"
             onClick={handleClose}
-            className="mt-2 rounded-xl bg-accent-lime px-6 py-2.5 text-sm font-bold text-black transition hover:brightness-110"
+            className="mt-2 rounded-xl bg-accent-gold px-6 py-2.5 text-sm font-bold text-black transition hover:brightness-110"
           >
             Fechar
           </button>
