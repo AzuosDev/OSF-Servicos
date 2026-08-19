@@ -113,7 +113,7 @@ export function ClientFormModal({
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-sm text-text-secondary">Endereço</span>
+          <span className="mb-1 block text-sm text-text-secondary">Endereço (Pode ser apenas a Cidade)</span>
           <input
             type="text"
             maxLength={300}
