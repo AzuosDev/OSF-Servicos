@@ -11,7 +11,7 @@ import { Invoice, InvoiceDocument } from './schemas/invoice.schema';
 
 const PIX_PRICE_MONTHLY = 49.9;
 const SUBSCRIPTION_DURATION_DAYS = 30;
-const PLAN_NAME = 'AkLavajato App';
+const PLAN_NAME = 'OSF Serviços';
 /** Todo mês, a mensalidade é gerada e vence no dia 28. */
 const BILLING_DAY = 28;
 

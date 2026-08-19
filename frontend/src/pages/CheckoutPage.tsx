@@ -86,7 +86,7 @@ export function CheckoutPage() {
     <div className="flex min-h-screen items-center justify-center bg-bg-base px-4 py-10">
       <div className="mx-auto w-full max-w-md rounded-card bg-bg-card p-8 shadow-xl ring-1 ring-bg-overlay">
         <div className="mb-6 text-center">
-          <h1 className="font-sans text-2xl font-bold text-text-primary">AkLavajato App</h1>
+          <h1 className="font-sans text-2xl font-bold text-text-primary">OSF Serviços</h1>
           <p className="mt-1 text-sm text-text-secondary">
             Assine para continuar usando a gestão completa do seu lava-jato.
           </p>

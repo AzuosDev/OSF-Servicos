@@ -36,7 +36,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mb-10 flex items-center gap-2">
           <img
             src="/icons/icon.svg"
-            alt="AK LavaJato"
+            alt="OSF Serviços"
             className="h-9 w-9 object-contain"
           />
           <span className="font-sans text-lg font-bold tracking-tight">
