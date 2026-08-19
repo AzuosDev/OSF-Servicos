@@ -1,6 +1,7 @@
 import { BudgetDocument } from '../schemas/budget.schema';
 import { ClientDocument } from '../schemas/client.schema';
 import { CompanySettingsDocument } from '../schemas/company-settings.schema';
+import { OSF_LOGO_BASE64 } from './osf-logo-base64';
 
 export function escapeHtml(value: string): string {
   return value
@@ -52,6 +53,8 @@ export function buildBudgetHtml(
 <style>
   body { font-family: Arial, sans-serif; color: #111111; margin: 40px; }
   header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #F0AC28; padding-bottom: 16px; }
+  header .brand { display: flex; align-items: center; gap: 14px; }
+  header .brand img { height: 48px; width: 48px; object-fit: contain; }
   h1 { font-size: 20px; margin: 0 0 4px; }
   table { width: 100%; border-collapse: collapse; margin-top: 24px; }
   th, td { padding: 8px; border-bottom: 1px solid #e5e5e5; text-align: left; font-size: 13px; }
@@ -63,10 +66,13 @@ export function buildBudgetHtml(
 </head>
 <body>
   <header>
-    <div>
-      <h1>${escapeHtml(company.companyName)}</h1>
-      <div>${escapeHtml(company.baseAddress)}</div>
-      ${company.phone ? `<div>${escapeHtml(company.phone)}</div>` : ''}
+    <div class="brand">
+      <img src="data:image/png;base64,${OSF_LOGO_BASE64}" alt="OSF Serviços" />
+      <div>
+        <h1>${escapeHtml(company.companyName)}</h1>
+        ${company.baseAddress ? `<div>${escapeHtml(company.baseAddress)}</div>` : ''}
+        ${company.phone ? `<div>${escapeHtml(company.phone)}</div>` : ''}
+      </div>
     </div>
     <div>
       <div><strong>Orçamento ${sequenceLabel}</strong></div>
