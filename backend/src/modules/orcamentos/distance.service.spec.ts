@@ -14,15 +14,29 @@ const directionsResponse = (distanceMeters: number, durationSeconds: number) => 
   routes: [{ summary: { distance: distanceMeters, duration: durationSeconds } }],
 });
 
+// Entrada de cache completa — só um registro com o destino resolvido é reaproveitado.
+const cachedDoc = (distanceKm: number, durationMin: number) => ({
+  _id: new Types.ObjectId(),
+  distanceKm,
+  durationMin,
+  resolvedDestinationLabel: 'Destino, Cidade, CE, Brasil',
+  resolvedDestinationLat: -3.4,
+  resolvedDestinationLon: -39.5,
+});
+
 describe('DistanceService', () => {
   const testUserId = new Types.ObjectId().toString();
   let service: DistanceService;
-  let modelMock: { findOne: jest.Mock; create: jest.Mock };
+  let modelMock: { findOne: jest.Mock; create: jest.Mock; findByIdAndDelete: jest.Mock };
   let configGet: jest.Mock;
   let fetchSpy: jest.SpyInstance;
 
   const buildModule = async (orsApiKey: string | undefined) => {
-    modelMock = { findOne: jest.fn(), create: jest.fn() };
+    modelMock = {
+      findOne: jest.fn(),
+      create: jest.fn(),
+      findByIdAndDelete: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+    };
     configGet = jest.fn((key: string) => (key === 'ORS_API_KEY' ? orsApiKey : undefined));
 
     const moduleRef = await Test.createTestingModule({
@@ -54,7 +68,7 @@ describe('DistanceService', () => {
   it('reuses a cached distance and recomputes travelCost with current pricing', async () => {
     await buildModule('fake-key');
     modelMock.findOne.mockReturnValue({
-      exec: jest.fn().mockResolvedValue({ _id: new Types.ObjectId(), distanceKm: 100, durationMin: 90 }),
+      exec: jest.fn().mockResolvedValue(cachedDoc(100, 90)),
     });
     fetchSpy = jest.spyOn(global, 'fetch');
 
@@ -73,7 +87,7 @@ describe('DistanceService', () => {
   it('applies freeRadiusKm: travelCost is 0 below the free radius', async () => {
     await buildModule('fake-key');
     modelMock.findOne.mockReturnValue({
-      exec: jest.fn().mockResolvedValue({ _id: new Types.ObjectId(), distanceKm: 3, durationMin: 10 }),
+      exec: jest.fn().mockResolvedValue(cachedDoc(3, 10)),
     });
 
     const result = await service.calculate(testUserId, 'Origem', 'Destino', {
@@ -88,7 +102,7 @@ describe('DistanceService', () => {
   it('applies minimumTravelFee when per-km cost is below it', async () => {
     await buildModule('fake-key');
     modelMock.findOne.mockReturnValue({
-      exec: jest.fn().mockResolvedValue({ _id: new Types.ObjectId(), distanceKm: 10, durationMin: 15 }),
+      exec: jest.fn().mockResolvedValue(cachedDoc(10, 15)),
     });
 
     const result = await service.calculate(testUserId, 'Origem', 'Destino', {
@@ -103,7 +117,7 @@ describe('DistanceService', () => {
   it('charges for the round trip (ida e volta), not just the one-way ORS distance', async () => {
     await buildModule('fake-key');
     modelMock.findOne.mockReturnValue({
-      exec: jest.fn().mockResolvedValue({ _id: new Types.ObjectId(), distanceKm: 20, durationMin: 25 }),
+      exec: jest.fn().mockResolvedValue(cachedDoc(20, 25)),
     });
 
     const result = await service.calculate(testUserId, 'Origem', 'Destino', {
@@ -303,19 +317,34 @@ describe('DistanceService', () => {
     });
   });
 
-  it('omits the destination point for cache entries stored before the field existed', async () => {
+  it('discards and recalculates cache entries stored before the destination point existed', async () => {
     await buildModule('fake-key');
+    const staleId = new Types.ObjectId();
     modelMock.findOne.mockReturnValue({
-      exec: jest.fn().mockResolvedValue({ _id: new Types.ObjectId(), distanceKm: 90, durationMin: 90 }),
+      exec: jest.fn().mockResolvedValue({ _id: staleId, distanceKm: 90, durationMin: 90 }),
     });
+    modelMock.create.mockResolvedValue({ _id: new Types.ObjectId() });
 
-    const result = await service.calculate(testUserId, 'Origem', 'Destino', {
+    fetchSpy = jest.spyOn(global, 'fetch');
+    fetchSpy
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(geocodeResponse(-39.5, -3.4, 'Destino, Cidade, CE, Brasil')), { status: 200 }),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify(directionsResponse(90000, 5400)), { status: 200 }));
+
+    const result = await service.calculate(testUserId, { lat: -3.31673, lon: -40.092974 }, 'Destino', {
       pricePerKm: 2,
       minimumTravelFee: 20,
       freeRadiusKm: 5,
     });
 
-    expect(result.resolvedDestination).toBeUndefined();
+    expect(modelMock.findByIdAndDelete).toHaveBeenCalledWith(staleId);
+    expect(result.cached).toBe(false);
+    expect(result.resolvedDestination).toEqual({
+      label: 'Destino, Cidade, CE, Brasil',
+      lat: -3.4,
+      lon: -39.5,
+    });
   });
 
   it('throws NotFoundException when the address cannot be geocoded', async () => {

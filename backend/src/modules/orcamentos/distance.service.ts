@@ -212,7 +212,9 @@ export class DistanceService {
     const userObjectId = new Types.ObjectId(userId);
 
     const cached = await this.distanceCalculationModel.findOne({ userId: userObjectId, cacheKey }).exec();
-    if (cached) {
+    const cachedDestination = cached ? resolvedDestinationOf(cached) : undefined;
+
+    if (cached && cachedDestination) {
       const travelCost = computeTravelCost(cached.distanceKm, pricing);
       return {
         distanceKm: cached.distanceKm,
@@ -220,8 +222,14 @@ export class DistanceService {
         travelCost,
         distanceCalculationId: cached._id as Types.ObjectId,
         cached: true,
-        resolvedDestination: resolvedDestinationOf(cached),
+        resolvedDestination: cachedDestination,
       };
+    }
+
+    // Registro anterior a este campo existir: servi-lo deixaria a conferência do destino
+    // invisível no app até o cache expirar (30 dias). Descartamos para recalcular uma vez.
+    if (cached) {
+      await this.distanceCalculationModel.findByIdAndDelete(cached._id).exec();
     }
 
     const originPoint = await this.resolvePoint(origin);
