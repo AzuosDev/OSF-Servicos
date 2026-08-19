@@ -24,6 +24,34 @@ export type DistanceResult = {
   cached: boolean;
 };
 
+// Restringe a geocodificação ao Brasil: sem isso, nomes genéricos podem casar com
+// homônimos no exterior.
+const GEOCODE_COUNTRY = 'BRA';
+
+// Endereços de praia e zona rural costumam cair fora da malha viária mapeada. O padrão da
+// ORS é encaixar o ponto numa via a até 350 m, o que falha nesses casos; ampliamos esse raio.
+const SNAP_RADIUS_METERS = 5000;
+
+// Código da ORS para "não há via trafegável perto da coordenada".
+const ORS_UNROUTABLE_POINT = 2010;
+
+// A ORS devolve o motivo real dentro de um JSON aninhado — sem tratamento, o corpo cru da
+// resposta vazava para a tela do usuário.
+const orsErrorMessage = (body: string): string => {
+  try {
+    const parsed = JSON.parse(body) as { error?: { code?: number; message?: string } };
+    if (parsed.error?.code === ORS_UNROUTABLE_POINT) {
+      return 'Não foi possível traçar a rota: não há via mapeada nas proximidades de um dos pontos. Confira o endereço ou use um ponto de referência mais próximo de uma via.';
+    }
+    if (parsed.error?.message) {
+      return `Falha na comunicação com a OpenRouteService: ${parsed.error.message}`;
+    }
+  } catch {
+    // Corpo não-JSON: cai no retorno genérico abaixo.
+  }
+  return `Falha na comunicação com a OpenRouteService: ${body}`;
+};
+
 const normalize = (address: string) => address.trim().toLowerCase().replace(/\s+/g, ' ');
 
 const isGeoPoint = (origin: GeoOrigin): origin is GeoPoint => typeof origin === 'object';
@@ -92,15 +120,30 @@ export class DistanceService {
       if (response.status === 429) {
         throw new BadRequestException('Cota/limite de requisições da OpenRouteService excedido, tente novamente mais tarde');
       }
-      throw new BadRequestException(`Falha na comunicação com a OpenRouteService: ${body}`);
+      throw new BadRequestException(orsErrorMessage(body));
     }
 
     return response.json() as Promise<T>;
   }
 
-  private async geocode(address: string): Promise<GeoPoint> {
+  /**
+   * `focus` prioriza resultados próximos a esse ponto. Nomes de praias e localidades se repetem
+   * pelo país (ex.: "Praia da Baleia" existe no CE, em SP e na BA) e, sem esse viés, a ORS
+   * devolve a homônima mais bem ranqueada — que pode estar a milhares de km da origem.
+   */
+  private async geocode(address: string, focus?: GeoPoint): Promise<GeoPoint> {
+    const params = new URLSearchParams({
+      text: address,
+      size: '1',
+      'boundary.country': GEOCODE_COUNTRY,
+    });
+    if (focus) {
+      params.set('focus.point.lat', String(focus.lat));
+      params.set('focus.point.lon', String(focus.lon));
+    }
+
     const result = await this.orsFetch<{ features: { geometry: { coordinates: [number, number] } }[] }>(
-      `/geocode/search?text=${encodeURIComponent(address)}&size=1`,
+      `/geocode/search?${params.toString()}`,
     );
     if (!result.features || result.features.length === 0) {
       throw new NotFoundException(`Endereço não encontrado: ${address}`);
@@ -117,7 +160,7 @@ export class DistanceService {
     origin: { lat: number; lon: number },
     destination: { lat: number; lon: number },
   ): Promise<{ distanceKm: number; durationMin: number }> {
-    const result = await this.orsFetch<{ routes: { summary: { distance: number; duration: number } }[] }>(
+    const result = await this.orsFetch<{ routes?: { summary: { distance: number; duration: number } }[] }>(
       '/v2/directions/driving-car',
       {
         method: 'POST',
@@ -126,10 +169,15 @@ export class DistanceService {
             [origin.lon, origin.lat],
             [destination.lon, destination.lat],
           ],
+          radiuses: [SNAP_RADIUS_METERS, SNAP_RADIUS_METERS],
         }),
       },
     );
-    const summary = result.routes[0].summary;
+    // Resposta 200 sem rota é possível; sem essa checagem estourava um TypeError cru (500).
+    const summary = result.routes?.[0]?.summary;
+    if (!summary) {
+      throw new NotFoundException('A OpenRouteService não encontrou rota entre a origem e o destino informados');
+    }
     return { distanceKm: summary.distance / 1000, durationMin: summary.duration / 60 };
   }
 
@@ -156,7 +204,7 @@ export class DistanceService {
     }
 
     const originPoint = await this.resolvePoint(origin);
-    const destination = await this.geocode(destinationAddress);
+    const destination = await this.geocode(destinationAddress, originPoint);
     const { distanceKm, durationMin } = await this.directions(originPoint, destination);
     const travelCost = computeTravelCost(distanceKm, pricing);
 
