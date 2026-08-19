@@ -1,14 +1,243 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, CreditCard, Fingerprint, ShieldCheck, Trash2, Loader2, AlertCircle } from "lucide-react";
+import { Bell, Building2, CreditCard, Fingerprint, Loader2, ShieldCheck, Trash2, AlertCircle } from "lucide-react";
 import { startRegistration, platformAuthenticatorIsAvailable } from "@simplewebauthn/browser";
 
 import { api } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
-import { getApiErrorText } from "../lib/errors";
+import { getApiErrorMessages, getApiErrorText } from "../lib/errors";
 import { PushNotificationToggle } from "../components/PushNotificationToggle";
-import type { BillingPortalResponse } from "../types/api";
+import { CurrencyInput } from "../components/ui/CurrencyInput";
+import type { BillingPortalResponse, CompanySettings } from "../types/api";
 import type { PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/browser";
+
+type CompanySettingsFormState = {
+  companyName: string;
+  cnpj: string;
+  baseAddress: string;
+  originLat: string;
+  originLng: string;
+  phone: string;
+  email: string;
+  pricePerKm: number;
+  minimumTravelFee: number;
+  freeRadiusKm: number;
+  pdfFooterNote: string;
+};
+
+function emptyCompanySettingsForm(): CompanySettingsFormState {
+  return {
+    companyName: "",
+    cnpj: "",
+    baseAddress: "",
+    originLat: "",
+    originLng: "",
+    phone: "",
+    email: "",
+    pricePerKm: 1.5,
+    minimumTravelFee: 0,
+    freeRadiusKm: 0,
+    pdfFooterNote: "",
+  };
+}
+
+function CompanySettingsSection() {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<CompanySettingsFormState>(emptyCompanySettingsForm());
+  const [saved, setSaved] = useState(false);
+
+  const settingsQuery = useQuery<CompanySettings | null>({
+    queryKey: ["orcamentos-company-settings"],
+    queryFn: () => api.get<CompanySettings | null>("/api/orcamentos/company-settings").then((r) => r.data),
+  });
+
+  useEffect(() => {
+    const settings = settingsQuery.data;
+    if (!settings) return;
+    setForm({
+      companyName: settings.companyName,
+      cnpj: settings.cnpj ?? "",
+      baseAddress: settings.baseAddress,
+      originLat: settings.originLat != null ? String(settings.originLat) : "",
+      originLng: settings.originLng != null ? String(settings.originLng) : "",
+      phone: settings.phone ?? "",
+      email: settings.email ?? "",
+      pricePerKm: settings.pricePerKm,
+      minimumTravelFee: settings.minimumTravelFee,
+      freeRadiusKm: settings.freeRadiusKm,
+      pdfFooterNote: settings.pdfFooterNote ?? "",
+    });
+  }, [settingsQuery.data]);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        companyName: form.companyName.trim(),
+        cnpj: form.cnpj.trim() || undefined,
+        baseAddress: form.baseAddress.trim(),
+        originLat: form.originLat.trim() ? Number(form.originLat) : undefined,
+        originLng: form.originLng.trim() ? Number(form.originLng) : undefined,
+        phone: form.phone.trim() || undefined,
+        email: form.email.trim() || undefined,
+        pricePerKm: form.pricePerKm,
+        minimumTravelFee: form.minimumTravelFee,
+        freeRadiusKm: form.freeRadiusKm,
+        pdfFooterNote: form.pdfFooterNote.trim() || undefined,
+      };
+      const { data } = await api.put<CompanySettings>("/api/orcamentos/company-settings", payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orcamentos-company-settings"] });
+      setSaved(true);
+    },
+  });
+
+  return (
+    <div className="rounded-2xl bg-bg-card p-6 space-y-4">
+      <div className="flex items-center gap-3">
+        <Building2 className="h-5 w-5 text-accent-gold shrink-0" />
+        <div>
+          <h2 className="font-semibold text-text-primary">Dados da empresa (Orçamentos)</h2>
+          <p className="text-xs text-text-secondary">
+            Endereço de partida e preço por km usados no cálculo de deslocamento dos orçamentos.
+          </p>
+        </div>
+      </div>
+
+      {settingsQuery.isLoading ? (
+        <div className="flex items-center gap-2 text-sm text-text-secondary">
+          <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
+        </div>
+      ) : (
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setSaved(false);
+            mutation.mutate();
+          }}
+        >
+          <label className="block">
+            <span className="mb-1 block text-sm text-text-secondary">Nome da empresa</span>
+            <input
+              type="text"
+              maxLength={150}
+              required
+              value={form.companyName}
+              onChange={(e) => setForm((f) => ({ ...f, companyName: e.target.value }))}
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-sm text-text-secondary">Endereço de partida</span>
+            <input
+              type="text"
+              maxLength={300}
+              required
+              placeholder="Endereço usado quando não houver coordenadas abaixo"
+              value={form.baseAddress}
+              onChange={(e) => setForm((f) => ({ ...f, baseAddress: e.target.value }))}
+              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+            />
+          </label>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="mb-1 block text-sm text-text-secondary">Latitude (opcional)</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="Ex.: -3.316806"
+                value={form.originLat}
+                onChange={(e) => setForm((f) => ({ ...f, originLat: e.target.value }))}
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm text-text-secondary">Longitude (opcional)</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="Ex.: -40.093"
+                value={form.originLng}
+                onChange={(e) => setForm((f) => ({ ...f, originLng: e.target.value }))}
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+              />
+            </label>
+          </div>
+          <p className="-mt-2 text-xs text-text-secondary">
+            Preencha se o ponto de partida não tem endereço formal (ex.: zona rural) — quando informadas, as
+            coordenadas são usadas no lugar do endereço acima.
+          </p>
+
+          <div className="grid grid-cols-3 gap-3">
+            <label className="block">
+              <span className="mb-1 block text-sm text-text-secondary">R$ / km (ida e volta)</span>
+              <CurrencyInput
+                value={form.pricePerKm}
+                onChange={(v) => setForm((f) => ({ ...f, pricePerKm: v }))}
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm text-text-secondary">Taxa mínima</span>
+              <CurrencyInput
+                value={form.minimumTravelFee}
+                onChange={(v) => setForm((f) => ({ ...f, minimumTravelFee: v }))}
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm text-text-secondary">Raio grátis (km)</span>
+              <input
+                type="number"
+                min={0}
+                step="0.1"
+                value={form.freeRadiusKm}
+                onChange={(e) => setForm((f) => ({ ...f, freeRadiusKm: Number(e.target.value) || 0 }))}
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+              />
+            </label>
+          </div>
+
+          <label className="block">
+            <span className="mb-1 block text-sm text-text-secondary">Observação no rodapé do PDF (opcional)</span>
+            <textarea
+              maxLength={1000}
+              rows={2}
+              value={form.pdfFooterNote}
+              onChange={(e) => setForm((f) => ({ ...f, pdfFooterNote: e.target.value }))}
+              className="w-full resize-none rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+            />
+          </label>
+
+          {mutation.isError && (
+            <div className="rounded-xl bg-accent-red/10 p-3 text-sm text-accent-red">
+              {getApiErrorMessages(mutation.error, "Não foi possível salvar os dados da empresa.").map((m) => (
+                <p key={m}>{m}</p>
+              ))}
+            </div>
+          )}
+
+          {saved && !mutation.isPending && (
+            <p className="text-xs text-accent-gold">Dados da empresa salvos com sucesso.</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={mutation.isPending}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent-gold px-4 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            Salvar dados da empresa
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
 
 const SUBSCRIPTION_STATUS_LABEL: Record<string, string> = {
   trial: "Período de teste",
@@ -178,6 +407,9 @@ export function SettingsPage() {
           {portalError && <p className="text-xs text-accent-red">{portalError}</p>}
         </div>
       )}
+
+      {/* Seção dados da empresa (Orçamentos) */}
+      <CompanySettingsSection />
 
       {/* Seção notificações push */}
       <div className="rounded-2xl bg-bg-card p-6 space-y-4">

@@ -23,6 +23,7 @@ export default {
           blueHover: "#2F5B94",
           orange: "#F97316",
           red: "#EF4444",
+          green: "#22C55E",
           yellow: "#F9D33E",
           yellowHover: "#E8B81A",
         },

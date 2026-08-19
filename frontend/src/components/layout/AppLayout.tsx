@@ -9,6 +9,7 @@ import {
   CircleDollarSign,
   Clock,
   FileBarChart,
+  FileText,
   Home,
   Landmark,
   LayoutDashboard,
@@ -73,7 +74,7 @@ function isLeafActive(item: NavLeaf, currentPath: string, currentUrl: string) {
   if (item.match) {
     return currentUrl === item.match;
   }
-  return currentPath === item.to || (item.to === "/carteiras" && currentPath.startsWith("/carteiras"));
+  return currentPath === item.to || currentPath.startsWith(`${item.to}/`);
 }
 
 function activeGroupLabels(entries: NavEntry[], currentPath: string, currentUrl: string) {
@@ -85,6 +86,7 @@ function activeGroupLabels(entries: NavEntry[], currentPath: string, currentUrl:
 
 const navigation: NavEntry[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/orcamentos", label: "Orçamentos", icon: FileText },
   {
     label: "Serviços",
     icon: Wrench,
@@ -126,6 +128,8 @@ const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/agenda": "Agenda",
   "/servicos": "Serviços",
+  "/orcamentos": "Orçamentos",
+  "/orcamentos/novo": "Novo Orçamento",
   "/contas-a-receber": "Contas a Receber",
   "/relatorios": "Relatórios",
   "/insights": "Insights",

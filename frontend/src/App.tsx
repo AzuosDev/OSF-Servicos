@@ -28,6 +28,10 @@ const AgendaPage = lazy(() => import("./pages/AgendaPage").then((m) => ({ defaul
 const ServicosPage = lazy(() => import("./pages/ServicosPage").then((m) => ({ default: m.ServicosPage })));
 const ContasReceberPage = lazy(() => import("./pages/ContasReceberPage").then((m) => ({ default: m.ContasReceberPage })));
 const RelatoriosPage = lazy(() => import("./pages/RelatoriosPage").then((m) => ({ default: m.RelatoriosPage })));
+const OrcamentosPage = lazy(() => import("./pages/OrcamentosPage").then((m) => ({ default: m.OrcamentosPage })));
+const OrcamentoWizardPage = lazy(() =>
+  import("./pages/OrcamentoWizardPage").then((m) => ({ default: m.OrcamentoWizardPage })),
+);
 const CheckoutPage = lazy(() => import("./pages/CheckoutPage").then((m) => ({ default: m.CheckoutPage })));
 
 function PageLoader() {
@@ -145,6 +149,8 @@ export default function App() {
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/agenda" element={<AgendaPage />} />
                   <Route path="/servicos" element={<ServicosPage />} />
+                  <Route path="/orcamentos" element={<OrcamentosPage />} />
+                  <Route path="/orcamentos/novo" element={<OrcamentoWizardPage />} />
                   <Route path="/contas-a-receber" element={<ContasReceberPage />} />
                   <Route path="/relatorios" element={<RelatoriosPage />} />
                   <Route path="/insights" element={<InsightsPage />} />
