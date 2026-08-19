@@ -549,6 +549,9 @@ export type DistanceCalculationResult = {
   travelCost: number;
   distanceCalculationId: ApiId;
   cached: boolean;
+  // Ponto que a OpenRouteService escolheu para o endereço de destino. Ausente em cálculos
+  // gravados antes do campo existir.
+  resolvedDestination?: { label: string; lat: number; lon: number };
 };
 
 export type BudgetConversionStats = {

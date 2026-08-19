@@ -26,6 +26,17 @@ export class DistanceCalculation {
   @Prop({ required: true, min: 0 })
   travelCost!: number;
 
+  // Ponto que a ORS escolheu para o endereço de destino, exibido na revisão do orçamento para
+  // conferência. Opcional: registros gravados antes destes campos existirem não os têm.
+  @Prop({ trim: true })
+  resolvedDestinationLabel?: string;
+
+  @Prop()
+  resolvedDestinationLat?: number;
+
+  @Prop()
+  resolvedDestinationLon?: number;
+
   createdAt!: Date;
 }
 

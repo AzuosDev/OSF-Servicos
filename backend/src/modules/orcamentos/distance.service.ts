@@ -12,6 +12,10 @@ export type TravelPricing = {
 
 export type GeoPoint = { lat: number; lon: number };
 
+// Ponto que a ORS efetivamente escolheu para um endereço, com o rótulo completo que ela casou
+// — devolvido ao app para que o usuário confira se é mesmo o lugar pretendido.
+export type GeocodedPlace = GeoPoint & { label: string };
+
 // Origem pode ser um endereço textual (geocodificado pela ORS) ou coordenadas diretas —
 // útil para pontos de partida sem endereço formal (ex.: zona rural).
 export type GeoOrigin = string | GeoPoint;
@@ -22,6 +26,8 @@ export type DistanceResult = {
   travelCost: number;
   distanceCalculationId: Types.ObjectId;
   cached: boolean;
+  // Opcional: cálculos gravados antes deste campo existir não têm o destino resolvido.
+  resolvedDestination?: GeocodedPlace;
 };
 
 // Restringe a geocodificação ao Brasil: sem isso, nomes genéricos podem casar com
@@ -50,6 +56,17 @@ const orsErrorMessage = (body: string): string => {
     // Corpo não-JSON: cai no retorno genérico abaixo.
   }
   return `Falha na comunicação com a OpenRouteService: ${body}`;
+};
+
+// Remonta o destino resolvido a partir do documento em cache. Registros gravados antes destes
+// campos existirem simplesmente não têm o ponto — o app trata a ausência.
+const resolvedDestinationOf = (doc: {
+  resolvedDestinationLabel?: string;
+  resolvedDestinationLat?: number;
+  resolvedDestinationLon?: number;
+}): GeocodedPlace | undefined => {
+  const { resolvedDestinationLabel: label, resolvedDestinationLat: lat, resolvedDestinationLon: lon } = doc;
+  return label && lat != null && lon != null ? { label, lat, lon } : undefined;
 };
 
 const normalize = (address: string) => address.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -131,7 +148,7 @@ export class DistanceService {
    * pelo país (ex.: "Praia da Baleia" existe no CE, em SP e na BA) e, sem esse viés, a ORS
    * devolve a homônima mais bem ranqueada — que pode estar a milhares de km da origem.
    */
-  private async geocode(address: string, focus?: GeoPoint): Promise<GeoPoint> {
+  private async geocode(address: string, focus?: GeoPoint): Promise<GeocodedPlace> {
     const params = new URLSearchParams({
       text: address,
       size: '1',
@@ -142,14 +159,17 @@ export class DistanceService {
       params.set('focus.point.lon', String(focus.lon));
     }
 
-    const result = await this.orsFetch<{ features: { geometry: { coordinates: [number, number] } }[] }>(
-      `/geocode/search?${params.toString()}`,
-    );
+    const result = await this.orsFetch<{
+      features: { geometry: { coordinates: [number, number] }; properties?: { label?: string } }[];
+    }>(`/geocode/search?${params.toString()}`);
     if (!result.features || result.features.length === 0) {
       throw new NotFoundException(`Endereço não encontrado: ${address}`);
     }
-    const [lon, lat] = result.features[0].geometry.coordinates;
-    return { lat, lon };
+    const feature = result.features[0];
+    const [lon, lat] = feature.geometry.coordinates;
+    // `label` é o endereço completo que a ORS casou (ex.: "Praia da Baleia, Itapipoca, CE, Brasil");
+    // sem ele, cai no texto pesquisado.
+    return { label: feature.properties?.label?.trim() || address, lat, lon };
   }
 
   private async resolvePoint(origin: GeoOrigin): Promise<GeoPoint> {
@@ -200,6 +220,7 @@ export class DistanceService {
         travelCost,
         distanceCalculationId: cached._id as Types.ObjectId,
         cached: true,
+        resolvedDestination: resolvedDestinationOf(cached),
       };
     }
 
@@ -216,6 +237,9 @@ export class DistanceService {
       distanceKm,
       durationMin,
       travelCost,
+      resolvedDestinationLabel: destination.label,
+      resolvedDestinationLat: destination.lat,
+      resolvedDestinationLon: destination.lon,
     });
 
     return {
@@ -224,6 +248,7 @@ export class DistanceService {
       travelCost,
       distanceCalculationId: record._id as Types.ObjectId,
       cached: false,
+      resolvedDestination: destination,
     };
   }
 }

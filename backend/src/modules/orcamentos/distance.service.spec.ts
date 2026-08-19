@@ -6,8 +6,8 @@ import { Types } from 'mongoose';
 import { DistanceService } from './distance.service';
 import { DistanceCalculation } from './schemas/distance-calculation.schema';
 
-const geocodeResponse = (lon: number, lat: number) => ({
-  features: [{ geometry: { coordinates: [lon, lat] } }],
+const geocodeResponse = (lon: number, lat: number, label?: string) => ({
+  features: [{ geometry: { coordinates: [lon, lat] }, ...(label && { properties: { label } }) }],
 });
 
 const directionsResponse = (distanceMeters: number, durationSeconds: number) => ({
@@ -220,6 +220,102 @@ describe('DistanceService', () => {
         freeRadiusKm: 5,
       }),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('returns and persists the destination point the geocoder chose', async () => {
+    await buildModule('fake-key');
+    modelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+    modelMock.create.mockResolvedValue({ _id: new Types.ObjectId() });
+
+    fetchSpy = jest.spyOn(global, 'fetch');
+    fetchSpy
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(geocodeResponse(-39.5, -3.4, 'Praia da Baleia, Itapipoca, CE, Brasil')), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify(directionsResponse(90000, 5400)), { status: 200 }));
+
+    const result = await service.calculate(
+      testUserId,
+      { lat: -3.31673, lon: -40.092974 },
+      'Praia da Baleia',
+      { pricePerKm: 2, minimumTravelFee: 20, freeRadiusKm: 5 },
+    );
+
+    expect(result.resolvedDestination).toEqual({
+      label: 'Praia da Baleia, Itapipoca, CE, Brasil',
+      lat: -3.4,
+      lon: -39.5,
+    });
+    expect(modelMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resolvedDestinationLabel: 'Praia da Baleia, Itapipoca, CE, Brasil',
+        resolvedDestinationLat: -3.4,
+        resolvedDestinationLon: -39.5,
+      }),
+    );
+  });
+
+  it('falls back to the searched text when the geocoder returns no label', async () => {
+    await buildModule('fake-key');
+    modelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+    modelMock.create.mockResolvedValue({ _id: new Types.ObjectId() });
+
+    fetchSpy = jest.spyOn(global, 'fetch');
+    fetchSpy
+      .mockResolvedValueOnce(new Response(JSON.stringify(geocodeResponse(-39.5, -3.4)), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(directionsResponse(90000, 5400)), { status: 200 }));
+
+    const result = await service.calculate(testUserId, { lat: -3.31673, lon: -40.092974 }, 'Praia da Baleia', {
+      pricePerKm: 2,
+      minimumTravelFee: 20,
+      freeRadiusKm: 5,
+    });
+
+    expect(result.resolvedDestination?.label).toBe('Praia da Baleia');
+  });
+
+  it('returns the stored destination point on a cache hit', async () => {
+    await buildModule('fake-key');
+    modelMock.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({
+        _id: new Types.ObjectId(),
+        distanceKm: 90,
+        durationMin: 90,
+        resolvedDestinationLabel: 'Praia da Baleia, Itapipoca, CE, Brasil',
+        resolvedDestinationLat: -3.4,
+        resolvedDestinationLon: -39.5,
+      }),
+    });
+
+    const result = await service.calculate(testUserId, 'Origem', 'Praia da Baleia', {
+      pricePerKm: 2,
+      minimumTravelFee: 20,
+      freeRadiusKm: 5,
+    });
+
+    expect(result.cached).toBe(true);
+    expect(result.resolvedDestination).toEqual({
+      label: 'Praia da Baleia, Itapipoca, CE, Brasil',
+      lat: -3.4,
+      lon: -39.5,
+    });
+  });
+
+  it('omits the destination point for cache entries stored before the field existed', async () => {
+    await buildModule('fake-key');
+    modelMock.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ _id: new Types.ObjectId(), distanceKm: 90, durationMin: 90 }),
+    });
+
+    const result = await service.calculate(testUserId, 'Origem', 'Destino', {
+      pricePerKm: 2,
+      minimumTravelFee: 20,
+      freeRadiusKm: 5,
+    });
+
+    expect(result.resolvedDestination).toBeUndefined();
   });
 
   it('throws NotFoundException when the address cannot be geocoded', async () => {
