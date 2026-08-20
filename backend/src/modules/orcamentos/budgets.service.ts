@@ -9,8 +9,10 @@ import { DistanceService } from './distance.service';
 import { ServicesService } from '../services/services.service';
 import { calculatePanelCleaningSubtotal, isPanelCleaningService } from './pricing/panel-cleaning-pricing';
 import { CreateBudgetDto } from './dto/create-budget.dto';
+import { CreateBudgetItemDto } from './dto/create-budget-item.dto';
 import { GetBudgetsDto } from './dto/get-budgets.dto';
 import { UpdateBudgetStatusDto } from './dto/update-budget-status.dto';
+import { UpdateBudgetDto } from './dto/update-budget.dto';
 
 const VALID_TRANSITIONS: Record<BudgetStatus, BudgetStatus[]> = {
   [BudgetStatus.RASCUNHO]: [BudgetStatus.ENVIADO, BudgetStatus.CANCELADO],
@@ -20,6 +22,10 @@ const VALID_TRANSITIONS: Record<BudgetStatus, BudgetStatus[]> = {
   [BudgetStatus.EXPIRADO]: [],
   [BudgetStatus.CANCELADO]: [],
 };
+
+// Depois de aprovado/rejeitado/expirado/cancelado o orçamento vira registro histórico —
+// alterar valores nesses estados reescreveria o que já foi combinado com o cliente.
+const EDITABLE_STATUSES: BudgetStatus[] = [BudgetStatus.RASCUNHO, BudgetStatus.ENVIADO];
 
 const DEFAULT_VALID_DAYS = 7;
 
@@ -34,12 +40,14 @@ export class BudgetsService {
     private servicesService: ServicesService,
   ) {}
 
-  async create(userId: string, dto: CreateBudgetDto): Promise<BudgetDocument> {
-    const client = await this.clientsService.findOne(userId, dto.clientId);
-    const companySettings = await this.companySettingsService.get(userId);
-
-    const items = await Promise.all(
-      dto.items.map(async (itemDto) => {
+  /**
+   * Resolve os itens contra o catálogo de serviços — nome e preço saem sempre do serviço
+   * cadastrado, nunca do que o cliente do app mandou. Compartilhado por `create` e `update`
+   * para que uma edição precifique exatamente como a criação.
+   */
+  private async buildItems(userId: string, itemDtos: CreateBudgetItemDto[]) {
+    return Promise.all(
+      itemDtos.map(async (itemDto) => {
         const service = await this.servicesService.findOne(userId, itemDto.serviceId);
 
         if (itemDto.unitPriceOverride == null && isPanelCleaningService(service.name)) {
@@ -63,6 +71,13 @@ export class BudgetsService {
         };
       }),
     );
+  }
+
+  async create(userId: string, dto: CreateBudgetDto): Promise<BudgetDocument> {
+    const client = await this.clientsService.findOne(userId, dto.clientId);
+    const companySettings = await this.companySettingsService.get(userId);
+
+    const items = await this.buildItems(userId, dto.items);
 
     const itemsTotal = items.reduce((sum, item) => sum + item.subtotal, 0);
 
@@ -142,6 +157,36 @@ export class BudgetsService {
     if (!budget) {
       throw new NotFoundException('Orçamento não encontrado');
     }
+    return budget;
+  }
+
+  async update(userId: string, id: string, dto: UpdateBudgetDto): Promise<BudgetDocument> {
+    const budget = await this.findOne(userId, id);
+
+    if (!EDITABLE_STATUSES.includes(budget.status)) {
+      throw new BadRequestException(
+        `Não é possível editar um orçamento ${budget.status}. Só é possível editar orçamentos em ${EDITABLE_STATUSES.join(' ou ')}.`,
+      );
+    }
+
+    if (dto.items) {
+      budget.items = await this.buildItems(userId, dto.items);
+      budget.itemsTotal = budget.items.reduce((sum, item) => sum + item.subtotal, 0);
+    }
+    if (dto.discount !== undefined) {
+      budget.discount = dto.discount;
+    }
+    if (dto.notes !== undefined) {
+      budget.notes = dto.notes;
+    }
+    if (dto.validUntil !== undefined) {
+      budget.validUntil = new Date(dto.validUntil);
+    }
+
+    // O deslocamento não é editável aqui, mas continua entrando no total.
+    budget.total = Math.max(0, budget.itemsTotal + budget.travelCost - budget.discount);
+
+    await budget.save();
     return budget;
   }
 

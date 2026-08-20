@@ -20,7 +20,14 @@ describe('buildBudgetHtml', () => {
     notes: 'Cliente pediu orçamento com <b>urgência</b>',
   };
   const client: any = { name: '<script>alert(1)</script>', address: 'Rua Teste, 123', phone: '11999999999' };
-  const company: any = { companyName: 'OSF Serviços', baseAddress: 'Rua Empresa, 1', pdfFooterNote: 'Contato: contato@osf.com' };
+  const company: any = {
+    companyName: 'OSF Serviços',
+    baseAddress: 'Rua Empresa, 1',
+    phone: '88 9688-6607',
+    email: 'osfenergia.solucoes@gmail.com',
+    instagram: '@osf_servicos',
+    pdfFooterNote: 'Contato: contato@osf.com',
+  };
 
   it('escapes an unsafe client name instead of injecting it raw', () => {
     const html = buildBudgetHtml(budget, client, company);
@@ -28,11 +35,37 @@ describe('buildBudgetHtml', () => {
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
   });
 
-  it('includes the sequence number, items, and totals', () => {
+  it('includes the items and totals', () => {
     const html = buildBudgetHtml(budget, client, company);
-    expect(html).toContain('#0007');
     expect(html).toContain('Instalação de painel solar');
     expect(html).toContain('R$');
+  });
+
+  it('does not print the budget sequence number in the header', () => {
+    const html = buildBudgetHtml(budget, client, company);
+    expect(html).not.toContain('#0007');
+    expect(html).not.toContain('Orçamento #');
+  });
+
+  it('prints the company contact details in the header', () => {
+    const html = buildBudgetHtml(budget, client, company);
+    expect(html).toContain('Telefone: 88 9688-6607');
+    expect(html).toContain('E-mail: osfenergia.solucoes@gmail.com');
+    expect(html).toContain('Instagram: @osf_servicos');
+  });
+
+  it('omits each contact line that is not filled in', () => {
+    const companyNoContacts: any = { ...company, phone: '', email: '', instagram: '' };
+    const html = buildBudgetHtml(budget, client, companyNoContacts);
+    expect(html).not.toContain('Telefone:');
+    expect(html).not.toContain('E-mail:');
+    expect(html).not.toContain('Instagram:');
+  });
+
+  it('keeps the creation and validity dates in the header', () => {
+    const html = buildBudgetHtml(budget, client, company);
+    expect(html).toContain('Data:');
+    expect(html).toContain('Válido até:');
   });
 
   it('escapes notes even though they may contain unsafe html', () => {

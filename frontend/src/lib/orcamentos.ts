@@ -59,3 +59,43 @@ export function calculateBudgetItemSubtotal(
   }
   return (unitPriceOverride ?? defaultValue) * quantity;
 }
+
+/**
+ * Nome do arquivo PDF de um orçamento: `<cliente-em-slug>_<DD-MM-AA>` (ex.: `azuos-dev_18-08-26`).
+ *
+ * A data sai em UTC de propósito: o cabeçalho do PDF é renderizado no fuso do servidor
+ * (UTC na Vercel), então usar a mesma base evita que o nome do arquivo e a data impressa
+ * no documento discordem em um dia.
+ *
+ * Espelha `backend/src/modules/orcamentos/pdf/budget-pdf-filename.ts`, que nomeia o mesmo
+ * arquivo no header Content-Disposition — alterar uma exige alterar a outra.
+ */
+export function budgetPdfFileName(clientName: string, createdAt?: string): string {
+  const slug = clientName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  const date = createdAt ? new Date(createdAt) : new Date();
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const year = String(date.getUTCFullYear()).slice(-2);
+
+  return `${slug || "cliente"}_${day}-${month}-${year}`;
+}
+
+/** Preço unitário equivalente da limpeza de placas para uma quantidade, dado o preço por faixa. */
+export function panelTierUnitPrice(quantity: number): number {
+  return calculatePanelCleaningSubtotal(quantity) / quantity;
+}
+
+/**
+ * Diz se o preço unitário gravado num item ainda corresponde à tabela por faixa. Um item criado
+ * com preço manual não bate com a faixa — é assim que os dois casos são distinguidos na edição,
+ * já que o orçamento guarda só o preço final, sem marcar se houve override.
+ */
+export function followsPanelTier(name: string, quantity: number, unitPrice: number): boolean {
+  return isPanelCleaningService(name) && Math.abs(unitPrice - panelTierUnitPrice(quantity)) < 0.01;
+}

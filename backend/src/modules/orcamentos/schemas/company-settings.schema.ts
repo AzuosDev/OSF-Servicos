@@ -32,6 +32,9 @@ export class CompanySettings {
   @Prop({ trim: true, maxlength: 150 })
   email?: string;
 
+  @Prop({ trim: true, maxlength: 100 })
+  instagram?: string;
+
   @Prop({ trim: true, maxlength: 300 })
   logoUrl?: string;
 

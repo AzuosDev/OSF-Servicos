@@ -157,6 +157,76 @@ describe('BudgetsService', () => {
     });
   });
 
+  describe('update', () => {
+    const budgetId = new Types.ObjectId().toString();
+
+    const makeEditable = (status: BudgetStatus) => ({
+      status,
+      items: [{ serviceId: new Types.ObjectId(), name: 'Antigo', unitPrice: 100, quantity: 1, subtotal: 100 }],
+      itemsTotal: 100,
+      travelCost: 50,
+      discount: 0,
+      total: 150,
+      save: jest.fn().mockResolvedValue(undefined),
+    });
+
+    it('reprices the items against the catalog and keeps the travel cost in the total', async () => {
+      const budget = makeEditable(BudgetStatus.RASCUNHO);
+      budgetModelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(budget) });
+
+      const result = await service.update(userId, budgetId, {
+        items: [{ serviceId: 'svc1', quantity: 2 }],
+      } as any);
+
+      expect(result.items[0].unitPrice).toBe(500); // preço vem do catálogo, não do corpo
+      expect(result.itemsTotal).toBe(1000);
+      expect(result.total).toBe(1050); // 1000 de itens + 50 de deslocamento preservado
+      expect(budget.save).toHaveBeenCalled();
+    });
+
+    it('recomputes the total when only the discount changes', async () => {
+      const budget = makeEditable(BudgetStatus.ENVIADO);
+      budgetModelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(budget) });
+
+      const result = await service.update(userId, budgetId, { discount: 30 } as any);
+
+      expect(result.itemsTotal).toBe(100); // itens intocados
+      expect(result.total).toBe(120); // 100 + 50 - 30
+    });
+
+    it('never lets the total go negative when the discount exceeds the value', async () => {
+      const budget = makeEditable(BudgetStatus.RASCUNHO);
+      budgetModelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(budget) });
+
+      const result = await service.update(userId, budgetId, { discount: 9999 } as any);
+
+      expect(result.total).toBe(0);
+    });
+
+    it('leaves untouched every field absent from the body', async () => {
+      const budget = makeEditable(BudgetStatus.RASCUNHO);
+      budget.discount = 25;
+      budgetModelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(budget) });
+
+      const result = await service.update(userId, budgetId, { notes: 'Nova observação' } as any);
+
+      expect((result as any).notes).toBe('Nova observação');
+      expect(result.discount).toBe(25);
+      expect(result.items[0].name).toBe('Antigo');
+    });
+
+    it.each([BudgetStatus.APROVADO, BudgetStatus.REJEITADO, BudgetStatus.EXPIRADO, BudgetStatus.CANCELADO])(
+      'refuses to edit a %s budget',
+      async (status) => {
+        const budget = makeEditable(status);
+        budgetModelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(budget) });
+
+        await expect(service.update(userId, budgetId, { discount: 10 } as any)).rejects.toThrow(BadRequestException);
+        expect(budget.save).not.toHaveBeenCalled();
+      },
+    );
+  });
+
   describe('getConversionStats', () => {
     it('computes conversionRate from aggregated counts', async () => {
       (service as any).budgetModel = {

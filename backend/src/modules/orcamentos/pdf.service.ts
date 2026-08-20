@@ -7,6 +7,13 @@ import { Budget, BudgetDocument } from './schemas/budget.schema';
 import { CompanySettingsService } from './company-settings.service';
 import { ClientsService } from './clients.service';
 import { buildBudgetHtml } from './pdf/pdf-template';
+import { budgetPdfFileName } from './pdf/budget-pdf-filename';
+
+export type GeneratedBudgetPdf = {
+  buffer: Buffer;
+  /** Nome do arquivo, sem extensão — o cliente é quem decide entre exibir e baixar. */
+  fileName: string;
+};
 
 @Injectable()
 export class PdfService {
@@ -38,7 +45,7 @@ export class PdfService {
     return puppeteer.launch({ executablePath, headless: true });
   }
 
-  async generateBudgetPdf(userId: string, budgetId: string): Promise<Buffer> {
+  async generateBudgetPdf(userId: string, budgetId: string): Promise<GeneratedBudgetPdf> {
     const budget = await this.budgetModel
       .findOne({ _id: new Types.ObjectId(budgetId), userId: new Types.ObjectId(userId) })
       .exec();
@@ -57,7 +64,10 @@ export class PdfService {
       const page = await browser.newPage();
       await page.setContent(html, { waitUntil: 'load' });
       const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
-      return Buffer.from(pdfBuffer);
+      return {
+        buffer: Buffer.from(pdfBuffer),
+        fileName: budgetPdfFileName(client.name, budget.createdAt),
+      };
     } finally {
       await browser?.close();
     }

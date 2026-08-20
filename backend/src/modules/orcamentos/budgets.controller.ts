@@ -9,6 +9,7 @@ import { ICurrentUser } from '../../common/types/current-user.type';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { GetBudgetsDto } from './dto/get-budgets.dto';
 import { UpdateBudgetStatusDto } from './dto/update-budget-status.dto';
+import { UpdateBudgetDto } from './dto/update-budget.dto';
 
 @ApiTags('Orçamentos')
 @ApiBearerAuth()
@@ -53,13 +54,21 @@ export class BudgetsController {
     return this.budgetsService.updateStatus(user._id.toString(), id, dto);
   }
 
+  // Declarado depois de ':id/status' para que a rota mais específica seja resolvida primeiro.
+  @Patch(':id')
+  async update(
+    @CurrentUser() user: ICurrentUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateBudgetDto,
+  ) {
+    return this.budgetsService.update(user._id.toString(), id, dto);
+  }
+
   @Get(':id/pdf')
   async pdf(@CurrentUser() user: ICurrentUser, @Param('id') id: string, @Res() res: Response) {
-    const budget = await this.budgetsService.findOne(user._id.toString(), id);
-    const buffer = await this.pdfService.generateBudgetPdf(user._id.toString(), id);
-    const sequenceLabel = String(budget.sequenceNumber).padStart(4, '0');
+    const { buffer, fileName } = await this.pdfService.generateBudgetPdf(user._id.toString(), id);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="orcamento-${sequenceLabel}.pdf"`);
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}.pdf"`);
     res.send(buffer);
   }
 }

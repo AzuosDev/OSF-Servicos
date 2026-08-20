@@ -1,16 +1,29 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, FileText, Loader2, Plus, TrendingUp, Wallet } from "lucide-react";
+import { Download, FileText, Loader2, Pencil, Plus, TrendingUp, Wallet } from "lucide-react";
 
 import { api } from "../lib/api";
 import { formatCurrency } from "../lib/finance";
 import { getApiErrorMessages } from "../lib/errors";
 import { useToast } from "../components/ui/Toast";
 import { BudgetStatusReasonModal } from "../components/modals/BudgetStatusReasonModal";
-import { BUDGET_STATUS_BADGE_CLASS, BUDGET_STATUS_LABEL, BUDGET_STATUS_TRANSITIONS } from "../lib/orcamentos";
+import { BudgetEditModal, type BudgetEditPayload } from "../components/modals/BudgetEditModal";
+import {
+  budgetPdfFileName,
+  BUDGET_STATUS_BADGE_CLASS,
+  BUDGET_STATUS_LABEL,
+  BUDGET_STATUS_TRANSITIONS,
+} from "../lib/orcamentos";
 import { cn } from "../lib/utils";
-import type { Budget, BudgetConversionStats, BudgetsListResponse, BudgetStatus, Client } from "../types/api";
+import type {
+  Budget,
+  BudgetConversionStats,
+  BudgetsListResponse,
+  BudgetStatus,
+  Client,
+  Service,
+} from "../types/api";
 
 const STATUS_FILTERS: (BudgetStatus | "TODOS")[] = [
   "TODOS",
@@ -21,6 +34,10 @@ const STATUS_FILTERS: (BudgetStatus | "TODOS")[] = [
   "EXPIRADO",
   "CANCELADO",
 ];
+
+// Espelha EDITABLE_STATUSES do backend (budgets.service.ts): nos estados finais o
+// orçamento vira registro histórico e a API recusa a edição.
+const BUDGET_EDITABLE_STATUSES: BudgetStatus[] = ["RASCUNHO", "ENVIADO"];
 
 function formatDateBR(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -33,6 +50,8 @@ export function OrcamentosPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [reasonModal, setReasonModal] = useState<{ budget: Budget; status: BudgetStatus } | null>(null);
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const statsQuery = useQuery<BudgetConversionStats>({
     queryKey: ["orcamentos-conversion-stats"],
@@ -53,6 +72,20 @@ export function OrcamentosPage() {
     queryKey: ["orcamentos-clients"],
     queryFn: () => api.get<Client[]>("/api/orcamentos/clients").then((r) => r.data),
   });
+
+  // Só é usado para adicionar um serviço dentro do modal de edição — carregar sob demanda
+  // evita uma requisição a mais em toda visita à listagem.
+  const servicesQuery = useQuery<Service[]>({
+    queryKey: ["orcamentos-services", "active"],
+    queryFn: () => api.get<Service[]>("/api/services?activeOnly=true").then((r) => r.data),
+    enabled: editingBudget !== null,
+  });
+
+  const clientNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    (clientsQuery.data ?? []).forEach((c) => map.set(c._id, c.name));
+    return map;
+  }, [clientsQuery.data]);
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status: newStatus, reason }: { id: string; status: BudgetStatus; reason?: string }) => {
@@ -78,7 +111,7 @@ export function OrcamentosPage() {
       const url = URL.createObjectURL(response.data as Blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `orcamento-${String(budget.sequenceNumber).padStart(4, "0")}.pdf`;
+      link.download = `${budgetPdfFileName(clientNameById.get(budget.clientId) ?? "", budget.createdAt)}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -90,6 +123,28 @@ export function OrcamentosPage() {
       addToast(getApiErrorMessages(error, "Não foi possível baixar o PDF do orçamento.")[0], "error");
     },
     onSettled: () => setDownloadingId(null),
+  });
+
+  const updateBudgetMutation = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: BudgetEditPayload; thenDownload: boolean }) => {
+      const { data } = await api.patch<Budget>(`/api/orcamentos/budgets/${id}`, payload);
+      return data;
+    },
+    onMutate: () => setEditError(null),
+    onSuccess: (updated, { thenDownload }) => {
+      queryClient.invalidateQueries({ queryKey: ["orcamentos-budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["orcamentos-conversion-stats"] });
+      setEditingBudget(null);
+      addToast("Orçamento atualizado.", "success");
+      // O PDF é gerado sob demanda a partir do banco, então o download já sai com a
+      // versão recém-salva.
+      if (thenDownload) {
+        downloadPdfMutation.mutate(updated);
+      }
+    },
+    onError: (error) => {
+      setEditError(getApiErrorMessages(error, "Não foi possível salvar o orçamento.")[0]);
+    },
   });
 
   const changeStatus = (budget: Budget, newStatus: BudgetStatus) => {
@@ -107,12 +162,6 @@ export function OrcamentosPage() {
       { onSuccess: () => setReasonModal(null) },
     );
   };
-
-  const clientNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    (clientsQuery.data ?? []).forEach((c) => map.set(c._id, c.name));
-    return map;
-  }, [clientsQuery.data]);
 
   const stats = statsQuery.data;
   const budgets = budgetsQuery.data?.items ?? [];
@@ -217,7 +266,7 @@ export function OrcamentosPage() {
                 <th className="px-5 py-3">Data</th>
                 <th className="px-5 py-3">Total</th>
                 <th className="px-5 py-3">Status</th>
-                <th className="px-5 py-3 text-right">PDF</th>
+                <th className="px-5 py-3 text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -274,7 +323,23 @@ export function OrcamentosPage() {
                       );
                     })()}
                   </td>
-                  <td className="px-5 py-4 text-right">
+                  <td className="px-5 py-4">
+                    <div className="flex items-center justify-end gap-2">
+                    {BUDGET_EDITABLE_STATUSES.includes(budget.status) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditError(null);
+                          setEditingBudget(budget);
+                        }}
+                        title="Editar orçamento"
+                        aria-label={`Editar orçamento #${String(budget.sequenceNumber).padStart(4, "0")}`}
+                        className="inline-flex items-center gap-2 rounded-xl border border-border-default px-3 py-2 text-xs font-semibold text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Editar</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => downloadPdfMutation.mutate(budget)}
@@ -288,8 +353,9 @@ export function OrcamentosPage() {
                       ) : (
                         <Download className="h-3.5 w-3.5" />
                       )}
-                      PDF
+                      <span className="hidden sm:inline">PDF</span>
                     </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -304,6 +370,19 @@ export function OrcamentosPage() {
         isPending={updateStatusMutation.isPending}
         onClose={() => setReasonModal(null)}
         onConfirm={confirmReasonModal}
+      />
+
+      <BudgetEditModal
+        open={editingBudget !== null}
+        budget={editingBudget}
+        services={servicesQuery.data ?? []}
+        isPending={updateBudgetMutation.isPending}
+        errorMessage={editError}
+        onClose={() => setEditingBudget(null)}
+        onSubmit={(payload, { thenDownload }) => {
+          if (!editingBudget) return;
+          updateBudgetMutation.mutate({ id: editingBudget._id, payload, thenDownload });
+        }}
       />
     </section>
   );
