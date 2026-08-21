@@ -60,12 +60,14 @@ export function calculateBudgetItemSubtotal(
   return (unitPriceOverride ?? defaultValue) * quantity;
 }
 
+/** Fuso da empresa, o mesmo usado no cabeçalho do PDF gerado pelo backend. */
+const APP_TIME_ZONE = "America/Fortaleza";
+
 /**
  * Nome do arquivo PDF de um orçamento: `<cliente-em-slug>_<DD-MM-AA>` (ex.: `azuos-dev_18-08-26`).
  *
- * A data sai em UTC de propósito: o cabeçalho do PDF é renderizado no fuso do servidor
- * (UTC na Vercel), então usar a mesma base evita que o nome do arquivo e a data impressa
- * no documento discordem em um dia.
+ * A data é lida no fuso da empresa, e não no do navegador nem em UTC: é assim que o
+ * cabeçalho do PDF imprime, e os dois não podem discordar.
  *
  * Espelha `backend/src/modules/orcamentos/pdf/budget-pdf-filename.ts`, que nomeia o mesmo
  * arquivo no header Content-Disposition — alterar uma exige alterar a outra.
@@ -78,12 +80,17 @@ export function budgetPdfFileName(clientName: string, createdAt?: string): strin
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-  const date = createdAt ? new Date(createdAt) : new Date();
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const year = String(date.getUTCFullYear()).slice(-2);
+  // en-CA formata como YYYY-MM-DD, o que dá as partes já no fuso pedido.
+  const [year, month, day] = new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .format(createdAt ? new Date(createdAt) : new Date())
+    .split("-");
 
-  return `${slug || "cliente"}_${day}-${month}-${year}`;
+  return `${slug || "cliente"}_${day}-${month}-${year.slice(-2)}`;
 }
 
 /** Preço unitário equivalente da limpeza de placas para uma quantidade, dado o preço por faixa. */

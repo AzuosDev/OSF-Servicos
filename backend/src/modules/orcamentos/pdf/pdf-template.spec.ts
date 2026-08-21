@@ -19,7 +19,7 @@ describe('buildBudgetHtml', () => {
     total: 1030,
     notes: 'Cliente pediu orçamento com <b>urgência</b>',
   };
-  const client: any = { name: '<script>alert(1)</script>', address: 'Rua Teste, 123', phone: '11999999999' };
+  const client: any = { name: '<script>alert(1)</script>', address: 'Rua Teste, 123', phone: '11999999999', email: 'cliente@teste.com' };
   const company: any = {
     companyName: 'OSF Serviços',
     baseAddress: 'Rua Empresa, 1',
@@ -62,10 +62,31 @@ describe('buildBudgetHtml', () => {
     expect(html).not.toContain('Instagram:');
   });
 
-  it('keeps the creation and validity dates in the header', () => {
+  it('stamps the issue date and time in the company timezone, not the server one', () => {
+    // 12:32 UTC é 09:32 em Fortaleza — o PDF roda em UTC na Vercel e sairia 3h adiantado.
+    const issued: any = { ...budget, createdAt: new Date('2026-08-21T12:32:00.000Z') };
+    const html = buildBudgetHtml(issued, client, company);
+    expect(html).toContain('21/08/2026');
+    expect(html).toContain('09:32');
+  });
+
+  it('reads validUntil in UTC, since it is a date stored at UTC midnight', () => {
+    // Lida em Fortaleza, a meia-noite UTC de 28/08 viraria 27/08.
+    const dated: any = { ...budget, validUntil: new Date('2026-08-28T00:00:00.000Z') };
+    expect(buildBudgetHtml(dated, client, company)).toContain('Válido até 28/08/2026');
+  });
+
+  it('lays the client data out as labelled fields', () => {
     const html = buildBudgetHtml(budget, client, company);
-    expect(html).toContain('Data:');
-    expect(html).toContain('Válido até:');
+    for (const label of ['Cliente', 'Telefone', 'Endereço']) {
+      expect(html).toContain(`<span class="label">${label}</span>`);
+    }
+  });
+
+  it('omits a client field that has no value instead of printing an empty label', () => {
+    const withoutPhone: any = { ...client, phone: '' };
+    const html = buildBudgetHtml(budget, withoutPhone, company);
+    expect(html).not.toContain('<span class="label">Telefone</span>');
   });
 
   it('escapes notes even though they may contain unsafe html', () => {

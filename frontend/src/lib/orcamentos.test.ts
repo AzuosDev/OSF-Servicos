@@ -23,11 +23,12 @@ describe("budgetPdfFileName", () => {
   });
 
   it("pads day and month and keeps the two-digit year", () => {
-    expect(budgetPdfFileName("Cliente", "2026-01-05T00:00:00.000Z")).toBe("cliente_05-01-26");
+    expect(budgetPdfFileName("Cliente", "2026-01-05T15:00:00.000Z")).toBe("cliente_05-01-26");
   });
 
-  it("reads the date in UTC, matching the backend filename and the PDF header", () => {
-    expect(budgetPdfFileName("Cliente", "2026-08-19T02:00:00.000Z")).toBe("cliente_19-08-26");
+  it("reads the date in the company timezone, matching the backend filename and the PDF header", () => {
+    // 02:00 UTC do dia 19 ainda é 23:00 do dia 18 em Fortaleza.
+    expect(budgetPdfFileName("Cliente", "2026-08-19T02:00:00.000Z")).toBe("cliente_18-08-26");
   });
 });
 
