@@ -483,16 +483,25 @@ describe('PendingController (e2e)', () => {
   });
 
   it('POST parcelada com affectsBalance:false — parcelas retroativas herdam false, futuras/atual forçam true', async () => {
-    // Hoje: 2026-07-01. Parcelas: mai/jun (retroativas) + jul/ago/set (atual+futuro).
+    // `isRetroactive` compara com a data real do sistema, então as parcelas são montadas a
+    // partir do mês corrente: duas atrás (retroativas), a atual e duas à frente. Datas fixas
+    // aqui apodreceriam na virada do mês.
+    const monthStart = (offset: number) => {
+      const now = new Date();
+      return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1))
+        .toISOString()
+        .slice(0, 10);
+    };
+
     const res = await request(app.getHttpServer())
       .post('/api/accounts')
       .send({
         ...basePayload,
         title: 'Parcelada retroativa parcial',
-        dueDate: '2026-05-01', // frontend sempre envia dueDate = dataInicio para parcelada
+        dueDate: monthStart(-2), // frontend sempre envia dueDate = dataInicio para parcelada
         isParcelada: true,
         affectsBalance: false,
-        parcelas: { totalParcelas: 5, dataInicio: '2026-05-01', dataFim: '2026-09-01' },
+        parcelas: { totalParcelas: 5, dataInicio: monthStart(-2), dataFim: monthStart(2) },
       })
       .expect(201);
 
@@ -501,11 +510,11 @@ describe('PendingController (e2e)', () => {
 
     const byNum = (n: number) => installments.find((i) => i.numeroParcela === n)!;
 
-    // Parcelas retroativas: maio e junho
+    // Parcelas retroativas: dois meses atrás e o mês passado
     expect(byNum(1).affectsBalance).toBe(false);
     expect(byNum(2).affectsBalance).toBe(false);
 
-    // Parcela do mês atual (julho) e futuras: sempre true independente do dto
+    // Parcela do mês corrente e futuras: sempre true independente do dto
     expect(byNum(3).affectsBalance).toBe(true);
     expect(byNum(4).affectsBalance).toBe(true);
     expect(byNum(5).affectsBalance).toBe(true);
