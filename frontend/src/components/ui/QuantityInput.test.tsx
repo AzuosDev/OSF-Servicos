@@ -120,10 +120,19 @@ describe("QuantityInput", () => {
     expect(reported()).toBe("100");
   });
 
-  it("caps the typed quantity, showing the same number that will be charged", () => {
+  it("accepts quantities well past four digits", () => {
     render(<Harness initial={1} />);
 
     fireEvent.change(field(), { target: { value: "99999" } });
+
+    expect(field().value).toBe("99999");
+    expect(reported()).toBe("99999");
+  });
+
+  it("caps the typed quantity, showing the same number that will be charged", () => {
+    render(<Harness initial={1} />);
+
+    fireEvent.change(field(), { target: { value: String(MAX_QUANTITY + 1) } });
 
     expect(field().value).toBe(String(MAX_QUANTITY));
     expect(reported()).toBe(String(MAX_QUANTITY));

@@ -85,7 +85,7 @@ export function PanelQuantityModal({
           />
           {!isValid && value.trim() !== "" && (
             <p className="mt-1 text-xs text-accent-red">
-              Informe uma quantidade entre 1 e {MAX_QUANTITY} placas.
+              Informe uma quantidade entre 1 e {MAX_QUANTITY.toLocaleString("pt-BR")} placas.
             </p>
           )}
         </label>

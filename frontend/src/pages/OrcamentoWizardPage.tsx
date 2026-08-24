@@ -473,7 +473,7 @@ export function OrcamentoWizardPage() {
                             value={item.quantity}
                             onChange={(quantity) => setQuantity(item.service._id, quantity)}
                             label={`Quantidade de ${item.service.name}`}
-                            className="w-14 rounded-lg border border-bg-muted bg-bg-muted px-1 py-1.5 text-sm font-bold text-white outline-none focus:border-accent-gold"
+                            className="w-20 rounded-lg border border-bg-muted bg-bg-muted px-1 py-1.5 text-sm font-bold text-white outline-none focus:border-accent-gold"
                           />
                           <button
                             type="button"
