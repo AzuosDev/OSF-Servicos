@@ -3,6 +3,7 @@ import { LayoutGrid } from "lucide-react";
 
 import { formatCurrency } from "../../lib/finance";
 import { calculatePanelCleaningSubtotal } from "../../lib/orcamentos";
+import { MAX_QUANTITY } from "../ui/QuantityInput";
 import { ModalShell } from "./ModalShell";
 
 export function PanelQuantityModal({
@@ -29,7 +30,7 @@ export function PanelQuantityModal({
   }
 
   const quantity = Math.floor(Number(value));
-  const isValid = Number.isFinite(quantity) && quantity >= 1;
+  const isValid = Number.isFinite(quantity) && quantity >= 1 && quantity <= MAX_QUANTITY;
   const subtotal = isValid ? calculatePanelCleaningSubtotal(quantity) : 0;
 
   return (
@@ -75,6 +76,7 @@ export function PanelQuantityModal({
           <input
             type="number"
             min={1}
+            max={MAX_QUANTITY}
             step={1}
             autoFocus
             value={value}
@@ -82,7 +84,9 @@ export function PanelQuantityModal({
             className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
           />
           {!isValid && value.trim() !== "" && (
-            <p className="mt-1 text-xs text-accent-red">Informe uma quantidade de pelo menos 1 placa.</p>
+            <p className="mt-1 text-xs text-accent-red">
+              Informe uma quantidade entre 1 e {MAX_QUANTITY} placas.
+            </p>
           )}
         </label>
 

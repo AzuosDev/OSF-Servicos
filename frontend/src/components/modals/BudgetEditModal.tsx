@@ -3,6 +3,7 @@ import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { ModalShell } from "./ModalShell";
 import { CurrencyInput } from "../ui/CurrencyInput";
+import { QuantityInput } from "../ui/QuantityInput";
 import { formatCurrency } from "../../lib/finance";
 import { followsPanelTier, isPanelCleaningService, panelTierUnitPrice } from "../../lib/orcamentos";
 import type { Budget, Service } from "../../types/api";
@@ -195,13 +196,10 @@ export function BudgetEditModal({
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
                   <span className="mb-1 block text-xs text-text-secondary">Qtd</span>
-                  <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    inputMode="numeric"
+                  <QuantityInput
                     value={item.quantity}
-                    onChange={(e) => changeQuantity(index, Math.max(1, Number(e.target.value) || 1))}
+                    onChange={(quantity) => changeQuantity(index, quantity)}
+                    label={`Quantidade de ${item.name}`}
                     className="w-full rounded-lg border border-bg-muted bg-bg-muted px-3 py-2 text-sm text-white outline-none focus:border-accent-gold"
                   />
                 </label>

@@ -21,6 +21,7 @@ import { getApiErrorMessages } from "../lib/errors";
 import { cn } from "../lib/utils";
 import { ClientFormModal } from "../components/modals/ClientFormModal";
 import { PanelQuantityModal } from "../components/modals/PanelQuantityModal";
+import { clampQuantity, MAX_QUANTITY, QuantityInput } from "../components/ui/QuantityInput";
 import {
   calculateBudgetItemSubtotal,
   calculatePanelCleaningSubtotal,
@@ -248,8 +249,20 @@ export function OrcamentoWizardPage() {
   const updateQuantity = (serviceId: string, delta: number) => {
     setCart((prev) =>
       prev
-        .map((item) => (item.service._id === serviceId ? { ...item, quantity: item.quantity + delta } : item))
+        .map((item) =>
+          item.service._id === serviceId
+            // O mínimo é 0 para que o "-" em 1 continue removendo o item no filter abaixo;
+            // o teto vale igual para o botão e para o campo digitado.
+            ? { ...item, quantity: clampQuantity(item.quantity + delta, 0, MAX_QUANTITY) }
+            : item,
+        )
         .filter((item) => item.quantity > 0),
+    );
+  };
+
+  const setQuantity = (serviceId: string, quantity: number) => {
+    setCart((prev) =>
+      prev.map((item) => (item.service._id === serviceId ? { ...item, quantity: clampQuantity(quantity) } : item)),
     );
   };
 
@@ -394,7 +407,9 @@ export function OrcamentoWizardPage() {
           <div className="space-y-5">
             <div>
               <h2 className="text-lg font-bold">Serviços</h2>
-              <p className="mt-1 text-sm text-text-secondary">Selecione os serviços incluídos neste orçamento.</p>
+              <p className="mt-1 text-sm text-text-secondary">
+                Selecione os serviços incluídos neste orçamento. A quantidade pode ser digitada direto no campo.
+              </p>
             </div>
 
             {servicesQuery.isLoading ? (
@@ -454,7 +469,12 @@ export function OrcamentoWizardPage() {
                           >
                             <Minus className="h-3.5 w-3.5" />
                           </button>
-                          <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
+                          <QuantityInput
+                            value={item.quantity}
+                            onChange={(quantity) => setQuantity(item.service._id, quantity)}
+                            label={`Quantidade de ${item.service.name}`}
+                            className="w-14 rounded-lg border border-bg-muted bg-bg-muted px-1 py-1.5 text-sm font-bold text-white outline-none focus:border-accent-gold"
+                          />
                           <button
                             type="button"
                             onClick={() => updateQuantity(item.service._id, 1)}
