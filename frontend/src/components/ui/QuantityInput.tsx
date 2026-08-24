@@ -2,8 +2,11 @@ import { useRef, useState } from "react";
 
 import { cn } from "../../lib/utils";
 
-/** Teto de segurança para a quantidade digitada — evita que um erro de digitação vire um orçamento absurdo. */
-export const MAX_QUANTITY = 9999;
+/**
+ * Teto da quantidade digitada. O backend aceita qualquer inteiro >= 1; o teto aqui existe só
+ * como guarda contra um erro de digitação virar um orçamento absurdo, então é alto de propósito.
+ */
+export const MAX_QUANTITY = 999_999;
 
 /** Deixa a quantidade dentro da faixa aceita pelo backend (inteiro >= 1). */
 export function clampQuantity(quantity: number, min = 1, max = MAX_QUANTITY): number {
@@ -55,8 +58,8 @@ export function QuantityInput({
       return;
     }
     const parsed = clampQuantity(Number(digits), min, max);
-    // Se o número digitado passou do teto, o campo também mostra o teto: exibir "99999"
-    // enquanto o orçamento usa 9999 seria mentir sobre o que foi cobrado.
+    // Se o número digitado passou do teto, o campo também mostra o teto: exibir um número
+    // maior enquanto o orçamento usa o teto seria mentir sobre o que foi cobrado.
     setDraft(Number(digits) > max ? String(parsed) : digits);
     if (Number(digits) >= min) {
       reported.current = parsed;
