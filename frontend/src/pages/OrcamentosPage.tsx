@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, FileText, Loader2, Pencil, Plus, TrendingUp, Wallet } from "lucide-react";
 
 import { api } from "../lib/api";
@@ -39,6 +39,8 @@ const STATUS_FILTERS: (BudgetStatus | "TODOS")[] = [
 // orçamento vira registro histórico e a API recusa a edição.
 const BUDGET_EDITABLE_STATUSES: BudgetStatus[] = ["RASCUNHO", "ENVIADO"];
 
+const BUDGETS_PAGE_SIZE = 20;
+
 function formatDateBR(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
@@ -58,14 +60,19 @@ export function OrcamentosPage() {
     queryFn: () => api.get<BudgetConversionStats>("/api/orcamentos/budgets/stats/conversion").then((r) => r.data),
   });
 
-  const budgetsQuery = useQuery<BudgetsListResponse>({
+  // A API pagina (mais recentes primeiro). Sem avançar de página, os orçamentos além dos
+  // primeiros 20 — justamente os mais antigos — nunca apareciam; "Carregar mais" traz o resto.
+  const budgetsQuery = useInfiniteQuery({
     queryKey: ["orcamentos-budgets", status],
-    queryFn: () =>
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
       api
         .get<BudgetsListResponse>("/api/orcamentos/budgets", {
-          params: { limit: 20, ...(status !== "TODOS" && { status }) },
+          params: { page: pageParam, limit: BUDGETS_PAGE_SIZE, ...(status !== "TODOS" && { status }) },
         })
         .then((r) => r.data),
+    getNextPageParam: (lastPage) =>
+      lastPage.page * lastPage.limit < lastPage.total ? lastPage.page + 1 : undefined,
   });
 
   const clientsQuery = useQuery<Client[]>({
@@ -164,7 +171,9 @@ export function OrcamentosPage() {
   };
 
   const stats = statsQuery.data;
-  const budgets = budgetsQuery.data?.items ?? [];
+  const budgets = budgetsQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  // O total vem com cada página; o da última é o mais atual.
+  const budgetsTotal = budgetsQuery.data?.pages.at(-1)?.total ?? 0;
   const ticketMedio = stats && stats.approved > 0 ? stats.totalValueApproved / stats.approved : 0;
   const conversionPct = stats ? Math.round(stats.conversionRate * 100) : 0;
 
@@ -363,6 +372,25 @@ export function OrcamentosPage() {
           </table>
         )}
       </div>
+
+      {budgets.length > 0 && (
+        <div className="flex flex-col items-center gap-3">
+          <p className="text-xs text-text-secondary">
+            Mostrando {budgets.length} de {budgetsTotal} orçamento{budgetsTotal === 1 ? "" : "s"}
+          </p>
+          {budgetsQuery.hasNextPage && (
+            <button
+              type="button"
+              onClick={() => budgetsQuery.fetchNextPage()}
+              disabled={budgetsQuery.isFetchingNextPage}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-bg-muted px-4 py-3 text-sm font-semibold text-white hover:bg-bg-muted disabled:opacity-60"
+            >
+              {budgetsQuery.isFetchingNextPage && <Loader2 className="h-4 w-4 animate-spin" />}
+              Carregar mais
+            </button>
+          )}
+        </div>
+      )}
 
       <BudgetStatusReasonModal
         open={reasonModal !== null}
