@@ -4,6 +4,7 @@ import { CompanySettingsDocument } from '../schemas/company-settings.schema';
 import { OSF_LOGO_BASE64 } from './osf-logo-base64';
 import { escapeHtml, formatCurrency } from './format';
 import { SOLAR_SECTION_STYLES, buildSolarEquipmentTable, buildSolarSectionsHtml } from './solar-sections';
+import { COVER_STYLES, buildCoverHtml } from './cover';
 
 export { escapeHtml };
 
@@ -98,41 +99,107 @@ export function buildBudgetHtml(
 
   const solarSections = isSolar && budget.solar ? buildSolarSectionsHtml(budget.solar) : '';
 
+  // Capa só na venda solar: o orçamento de serviços cabe numa página, e uma capa nele seria
+  // cerimônia sem função.
+  const cover = isSolar
+    ? buildCoverHtml(budget, client, company, formatDate(budget.createdAt), formatDateOnly(budget.validUntil))
+    : '';
+
   return `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
 <style>
-  body { font-family: Arial, sans-serif; color: #111111; margin: 40px; }
+  /* Cores da marca: azul do painel solar e dourado da logo — os mesmos tokens do app. */
+  :root { --navy: #14345F; --gold: #F0AC28; --ink: #111827; --muted: #6B7280; --line: #E5E7EB; }
 
-  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; border-bottom: 3px solid #F0AC28; padding-bottom: 16px; }
-  header .brand { display: flex; align-items: flex-start; gap: 16px; }
-  header .brand img { height: 64px; width: 64px; object-fit: contain; }
-  h1 { font-size: 15px; margin: 0 0 5px; text-transform: uppercase; letter-spacing: 0.3px; }
-  header .company div { font-size: 11.5px; color: #444444; line-height: 1.5; }
+  /* Sem regra @page aqui de propósito: declarar margin zero no CSS SOBREPÕE a margem que o
+     Puppeteer define, e o resultado é conteúdo colado na borda da folha com o cabeçalho e o
+     rodapé por cima do texto. Formato e margens vivem só nas opções de page.pdf(). */
 
-  /* Emissão: data e hora com ícone, alinhadas à direita */
+  * { box-sizing: border-box; }
+
+  /* Nunca deixar uma linha solta no fim ou no começo de uma página. */
+  p, td, li { orphans: 3; widows: 3; }
+
+  /* Um título no rodapé da página com o conteúdo na seguinte fica órfão. */
+  h2 { break-after: avoid; page-break-after: avoid; }
+
+  table { break-inside: auto; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  thead { display: table-header-group; }
+
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #111827;
+    background: #FFFFFF;
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* A margem real da página vem do Puppeteer; o corpo só cuida do ritmo interno. */
+  header {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 24px;
+    border-bottom: 3px solid #F0AC28; padding-bottom: 14px;
+  }
+  header .brand { display: flex; align-items: flex-start; gap: 14px; }
+  header .brand img { height: 56px; width: 56px; object-fit: contain; }
+  h1 { font-size: 14px; margin: 0 0 4px; text-transform: uppercase; letter-spacing: 0.6px; color: #14345F; font-weight: 800; }
+  header .company div { font-size: 10.5px; color: #6B7280; line-height: 1.55; }
+
   .issued { text-align: right; white-space: nowrap; }
-  .issued .row { display: flex; align-items: center; justify-content: flex-end; gap: 5px; font-size: 12px; color: #444444; line-height: 1.7; }
-  .issued svg { width: 12px; height: 12px; color: #8a8a8a; }
-  .issued .valid { margin-top: 6px; font-size: 11px; color: #8a8a8a; }
+  .issued .row { display: flex; align-items: center; justify-content: flex-end; gap: 5px; font-size: 11px; color: #4B5563; line-height: 1.7; }
+  .issued svg { width: 11px; height: 11px; color: #9CA3AF; }
+  .issued .valid { margin-top: 5px; font-size: 10px; color: #9CA3AF; }
 
-  /* Dados do cliente em grade rotulada */
-  .client { margin-top: 18px; padding: 14px 0; border-bottom: 1px solid #e5e5e5; }
+  .client { margin-top: 16px; padding: 14px 16px; background: #F8F9FB; border-radius: 10px; border: 1px solid #EEF0F4; }
   .client-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 24px; }
-  .client .field { display: flex; flex-direction: column; gap: 2px; }
-  .client .label { font-size: 9.5px; color: #9a9a9a; letter-spacing: 0.4px; }
-  .client .value { font-size: 12px; color: #111111; }
-  table { width: 100%; border-collapse: collapse; margin-top: 24px; }
-  th, td { padding: 8px; border-bottom: 1px solid #e5e5e5; text-align: left; font-size: 13px; }
-  th { background: #f5f5f5; }
+  .client .field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .client .label { font-size: 8.5px; color: #9CA3AF; letter-spacing: 1.4px; text-transform: uppercase; font-weight: 600; }
+  .client .value { font-size: 11.5px; color: #111827; font-weight: 500; word-break: break-word; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 22px; }
+  th, td { padding: 9px 10px; text-align: left; font-size: 11.5px; border-bottom: 1px solid #EEF0F4; }
+  th {
+    background: #14345F; color: #FFFFFF; font-size: 8.5px; letter-spacing: 1.4px;
+    text-transform: uppercase; font-weight: 700; border-bottom: none;
+  }
+  th:first-child { border-top-left-radius: 8px; }
+  th:last-child { border-top-right-radius: 8px; }
+  tbody tr:nth-child(even) td { background: #FAFBFC; }
   .right { text-align: right; }
-  .total-row td { font-weight: bold; font-size: 15px; border-top: 2px solid #111111; }
-  footer { margin-top: 32px; font-size: 11px; color: #666; }
+  .total-row td {
+    font-weight: 800; font-size: 14px; color: #14345F;
+    border-top: 2px solid #14345F; border-bottom: none; background: #FFFFFF !important;
+  }
+
+  /* Observações: antes era uma section sem estilo nenhum — saía solta no fim do documento. */
+  .notes { margin-top: 26px; page-break-inside: avoid; break-inside: avoid; }
+  .notes h2 {
+    font-size: 12px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 1.4px;
+    color: #14345F; font-weight: 800; border-bottom: 2px solid #F0AC28; padding-bottom: 5px;
+  }
+  .closing-note {
+    margin-top: 22px; padding-top: 12px; border-top: 1px solid #EEF0F4;
+    font-size: 10px; color: #9CA3AF; line-height: 1.6; white-space: pre-wrap;
+    page-break-inside: avoid;
+  }
+
+  .notes p {
+    margin: 0; padding: 12px 14px; background: #F8F9FB; border-left: 3px solid #F0AC28;
+    border-radius: 0 8px 8px 0; font-size: 11px; line-height: 1.65; color: #374151;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
 ${SOLAR_SECTION_STYLES}
+${COVER_STYLES}
 </style>
 </head>
 <body>
+  ${cover}
+
   <header>
     <div class="brand">
       <img src="data:image/png;base64,${OSF_LOGO_BASE64}" alt="${escapeHtml(company.companyName)}" />
@@ -165,11 +232,20 @@ ${SOLAR_SECTION_STYLES}
 
   ${solarSections}
 
-  ${budget.notes ? `<section><h2>Observações</h2><div>${escapeHtml(budget.notes)}</div></section>` : ''}
+  ${
+    budget.notes
+      ? `<section class="notes">
+           <h2>Observações</h2>
+           <p>${escapeHtml(budget.notes)}</p>
+         </section>`
+      : ''
+  }
 
-  <footer>
-    ${company.pdfFooterNote ? escapeHtml(company.pdfFooterNote) : ''}
-  </footer>
+  ${
+    company.pdfFooterNote
+      ? `<footer class="closing-note">${escapeHtml(company.pdfFooterNote)}</footer>`
+      : ''
+  }
 </body>
 </html>`;
 }

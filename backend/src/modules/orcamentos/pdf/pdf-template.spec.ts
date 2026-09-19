@@ -194,6 +194,115 @@ describe('buildBudgetHtml for a solar budget', () => {
   });
 });
 
+describe('cover page', () => {
+  const client: any = { name: 'Cliente Solar', address: 'Rua Teste, 123' };
+  const company: any = { companyName: 'OSF Serviços', baseAddress: 'Rua Empresa, 1' };
+
+  const solarBudget: any = {
+    sequenceNumber: 8,
+    type: 'SOLAR',
+    createdAt: new Date('2026-01-10T00:00:00.000Z'),
+    validUntil: new Date('2026-01-17T00:00:00.000Z'),
+    items: [],
+    travelCost: 0,
+    discount: 0,
+    total: 30000,
+    solar: {
+      panels: [{ quantity: 12, wattagePeak: 550 }],
+      inverters: [{ quantity: 1, type: 'INVERSOR' }],
+      warranties: {},
+      generation: {
+        systemPowerKwp: 6.6,
+        performanceRatio: 0.78,
+        monthly: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, kwh: 800 })),
+        annualKwh: 9600,
+        averageMonthlyKwh: 800,
+        averageWeeklyKwh: 184.6,
+        monthlyIrradiance: Array(12).fill(5.5),
+      },
+      financials: {
+        investment: 30000,
+        currentMonthlyBill: 850,
+        projectedMonthlyBill: 120,
+        monthlySavings: 730,
+        annualSavings: 8760,
+        horizonYears: 25,
+        totalSavings: 219000,
+      },
+    },
+  };
+
+  it('opens the solar proposal with a cover carrying the brand and the key figures', () => {
+    const html = buildBudgetHtml(solarBudget, client, company);
+
+    expect(html).toContain('class="cover"');
+    expect(html).toContain('Proposta comercial');
+    expect(html).toContain('Sistema de Energia');
+    expect(html).toContain('Nº 0008');
+    expect(html).toContain('6,60 kWp');
+  });
+
+  it('breaks the page after the cover so the content starts on a fresh sheet', () => {
+    const html = buildBudgetHtml(solarBudget, client, company);
+    expect(html).toContain('page-break-after: always');
+  });
+
+  // Serviços é documento de uma página: uma capa ali seria cerimônia sem função.
+  it('gives a services budget no cover', () => {
+    const services: any = { ...solarBudget, type: 'SERVICOS', solar: undefined, items: [] };
+    const html = buildBudgetHtml(services, client, company);
+
+    expect(html).not.toContain('class="cover"');
+    expect(html).not.toContain('Proposta comercial');
+  });
+
+  it('omits a cover field that has no value instead of printing an empty label', () => {
+    const noGeneration: any = { ...solarBudget, solar: { ...solarBudget.solar, generation: undefined } };
+    const html = buildBudgetHtml(noGeneration, client, company);
+
+    expect(html).toContain('class="cover"');
+    expect(html).not.toContain('Potência do sistema</span>');
+  });
+});
+
+describe('notes section', () => {
+  const client: any = { name: 'Cliente', address: 'Rua Teste, 123' };
+  const company: any = { companyName: 'OSF Serviços', baseAddress: 'Rua Empresa, 1' };
+
+  // Antes as observações saíam numa <section> sem classe nenhuma, soltas no fim do
+  // documento e sem estilo — é o defeito que motivou esta revisão.
+  it('renders the notes inside a styled block', () => {
+    const budget: any = {
+      sequenceNumber: 1, type: 'SERVICOS', createdAt: new Date(), items: [],
+      travelCost: 0, discount: 0, total: 100, notes: 'Primeira linha\nSegunda linha',
+    };
+    const html = buildBudgetHtml(budget, client, company);
+
+    expect(html).toContain('class="notes"');
+    expect(html).toContain('Observações');
+  });
+
+  it('keeps line breaks typed by the user', () => {
+    const budget: any = {
+      sequenceNumber: 1, type: 'SERVICOS', createdAt: new Date(), items: [],
+      travelCost: 0, discount: 0, total: 100, notes: 'Linha 1\nLinha 2',
+    };
+    const html = buildBudgetHtml(budget, client, company);
+
+    // `white-space: pre-wrap` no CSS preserva a quebra sem precisar de <br>.
+    expect(html).toContain('white-space: pre-wrap');
+    expect(html).toContain('Linha 1\nLinha 2');
+  });
+
+  it('omits the notes block entirely when there are no notes', () => {
+    const budget: any = {
+      sequenceNumber: 1, type: 'SERVICOS', createdAt: new Date(), items: [],
+      travelCost: 0, discount: 0, total: 100,
+    };
+    expect(buildBudgetHtml(budget, client, company)).not.toContain('class="notes"');
+  });
+});
+
 describe('BudgetStatus enum sanity', () => {
   it('has the expected statuses', () => {
     expect(Object.values(BudgetStatus)).toEqual([
