@@ -1,19 +1,11 @@
-import { BudgetDocument } from '../schemas/budget.schema';
+import { BudgetDocument, BudgetType } from '../schemas/budget.schema';
 import { ClientDocument } from '../schemas/client.schema';
 import { CompanySettingsDocument } from '../schemas/company-settings.schema';
 import { OSF_LOGO_BASE64 } from './osf-logo-base64';
+import { escapeHtml, formatCurrency } from './format';
+import { SOLAR_SECTION_STYLES, buildSolarEquipmentTable, buildSolarSectionsHtml } from './solar-sections';
 
-export function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-const formatCurrency = (value: number) =>
-  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+export { escapeHtml };
 
 // O PDF é renderizado no fuso do servidor (UTC na Vercel). Sem fixar o fuso aqui, a hora de
 // emissão sairia 3h adiantada para quem lê o documento.
@@ -60,6 +52,11 @@ export function buildBudgetHtml(
   client: ClientDocument,
   company: CompanySettingsDocument,
 ): string {
+  // Venda de sistema solar troca a tabela de serviços pela de equipamentos e ganha as seções
+  // de geração, garantias e indicadores. O resto do documento — cabeçalho, cliente, rodapé —
+  // é exatamente o mesmo nos dois tipos.
+  const isSolar = budget.type === BudgetType.SOLAR && !!budget.solar;
+
   const itemsRows = budget.items
     .map(
       (item) => `
@@ -81,6 +78,25 @@ export function buildBudgetHtml(
     budget.discount > 0
       ? `<tr><td colspan="3">Desconto</td><td class="right">-${formatCurrency(budget.discount)}</td></tr>`
       : '';
+
+  const servicesTable = `<table>
+    <thead>
+      <tr><th>Serviço</th><th class="right">Qtd</th><th class="right">Valor unit.</th><th class="right">Subtotal</th></tr>
+    </thead>
+    <tbody>
+      ${itemsRows}
+      ${travelRow}
+      ${discountRow}
+      <tr class="total-row"><td colspan="3">Total</td><td class="right">${formatCurrency(budget.total)}</td></tr>
+    </tbody>
+  </table>`;
+
+  const valuesTable =
+    isSolar && budget.solar
+      ? buildSolarEquipmentTable(budget.solar, budget.travelCost, budget.discount, budget.total)
+      : servicesTable;
+
+  const solarSections = isSolar && budget.solar ? buildSolarSectionsHtml(budget.solar) : '';
 
   return `<!doctype html>
 <html>
@@ -113,6 +129,7 @@ export function buildBudgetHtml(
   .right { text-align: right; }
   .total-row td { font-weight: bold; font-size: 15px; border-top: 2px solid #111111; }
   footer { margin-top: 32px; font-size: 11px; color: #666; }
+${SOLAR_SECTION_STYLES}
 </style>
 </head>
 <body>
@@ -144,17 +161,9 @@ export function buildBudgetHtml(
     </div>
   </section>
 
-  <table>
-    <thead>
-      <tr><th>Serviço</th><th class="right">Qtd</th><th class="right">Valor unit.</th><th class="right">Subtotal</th></tr>
-    </thead>
-    <tbody>
-      ${itemsRows}
-      ${travelRow}
-      ${discountRow}
-      <tr class="total-row"><td colspan="3">Total</td><td class="right">${formatCurrency(budget.total)}</td></tr>
-    </tbody>
-  </table>
+  ${valuesTable}
+
+  ${solarSections}
 
   ${budget.notes ? `<section><h2>Observações</h2><div>${escapeHtml(budget.notes)}</div></section>` : ''}
 

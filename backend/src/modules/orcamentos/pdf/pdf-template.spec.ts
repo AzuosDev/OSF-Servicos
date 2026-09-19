@@ -102,6 +102,98 @@ describe('buildBudgetHtml', () => {
   });
 });
 
+describe('buildBudgetHtml for a solar budget', () => {
+  const solarBudget: any = {
+    sequenceNumber: 8,
+    type: 'SOLAR',
+    createdAt: new Date('2026-01-10T00:00:00.000Z'),
+    validUntil: new Date('2026-01-17T00:00:00.000Z'),
+    items: [],
+    travelCost: 0,
+    discount: 0,
+    total: 30000,
+    solar: {
+      panels: [{ quantity: 12, wattagePeak: 550, model: 'Canadian 550W' }],
+      inverters: [{ quantity: 1, type: 'INVERSOR', model: 'Growatt 6kW', wattage: 6000 }],
+      warranties: { panelEfficiencyYears: 25, panelDefectYears: 12, inverterYears: 10, installationYears: 5 },
+      generation: {
+        systemPowerKwp: 6.6,
+        performanceRatio: 0.78,
+        monthly: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, kwh: 800 + i * 10 })),
+        annualKwh: 10260,
+        averageMonthlyKwh: 855,
+        averageWeeklyKwh: 197.31,
+        monthlyIrradiance: Array<number>(12).fill(5.5),
+      },
+      financials: {
+        investment: 30000,
+        currentMonthlyBill: 850,
+        projectedMonthlyBill: 120,
+        monthlySavings: 730,
+        annualSavings: 8760,
+        horizonYears: 25,
+        totalSavings: 219000,
+        irrPercent: 29.15,
+        paybackMonths: 42,
+      },
+    },
+  };
+
+  const client: any = { name: 'Cliente Solar', address: 'Rua Teste, 123' };
+  const company: any = { companyName: 'OSF Serviços', baseAddress: 'Rua Empresa, 1' };
+
+  it('replaces the services table with the equipment table', () => {
+    const html = buildBudgetHtml(solarBudget, client, company);
+
+    expect(html).toContain('Equipamento');
+    expect(html).toContain('Painel solar Canadian 550W');
+    expect(html).not.toContain('<th>Serviço</th>');
+  });
+
+  it('adds the solar sections and the inline generation chart', () => {
+    const html = buildBudgetHtml(solarBudget, client, company);
+
+    expect(html).toContain('Geração de energia estimada');
+    expect(html).toContain('Garantias do sistema');
+    expect(html).toContain('Indicadores financeiros');
+    expect(html).toContain('Economia estimada');
+    expect(html).toContain('Geração estimada mês a mês');
+  });
+
+  it('keeps the shared header, client block and footer identical to a services budget', () => {
+    const html = buildBudgetHtml(solarBudget, client, company);
+
+    expect(html).toContain('OSF Serviços');
+    expect(html).toContain('Cliente Solar');
+    expect(html).toContain('Válido até');
+  });
+
+  // Orçamento gravado antes desta funcionalidade não tem `type` nem `solar`.
+  it('renders a legacy budget with no type as a services budget', () => {
+    const legacy: any = { ...solarBudget, type: undefined, solar: undefined, items: [] };
+    const html = buildBudgetHtml(legacy, client, company);
+
+    expect(html).toContain('<th>Serviço</th>');
+    expect(html).not.toContain('Geração de energia estimada');
+  });
+
+  // Fase 2 cria o orçamento sem geração quando a irradiação não pôde ser obtida — o PDF
+  // precisa sair assim mesmo, sem a seção, em vez de quebrar.
+  it('prints the document without the generation section when there is no generation', () => {
+    const withoutGeneration: any = {
+      ...solarBudget,
+      solar: { ...solarBudget.solar, generation: undefined },
+    };
+    const html = buildBudgetHtml(withoutGeneration, client, company);
+
+    expect(html).toContain('Indicadores financeiros');
+    expect(html).not.toContain('Geração de energia estimada');
+    // Checa o gráfico pelo rótulo dele, não por "<svg": os ícones de calendário e relógio
+    // do cabeçalho também são SVG e estão presentes em todo orçamento.
+    expect(html).not.toContain('Geração estimada mês a mês');
+  });
+});
+
 describe('BudgetStatus enum sanity', () => {
   it('has the expected statuses', () => {
     expect(Object.values(BudgetStatus)).toEqual([

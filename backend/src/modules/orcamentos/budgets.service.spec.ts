@@ -9,6 +9,7 @@ import { CompanySettingsService } from './company-settings.service';
 import { CountersService } from './counters.service';
 import { DistanceService } from './distance.service';
 import { ServicesService } from '../services/services.service';
+import { SolarIrradianceService } from './solar/solar-irradiance.service';
 
 describe('BudgetsService', () => {
   let service: BudgetsService;
@@ -16,8 +17,9 @@ describe('BudgetsService', () => {
   let clientsServiceMock: { findOne: jest.Mock };
   let companySettingsServiceMock: { get: jest.Mock };
   let countersServiceMock: { getNextSequence: jest.Mock };
-  let distanceServiceMock: { calculate: jest.Mock };
+  let distanceServiceMock: { calculate: jest.Mock; locate: jest.Mock };
   let servicesServiceMock: { findOne: jest.Mock };
+  let solarIrradianceServiceMock: { getMonthlyIrradiance: jest.Mock };
 
   const userId = new Types.ObjectId().toString();
   const client = { _id: new Types.ObjectId(), address: 'Rua Cliente, 100' };
@@ -28,7 +30,8 @@ describe('BudgetsService', () => {
     clientsServiceMock = { findOne: jest.fn().mockResolvedValue(client) };
     companySettingsServiceMock = { get: jest.fn().mockResolvedValue(companySettings) };
     countersServiceMock = { getNextSequence: jest.fn().mockResolvedValue(1) };
-    distanceServiceMock = { calculate: jest.fn() };
+    distanceServiceMock = { calculate: jest.fn(), locate: jest.fn() };
+    solarIrradianceServiceMock = { getMonthlyIrradiance: jest.fn() };
     servicesServiceMock = {
       findOne: jest.fn().mockResolvedValue({ _id: new Types.ObjectId(), name: 'Instalação de painel', defaultValue: 500 }),
     };
@@ -42,6 +45,7 @@ describe('BudgetsService', () => {
         { provide: CountersService, useValue: countersServiceMock },
         { provide: DistanceService, useValue: distanceServiceMock },
         { provide: ServicesService, useValue: servicesServiceMock },
+        { provide: SolarIrradianceService, useValue: solarIrradianceServiceMock },
       ],
     }).compile();
 
@@ -283,7 +287,9 @@ describe('BudgetsService', () => {
       expect(budget.solar!.generation!.monthlyIrradiance).toEqual(irradiance);
     });
 
-    it('creates the budget without the generation block when there is no irradiance', async () => {
+    // Os testes deste bloco não mockam a busca de irradiação de propósito: mostram que o
+    // orçamento nasce íntegro mesmo sem o gráfico. A busca automática tem bloco próprio.
+    it('creates the budget without the generation block when no irradiance can be resolved', async () => {
       const budget = await createSolar();
       expect(budget.solar!.generation).toBeUndefined();
     });
@@ -363,6 +369,108 @@ describe('BudgetsService', () => {
         service.update(userId, new Types.ObjectId().toString(), { items: [{ serviceId: 's1', quantity: 1 }] } as any),
       ).rejects.toThrow(BadRequestException);
       expect(budget.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('solar irradiance lookup', () => {
+    const monthly = [5.4, 5.1, 4.8, 4.6, 5.0, 5.3, 5.6, 6.1, 6.3, 6.2, 6.0, 5.7];
+
+    const solarPayload = {
+      panels: [{ quantity: 12, wattagePeak: 550 }],
+      inverters: [{ quantity: 1, type: 'INVERSOR' }],
+      investment: 30000,
+      currentMonthlyBill: 850,
+      projectedMonthlyBill: 120,
+    };
+
+    beforeEach(() => {
+      solarIrradianceServiceMock.getMonthlyIrradiance.mockResolvedValue(monthly);
+      distanceServiceMock.locate.mockResolvedValue({ label: 'Rua Cliente, 100', lat: -3.32, lon: -40.09 });
+    });
+
+    it('geocodes the client address and fetches the irradiance when there is no travel cost', async () => {
+      const budget = await service.create(userId, {
+        clientId: client._id.toString(),
+        type: 'SOLAR',
+        solar: solarPayload,
+      } as any);
+
+      expect(distanceServiceMock.locate).toHaveBeenCalledWith(client.address);
+      expect(solarIrradianceServiceMock.getMonthlyIrradiance).toHaveBeenCalledWith(-3.32, -40.09);
+      expect(budget.solar!.generation!.monthlyIrradiance).toEqual(monthly);
+    });
+
+    // O deslocamento já geocodificou o destino; pedir de novo seria uma chamada paga à toa.
+    it('reuses the point resolved by the travel calculation instead of geocoding twice', async () => {
+      distanceServiceMock.calculate.mockResolvedValue({
+        distanceKm: 10,
+        durationMin: 15,
+        travelCost: 20,
+        distanceCalculationId: new Types.ObjectId(),
+        cached: false,
+        resolvedDestination: { label: 'Rua Destino', lat: -4.1, lon: -38.5 },
+      });
+
+      await service.create(userId, {
+        clientId: client._id.toString(),
+        type: 'SOLAR',
+        solar: solarPayload,
+        calculateDistance: true,
+      } as any);
+
+      expect(distanceServiceMock.locate).not.toHaveBeenCalled();
+      expect(solarIrradianceServiceMock.getMonthlyIrradiance).toHaveBeenCalledWith(-4.1, -38.5);
+    });
+
+    it('prefers an irradiance sent in the body over the automatic lookup', async () => {
+      const manual = Array<number>(12).fill(4.2);
+
+      const budget = await service.create(userId, {
+        clientId: client._id.toString(),
+        type: 'SOLAR',
+        solar: { ...solarPayload, monthlyIrradiance: manual },
+      } as any);
+
+      expect(solarIrradianceServiceMock.getMonthlyIrradiance).not.toHaveBeenCalled();
+      expect(budget.solar!.generation!.monthlyIrradiance).toEqual(manual);
+    });
+
+    // Perder equipamentos, faturas e valor já digitados porque a NASA piscou seria pior do
+    // que emitir a proposta sem o gráfico.
+    it('still creates the budget when the irradiance lookup fails', async () => {
+      solarIrradianceServiceMock.getMonthlyIrradiance.mockRejectedValue(new Error('NASA fora do ar'));
+
+      const budget = await service.create(userId, {
+        clientId: client._id.toString(),
+        type: 'SOLAR',
+        solar: solarPayload,
+      } as any);
+
+      expect(budget.solar!.generation).toBeUndefined();
+      expect(budget.solar!.financials.investment).toBe(30000);
+      expect(budget.total).toBe(30000);
+    });
+
+    it('still creates the budget when the address cannot be geocoded', async () => {
+      distanceServiceMock.locate.mockRejectedValue(new Error('Endereço não encontrado'));
+
+      const budget = await service.create(userId, {
+        clientId: client._id.toString(),
+        type: 'SOLAR',
+        solar: solarPayload,
+      } as any);
+
+      expect(budget.solar!.generation).toBeUndefined();
+    });
+
+    it('never looks up irradiance for a services budget', async () => {
+      await service.create(userId, {
+        clientId: client._id.toString(),
+        items: [{ serviceId: 's1', quantity: 1 }],
+      } as any);
+
+      expect(solarIrradianceServiceMock.getMonthlyIrradiance).not.toHaveBeenCalled();
+      expect(distanceServiceMock.locate).not.toHaveBeenCalled();
     });
   });
 

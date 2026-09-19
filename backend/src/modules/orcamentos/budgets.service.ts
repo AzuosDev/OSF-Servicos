@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Budget, BudgetDocument, BudgetStatus, BudgetType } from './schemas/budget.schema';
@@ -11,10 +11,11 @@ import {
   estimateGeneration,
   systemPowerKwp,
 } from './solar/solar-calculations';
+import { SolarIrradianceService } from './solar/solar-irradiance.service';
 import { ClientsService } from './clients.service';
 import { CompanySettingsService, companyOrigin } from './company-settings.service';
 import { CountersService } from './counters.service';
-import { DistanceService } from './distance.service';
+import { DistanceService, GeoPoint } from './distance.service';
 import { ServicesService } from '../services/services.service';
 import { calculatePanelCleaningSubtotal, isPanelCleaningService } from './pricing/panel-cleaning-pricing';
 import { CreateBudgetDto } from './dto/create-budget.dto';
@@ -43,6 +44,8 @@ const DEFAULT_SOLAR_HORIZON_YEARS = 25;
 
 @Injectable()
 export class BudgetsService {
+  private readonly logger = new Logger(BudgetsService.name);
+
   constructor(
     @InjectModel(Budget.name) private budgetModel: Model<BudgetDocument>,
     private clientsService: ClientsService,
@@ -50,6 +53,7 @@ export class BudgetsService {
     private countersService: CountersService,
     private distanceService: DistanceService,
     private servicesService: ServicesService,
+    private solarIrradianceService: SolarIrradianceService,
   ) {}
 
   /**
@@ -90,7 +94,42 @@ export class BudgetsService {
    * e a geração só entra quando há irradiação do local — sem ela o orçamento nasce sem o
    * gráfico, em vez de nascer com número inventado.
    */
-  private buildSolarDetails(dto: CreateSolarDetailsDto, companySettings: CompanySettingsDocument): SolarDetails {
+  /**
+   * Irradiação do local do cliente, janeiro a dezembro.
+   *
+   * Prioriza o que veio no corpo (sobrescrita manual), depois a consulta pela coordenada.
+   * Falha de rede aqui **não derruba a criação do orçamento**: o usuário acabou de digitar
+   * equipamentos, faturas e valor, e perder tudo porque um serviço externo piscou seria pior
+   * do que emitir a proposta sem o gráfico de geração. Fica registrado no log.
+   */
+  private async resolveIrradiance(
+    dto: CreateSolarDetailsDto,
+    clientAddress: string,
+    clientPoint?: GeoPoint,
+  ): Promise<number[] | undefined> {
+    if (dto.monthlyIrradiance) {
+      return dto.monthlyIrradiance;
+    }
+
+    try {
+      const point = clientPoint ?? (await this.distanceService.locate(clientAddress));
+      return await this.solarIrradianceService.getMonthlyIrradiance(point.lat, point.lon);
+    } catch (error) {
+      this.logger.warn(
+        `Não foi possível obter a irradiação solar para "${clientAddress}" — orçamento criado sem o bloco de geração: ${
+          (error as Error)?.message ?? error
+        }`,
+      );
+      return undefined;
+    }
+  }
+
+  private async buildSolarDetails(
+    dto: CreateSolarDetailsDto,
+    companySettings: CompanySettingsDocument,
+    clientAddress: string,
+    clientPoint?: GeoPoint,
+  ): Promise<SolarDetails> {
     const horizonYears = dto.horizonYears ?? DEFAULT_SOLAR_HORIZON_YEARS;
     const indicators = calculateFinancialIndicators(
       dto.investment,
@@ -100,24 +139,25 @@ export class BudgetsService {
     );
 
     const performanceRatio = dto.performanceRatio ?? DEFAULT_PERFORMANCE_RATIO;
-    const generation = dto.monthlyIrradiance
-      ? (() => {
-          const estimate = estimateGeneration(
-            systemPowerKwp(dto.panels.map((p) => ({ quantity: p.quantity, wattagePeak: p.wattagePeak }))),
-            dto.monthlyIrradiance,
-            performanceRatio,
-          );
-          return {
-            systemPowerKwp: estimate.systemPowerKwp,
-            performanceRatio,
-            monthly: estimate.monthly.map((month) => ({ month: month.month, kwh: month.kwh })),
-            annualKwh: estimate.annualKwh,
-            averageMonthlyKwh: estimate.averageMonthlyKwh,
-            averageWeeklyKwh: estimate.averageWeeklyKwh,
-            monthlyIrradiance: dto.monthlyIrradiance,
-          };
-        })()
-      : undefined;
+    const monthlyIrradiance = await this.resolveIrradiance(dto, clientAddress, clientPoint);
+
+    let generation: SolarDetails['generation'];
+    if (monthlyIrradiance) {
+      const estimate = estimateGeneration(
+        systemPowerKwp(dto.panels.map((p) => ({ quantity: p.quantity, wattagePeak: p.wattagePeak }))),
+        monthlyIrradiance,
+        performanceRatio,
+      );
+      generation = {
+        systemPowerKwp: estimate.systemPowerKwp,
+        performanceRatio,
+        monthly: estimate.monthly.map((month) => ({ month: month.month, kwh: month.kwh })),
+        annualKwh: estimate.annualKwh,
+        averageMonthlyKwh: estimate.averageMonthlyKwh,
+        averageWeeklyKwh: estimate.averageWeeklyKwh,
+        monthlyIrradiance,
+      };
+    }
 
     return {
       panels: dto.panels.map((panel) => ({
@@ -167,14 +207,12 @@ export class BudgetsService {
     }
 
     const items = isSolar ? [] : await this.buildItems(userId, dto.items);
-    const solar = isSolar && dto.solar ? this.buildSolarDetails(dto.solar, companySettings) : undefined;
 
-    // Na venda solar o valor do pedido ocupa o lugar do total dos itens, para que desconto,
-    // deslocamento e total sigam somando exatamente como no orçamento de serviços.
-    const itemsTotal = solar ? solar.financials.investment : items.reduce((sum, item) => sum + item.subtotal, 0);
-
+    // O deslocamento vem antes do bloco solar porque já devolve a coordenada do cliente
+    // geocodificada — a mesma que a irradiação precisa, sem pagar uma segunda consulta.
     let travelCost = 0;
     let distanceCalculationId: Types.ObjectId | undefined;
+    let clientPoint: GeoPoint | undefined;
     if (dto.calculateDistance || dto.destinationAddress) {
       const destinationAddress = dto.destinationAddress ?? client.address;
       const distance = await this.distanceService.calculate(userId, companyOrigin(companySettings), destinationAddress, {
@@ -184,7 +222,14 @@ export class BudgetsService {
       });
       travelCost = distance.travelCost;
       distanceCalculationId = distance.distanceCalculationId;
+      clientPoint = distance.resolvedDestination;
     }
+
+    const solar = isSolar && dto.solar ? await this.buildSolarDetails(dto.solar, companySettings, client.address, clientPoint) : undefined;
+
+    // Na venda solar o valor do pedido ocupa o lugar do total dos itens, para que desconto,
+    // deslocamento e total sigam somando exatamente como no orçamento de serviços.
+    const itemsTotal = solar ? solar.financials.investment : items.reduce((sum, item) => sum + item.subtotal, 0);
 
     const discount = dto.discount ?? 0;
     const total = Math.max(0, itemsTotal + travelCost - discount);
