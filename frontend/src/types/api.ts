@@ -517,6 +517,66 @@ export type CompanySettings = MongoDocument & {
 
 export type BudgetStatus = "RASCUNHO" | "ENVIADO" | "APROVADO" | "REJEITADO" | "EXPIRADO" | "CANCELADO";
 
+/** Orçamento de serviços (fluxo original) ou de venda de sistema fotovoltaico. */
+export type BudgetType = "SERVICOS" | "SOLAR";
+
+export type SolarInverterType = "INVERSOR" | "MICROINVERSOR";
+
+export type SolarPanelSpec = {
+  quantity: number;
+  /** Potência unitária em watt-pico. */
+  wattagePeak: number;
+  model?: string;
+};
+
+export type SolarInverterSpec = {
+  quantity: number;
+  type: SolarInverterType;
+  model?: string;
+  wattage?: number;
+};
+
+/** Garantias em anos, copiadas das configurações da empresa no momento da venda. */
+export type SolarWarranties = {
+  panelEfficiencyYears?: number;
+  panelDefectYears?: number;
+  inverterYears?: number;
+  installationYears?: number;
+};
+
+export type SolarGeneration = {
+  systemPowerKwp: number;
+  performanceRatio: number;
+  /** Doze meses, `month` de 1 a 12 — a base do gráfico de colunas. */
+  monthly: { month: number; kwh: number }[];
+  annualKwh: number;
+  averageMonthlyKwh: number;
+  averageWeeklyKwh: number;
+  monthlyIrradiance: number[];
+};
+
+export type SolarFinancials = {
+  investment: number;
+  currentMonthlyBill: number;
+  projectedMonthlyBill: number;
+  monthlySavings: number;
+  annualSavings: number;
+  horizonYears: number;
+  totalSavings: number;
+  /** Ausentes quando a fatura não cai — não há retorno a projetar. */
+  irrPercent?: number;
+  paybackMonths?: number;
+};
+
+export type SolarDetails = {
+  panels: SolarPanelSpec[];
+  inverters: SolarInverterSpec[];
+  warranties: SolarWarranties;
+  /** Ausente enquanto não houver irradiação do local do cliente. */
+  generation?: SolarGeneration;
+  financials: SolarFinancials;
+};
+
 export type BudgetItem = {
   serviceId: ApiId;
   name: string;
@@ -529,7 +589,12 @@ export type Budget = MongoDocument & {
   userId: ApiId;
   sequenceNumber: number;
   clientId: ApiId;
+  type: BudgetType;
+  /** Vazio num orçamento solar — o equipamento vive em `solar`, fora do catálogo. */
   items: BudgetItem[];
+  /** Presente apenas quando `type` é SOLAR. */
+  solar?: SolarDetails;
+  /** Na venda solar é o valor do pedido da distribuidora, não a soma de itens. */
   itemsTotal: number;
   travelCost: number;
   discount: number;

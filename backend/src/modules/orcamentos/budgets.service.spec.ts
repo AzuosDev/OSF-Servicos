@@ -227,6 +227,157 @@ describe('BudgetsService', () => {
     );
   });
 
+  describe('solar budgets', () => {
+    /** Irradiação de um ponto do Ceará: chuvas no começo do ano, seca no segundo semestre. */
+    const irradiance = [5.4, 5.1, 4.8, 4.6, 5.0, 5.3, 5.6, 6.1, 6.3, 6.2, 6.0, 5.7];
+
+    const solarPayload = {
+      panels: [{ quantity: 12, wattagePeak: 550 }],
+      inverters: [{ quantity: 1, type: 'INVERSOR' }],
+      investment: 30000,
+      currentMonthlyBill: 850,
+      projectedMonthlyBill: 120,
+    };
+
+    const createSolar = (overrides: Record<string, unknown> = {}) =>
+      service.create(userId, {
+        clientId: client._id.toString(),
+        type: 'SOLAR',
+        solar: { ...solarPayload, ...overrides },
+      } as any);
+
+    it('stores the order value as the budget total, with no catalogue items', async () => {
+      const budget = await createSolar();
+
+      expect(budget.type).toBe('SOLAR');
+      expect(budget.items).toEqual([]);
+      expect(budget.itemsTotal).toBe(30000);
+      expect(budget.total).toBe(30000);
+    });
+
+    it('computes the financial indicators at creation', async () => {
+      const budget = await createSolar();
+
+      expect(budget.solar!.financials.monthlySavings).toBe(730);
+      expect(budget.solar!.financials.annualSavings).toBe(8760);
+      expect(budget.solar!.financials.horizonYears).toBe(25);
+      expect(budget.solar!.financials.paybackMonths).toBe(42);
+      expect(budget.solar!.financials.irrPercent).toBeGreaterThan(0);
+    });
+
+    it('omits payback and IRR when the bill does not drop', async () => {
+      const budget = await createSolar({ currentMonthlyBill: 500, projectedMonthlyBill: 500 });
+
+      expect(budget.solar!.financials.paybackMonths).toBeUndefined();
+      expect(budget.solar!.financials.irrPercent).toBeUndefined();
+    });
+
+    it('computes generation when the local irradiance is provided', async () => {
+      const budget = await createSolar({ monthlyIrradiance: irradiance });
+
+      // 12 x 550 Wp = 6,6 kWp
+      expect(budget.solar!.generation!.systemPowerKwp).toBe(6.6);
+      expect(budget.solar!.generation!.monthly).toHaveLength(12);
+      expect(budget.solar!.generation!.annualKwh).toBeGreaterThan(0);
+      // A irradiação usada fica gravada para o cálculo poder ser reconferido depois.
+      expect(budget.solar!.generation!.monthlyIrradiance).toEqual(irradiance);
+    });
+
+    it('creates the budget without the generation block when there is no irradiance', async () => {
+      const budget = await createSolar();
+      expect(budget.solar!.generation).toBeUndefined();
+    });
+
+    it('snapshots the warranties from the company settings', async () => {
+      companySettingsServiceMock.get.mockResolvedValue({
+        ...companySettings,
+        panelEfficiencyWarrantyYears: 25,
+        panelDefectWarrantyYears: 12,
+        inverterWarrantyYears: 10,
+        installationWarrantyYears: 5,
+      });
+
+      const budget = await createSolar();
+
+      expect(budget.solar!.warranties).toEqual({
+        panelEfficiencyYears: 25,
+        panelDefectYears: 12,
+        inverterYears: 10,
+        installationYears: 5,
+      });
+    });
+
+    it('leaves the warranties empty when the company has not configured them', async () => {
+      const budget = await createSolar();
+
+      expect(budget.solar!.warranties).toEqual({
+        panelEfficiencyYears: undefined,
+        panelDefectYears: undefined,
+        inverterYears: undefined,
+        installationYears: undefined,
+      });
+    });
+
+    it('sums panel models of different wattage in the same kit', async () => {
+      const budget = await createSolar({
+        panels: [
+          { quantity: 8, wattagePeak: 550 },
+          { quantity: 4, wattagePeak: 450 },
+        ],
+        monthlyIrradiance: irradiance,
+      });
+
+      expect(budget.solar!.generation!.systemPowerKwp).toBe(6.2);
+    });
+
+    it('still applies discount and travel cost on top of the order value', async () => {
+      const budget = await service.create(userId, {
+        clientId: client._id.toString(),
+        type: 'SOLAR',
+        solar: solarPayload,
+        discount: 1000,
+      } as any);
+
+      expect(budget.total).toBe(29000);
+    });
+
+    it('rejects a solar budget created without the solar block', async () => {
+      await expect(
+        service.create(userId, { clientId: client._id.toString(), type: 'SOLAR' } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('refuses catalogue items on an existing solar budget', async () => {
+      const budget = {
+        status: BudgetStatus.RASCUNHO,
+        type: 'SOLAR',
+        items: [],
+        itemsTotal: 30000,
+        travelCost: 0,
+        discount: 0,
+        save: jest.fn(),
+      };
+      budgetModelMock.findOne = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(budget) });
+
+      await expect(
+        service.update(userId, new Types.ObjectId().toString(), { items: [{ serviceId: 's1', quantity: 1 }] } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(budget.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('budget type defaults', () => {
+    it('defaults to SERVICOS when the caller sends no type', async () => {
+      const budget = await service.create(userId, {
+        clientId: client._id.toString(),
+        items: [{ serviceId: 's1', quantity: 1 }],
+      } as any);
+
+      expect(budget.type).toBe('SERVICOS');
+      expect(budget.solar).toBeUndefined();
+    });
+  });
+
   describe('getConversionStats', () => {
     it('computes conversionRate from aggregated counts', async () => {
       (service as any).budgetModel = {
