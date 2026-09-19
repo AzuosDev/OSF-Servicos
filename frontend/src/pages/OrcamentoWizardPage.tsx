@@ -13,6 +13,7 @@ import {
   Plus,
   Search,
   Trash2,
+  Upload,
 } from "lucide-react";
 
 import { api } from "../lib/api";
@@ -27,8 +28,20 @@ import {
   calculatePanelCleaningSubtotal,
   isPanelCleaningService,
 } from "../lib/orcamentos";
+import { SolarSystemForm } from "../components/orcamentos/SolarSystemForm";
+import {
+  emptySolarForm,
+  formSystemPowerKwp,
+  isSolarFormValid,
+  projectedMonthlySavings,
+  solarFormFromParsedOrder,
+  toSolarPayload,
+  type ParsedSolarOrder,
+  type SolarFormState,
+} from "../lib/solar";
 import type {
   Budget,
+  BudgetType,
   Client,
   CompanySettings,
   DistanceCalculationResult,
@@ -58,13 +71,15 @@ function defaultValidUntil(): string {
   return date.toISOString().slice(0, 10);
 }
 
-const STEP_LABELS: Record<WizardStep, string> = {
+// O passo 2 muda de nome conforme o tipo: é onde o fluxo se divide entre catálogo de
+// serviços e dados do sistema fotovoltaico.
+const stepLabels = (type: BudgetType): Record<WizardStep, string> => ({
   1: "Cliente",
-  2: "Serviços",
+  2: type === "SOLAR" ? "Sistema" : "Serviços",
   3: "Deslocamento",
   4: "Revisão",
   5: "Confirmação",
-};
+});
 
 export function OrcamentoWizardPage() {
   const navigate = useNavigate();
@@ -74,7 +89,13 @@ export function OrcamentoWizardPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientModalOpen, setClientModalOpen] = useState(false);
 
+  const [budgetType, setBudgetType] = useState<BudgetType>("SERVICOS");
+  const isSolar = budgetType === "SOLAR";
+
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [solarForm, setSolarForm] = useState<SolarFormState>(emptySolarForm());
+  const [orderWarnings, setOrderWarnings] = useState<string[]>([]);
+  const orderFileRef = useRef<HTMLInputElement>(null);
   const [panelModalService, setPanelModalService] = useState<Service | null>(null);
 
   const [destinationAddress, setDestinationAddress] = useState("");
@@ -102,7 +123,7 @@ export function OrcamentoWizardPage() {
   const servicesQuery = useQuery<Service[]>({
     queryKey: ["services", "active"],
     queryFn: () => api.get<Service[]>("/api/services?activeOnly=true").then((r) => r.data),
-    enabled: step === 2,
+    enabled: step === 2 && !isSolar,
   });
 
   const filteredClients = useMemo(() => {
@@ -125,7 +146,9 @@ export function OrcamentoWizardPage() {
     [cart],
   );
   const travelCost = distancePreview?.travelCost ?? 0;
-  const total = Math.max(0, itemsTotal + travelCost - discount);
+  // Na venda solar o valor do pedido ocupa o lugar do total dos itens, igual ao backend.
+  const baseTotal = isSolar ? solarForm.investment : itemsTotal;
+  const total = Math.max(0, baseTotal + travelCost - discount);
 
   // Memória de cálculo da limpeza de placas — entra nas observações do orçamento
   // automaticamente, já que o valor não vem de um preço fixo do serviço.
@@ -175,16 +198,38 @@ export function OrcamentoWizardPage() {
     },
   });
 
+  // Lê o pedido da distribuidora e pré-preenche o formulário. Nunca grava nada: o que
+  // volta é rascunho, e todo campo continua editável antes de confirmar.
+  const parseOrderMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const body = new FormData();
+      body.append("file", file);
+      const { data } = await api.post<ParsedSolarOrder>("/api/orcamentos/solar/parse-order", body);
+      return data;
+    },
+    onSuccess: (parsed) => {
+      setSolarForm((current) => solarFormFromParsedOrder(parsed, current));
+      setOrderWarnings(parsed.warnings);
+    },
+  });
+
   const createBudgetMutation = useMutation({
     mutationFn: async () => {
       if (!selectedClient) throw new Error("Cliente não selecionado");
       const { data } = await api.post<Budget>("/api/orcamentos/budgets", {
         clientId: selectedClient._id,
-        items: cart.map((item) => ({
-          serviceId: item.service._id,
-          quantity: item.quantity,
-          ...(item.unitPriceOverride != null && { unitPriceOverride: item.unitPriceOverride }),
-        })),
+        type: budgetType,
+        // Os dois blocos são exclusivos: o backend recusa itens de catálogo num orçamento
+        // solar, e recusa um orçamento de serviços sem itens.
+        ...(isSolar
+          ? { solar: toSolarPayload(solarForm) }
+          : {
+              items: cart.map((item) => ({
+                serviceId: item.service._id,
+                quantity: item.quantity,
+                ...(item.unitPriceOverride != null && { unitPriceOverride: item.unitPriceOverride }),
+              })),
+            }),
         calculateDistance: !skipDistance,
         destinationAddress: !skipDistance ? destinationAddress.trim() || selectedClient.address : undefined,
         discount: discount || undefined,
@@ -323,7 +368,7 @@ export function OrcamentoWizardPage() {
                   s === step ? "text-text-primary" : "text-text-muted",
                 )}
               >
-                {STEP_LABELS[s]}
+                {stepLabels(budgetType)[s]}
               </span>
             </div>
             {idx < 4 && <div className="mx-2 h-px w-10 bg-border-default" />}
@@ -334,7 +379,43 @@ export function OrcamentoWizardPage() {
       <div className="max-w-2xl flex-1 rounded-2xl border border-border-default bg-bg-card p-8">
         {step === 1 && (
           <div className="space-y-5">
+            {/* O tipo vem antes do cliente porque muda todo o resto do fluxo: o passo
+                seguinte deixa de ser o catálogo de serviços e vira os dados do sistema. */}
             <div>
+              <h2 className="text-lg font-bold">Tipo de orçamento</h2>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {(
+                  [
+                    { value: "SERVICOS", title: "Serviços", hint: "Instalação, limpeza, manutenção" },
+                    { value: "SOLAR", title: "Venda de sistema solar", hint: "Com geração, garantias e payback" },
+                  ] as { value: BudgetType; title: string; hint: string }[]
+                ).map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setBudgetType(option.value)}
+                    className={cn(
+                      "rounded-xl border p-4 text-left transition",
+                      budgetType === option.value
+                        ? "border-accent-gold bg-accent-gold/10"
+                        : "border-border-default hover:bg-bg-overlay",
+                    )}
+                  >
+                    <p
+                      className={cn(
+                        "text-sm font-bold",
+                        budgetType === option.value ? "text-accent-gold" : "text-text-primary",
+                      )}
+                    >
+                      {option.title}
+                    </p>
+                    <p className="mt-0.5 text-xs text-text-secondary">{option.hint}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="border-t border-border-default pt-5">
               <h2 className="text-lg font-bold">Selecione o cliente</h2>
               <p className="mt-1 text-sm text-text-secondary">Busque um cliente já cadastrado ou crie um novo.</p>
             </div>
@@ -403,7 +484,79 @@ export function OrcamentoWizardPage() {
           </div>
         )}
 
-        {step === 2 && (
+        {step === 2 && isSolar && (
+          <div className="space-y-5">
+            <div>
+              <h2 className="text-lg font-bold">Sistema fotovoltaico</h2>
+              <p className="mt-1 text-sm text-text-secondary">
+                Equipamentos e valores do pedido. A geração, o payback e a T.I.R. são calculados a partir daqui.
+              </p>
+            </div>
+
+            {/* Atalho, nunca obrigação: o formulário abaixo funciona sozinho. Pedido em
+                PDF de imagem (algumas distribuidoras geram assim) cai no preenchimento
+                manual com mensagem explicando o motivo. */}
+            <div className="rounded-xl border border-dashed border-border-default p-4">
+              <input
+                ref={orderFileRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) parseOrderMutation.mutate(file);
+                  e.target.value = "";
+                }}
+              />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-text-primary">Preencher a partir do pedido</p>
+                  <p className="text-xs text-text-secondary">
+                    Envie o PDF da distribuidora e confira os campos preenchidos.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={parseOrderMutation.isPending}
+                  onClick={() => orderFileRef.current?.click()}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-accent-gold px-4 py-2.5 text-sm font-bold text-accent-gold transition hover:bg-accent-gold/10 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {parseOrderMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  Enviar PDF do pedido
+                </button>
+              </div>
+
+              {parseOrderMutation.isError && (
+                <p className="mt-3 rounded-lg bg-accent-red/10 p-3 text-xs text-accent-red">
+                  {getApiErrorMessages(parseOrderMutation.error, "Não foi possível ler o pedido.")[0]}
+                </p>
+              )}
+
+              {parseOrderMutation.isSuccess && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs text-accent-green">
+                    Pedido lido. Confira cada campo abaixo antes de continuar.
+                  </p>
+                  {orderWarnings.length > 0 && (
+                    <ul className="space-y-1 rounded-lg bg-accent-orange/10 p-3 text-xs text-accent-orange">
+                      {orderWarnings.map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <SolarSystemForm value={solarForm} onChange={setSolarForm} />
+          </div>
+        )}
+
+        {step === 2 && !isSolar && (
           <div className="space-y-5">
             <div>
               <h2 className="text-lg font-bold">Serviços</h2>
@@ -590,7 +743,28 @@ export function OrcamentoWizardPage() {
             </div>
 
             <div className="space-y-1">
-              {cart.map((item) => (
+              {isSolar && (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-text-secondary">
+                      Sistema fotovoltaico ·{" "}
+                      {formSystemPowerKwp(solarForm).toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}{" "}
+                      kWp
+                    </span>
+                    <span className="font-semibold">{formatCurrency(solarForm.investment)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-text-secondary">Economia mensal estimada</span>
+                    <span className="font-semibold text-accent-gold">
+                      {formatCurrency(projectedMonthlySavings(solarForm))}
+                    </span>
+                  </div>
+                </>
+              )}
+              {!isSolar && cart.map((item) => (
                 <div key={item.service._id} className="flex justify-between text-sm">
                   <span className="text-text-secondary">
                     {isPanelCleaningService(item.service.name)
@@ -713,6 +887,16 @@ export function OrcamentoWizardPage() {
                 {formatCurrency(createdBudget.total)}
               </span>
             </div>
+            {/* O backend cria o orçamento solar mesmo quando não consegue a irradiação do
+                local — perder tudo por causa de um serviço externo seria pior. Mas o
+                usuário precisa saber que o PDF vai sair sem o gráfico de geração. */}
+            {createdBudget.type === "SOLAR" && !createdBudget.solar?.generation && (
+              <div className="w-full max-w-sm rounded-xl bg-accent-orange/10 p-3 text-left text-xs text-accent-orange">
+                Não foi possível obter a irradiação solar do endereço deste cliente, então o PDF sai sem a
+                seção de geração de energia. Os valores financeiros e as garantias não são afetados.
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() => downloadPdfMutation.mutate(createdBudget)}
@@ -759,7 +943,7 @@ export function OrcamentoWizardPage() {
           {step === 2 && (
             <button
               type="button"
-              disabled={cart.length === 0}
+              disabled={isSolar ? !isSolarFormValid(solarForm) : cart.length === 0}
               onClick={() => setStep(3)}
               className="inline-flex items-center gap-2 rounded-full bg-accent-gold px-6 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
             >

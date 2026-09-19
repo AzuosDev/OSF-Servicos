@@ -19,6 +19,8 @@ import { BudgetsService } from './budgets.service';
 import { BudgetsController } from './budgets.controller';
 import { PdfService } from './pdf.service';
 import { SolarIrradianceService } from './solar/solar-irradiance.service';
+import { SolarOrderService } from './solar/solar-order.service';
+import { SolarOrderController } from './solar/solar-order.controller';
 
 @Module({
   imports: [
@@ -39,9 +41,16 @@ import { SolarIrradianceService } from './solar/solar-irradiance.service';
     CountersService,
     DistanceService,
     SolarIrradianceService,
+    SolarOrderService,
     BudgetsService,
     PdfService,
   ],
-  controllers: [ClientsController, CompanySettingsController, DistanceController, BudgetsController],
+  controllers: [
+    ClientsController,
+    CompanySettingsController,
+    DistanceController,
+    SolarOrderController,
+    BudgetsController,
+  ],
 })
 export class OrcamentosModule {}
