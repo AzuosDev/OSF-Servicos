@@ -506,6 +506,12 @@ export type CompanySettings = MongoDocument & {
   pricePerKm: number;
   minimumTravelFee: number;
   freeRadiusKm: number;
+  // Garantias do sistema fotovoltaico, em anos. Ausentes quando a empresa não vende
+  // sistema solar — o orçamento de venda solar só imprime a garantia que estiver preenchida.
+  panelEfficiencyWarrantyYears?: number;
+  panelDefectWarrantyYears?: number;
+  inverterWarrantyYears?: number;
+  installationWarrantyYears?: number;
   pdfFooterNote?: string;
 };
 

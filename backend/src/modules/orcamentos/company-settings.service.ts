@@ -18,6 +18,14 @@ export const companyOrigin = (settings: Pick<CompanySettings, 'baseAddress' | 'o
   return settings.baseAddress;
 };
 
+/** Garantias que o formulário pode esvaziar — ver o comentário em `upsert`. */
+const CLEARABLE_WARRANTY_FIELDS = [
+  'panelEfficiencyWarrantyYears',
+  'panelDefectWarrantyYears',
+  'inverterWarrantyYears',
+  'installationWarrantyYears',
+] as const satisfies readonly (keyof CompanySettingsDto)[];
+
 @Injectable()
 export class CompanySettingsService {
   constructor(
@@ -37,12 +45,27 @@ export class CompanySettingsService {
   }
 
   async upsert(userId: string, dto: CompanySettingsDto) {
+    // Um campo opcional ausente no DTO não chega ao `$set` — o class-transformer nem cria a
+    // chave — então sem `$unset` o valor anterior sobreviveria à limpeza do formulário. Para
+    // as garantias isso seria grave: o PDF continuaria prometendo ao cliente um prazo que a
+    // empresa acabou de apagar. Restrito às garantias de propósito; os outros campos
+    // opcionais têm o mesmo comportamento hoje e mudá-los está fora desta entrega.
+    const toUnset = CLEARABLE_WARRANTY_FIELDS.filter((field) => dto[field] == null);
+
+    const update: Record<string, unknown> = {
+      $set: dto,
+      $setOnInsert: { userId: new Types.ObjectId(userId) },
+    };
+    if (toUnset.length > 0) {
+      update.$unset = Object.fromEntries(toUnset.map((field) => [field, '']));
+    }
+
     return this.companySettingsModel
-      .findOneAndUpdate(
-        { userId: new Types.ObjectId(userId) },
-        { $set: dto, $setOnInsert: { userId: new Types.ObjectId(userId) } },
-        { upsert: true, new: true, runValidators: true },
-      )
+      .findOneAndUpdate({ userId: new Types.ObjectId(userId) }, update, {
+        upsert: true,
+        new: true,
+        runValidators: true,
+      })
       .exec();
   }
 }
