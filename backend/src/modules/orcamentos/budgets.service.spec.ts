@@ -9,6 +9,7 @@ import { CompanySettingsService } from './company-settings.service';
 import { CountersService } from './counters.service';
 import { DistanceService } from './distance.service';
 import { ServicesService } from '../services/services.service';
+import { SolarIrradianceService } from './solar/solar-irradiance.service';
 
 describe('BudgetsService', () => {
   let service: BudgetsService;
@@ -16,8 +17,9 @@ describe('BudgetsService', () => {
   let clientsServiceMock: { findOne: jest.Mock };
   let companySettingsServiceMock: { get: jest.Mock };
   let countersServiceMock: { getNextSequence: jest.Mock };
-  let distanceServiceMock: { calculate: jest.Mock };
+  let distanceServiceMock: { calculate: jest.Mock; locate: jest.Mock };
   let servicesServiceMock: { findOne: jest.Mock };
+  let solarIrradianceServiceMock: { getMonthlyIrradiance: jest.Mock };
 
   const userId = new Types.ObjectId().toString();
   const client = { _id: new Types.ObjectId(), address: 'Rua Cliente, 100' };
@@ -28,7 +30,8 @@ describe('BudgetsService', () => {
     clientsServiceMock = { findOne: jest.fn().mockResolvedValue(client) };
     companySettingsServiceMock = { get: jest.fn().mockResolvedValue(companySettings) };
     countersServiceMock = { getNextSequence: jest.fn().mockResolvedValue(1) };
-    distanceServiceMock = { calculate: jest.fn() };
+    distanceServiceMock = { calculate: jest.fn(), locate: jest.fn() };
+    solarIrradianceServiceMock = { getMonthlyIrradiance: jest.fn() };
     servicesServiceMock = {
       findOne: jest.fn().mockResolvedValue({ _id: new Types.ObjectId(), name: 'Instalação de painel', defaultValue: 500 }),
     };
@@ -42,6 +45,7 @@ describe('BudgetsService', () => {
         { provide: CountersService, useValue: countersServiceMock },
         { provide: DistanceService, useValue: distanceServiceMock },
         { provide: ServicesService, useValue: servicesServiceMock },
+        { provide: SolarIrradianceService, useValue: solarIrradianceServiceMock },
       ],
     }).compile();
 
@@ -225,6 +229,261 @@ describe('BudgetsService', () => {
         expect(budget.save).not.toHaveBeenCalled();
       },
     );
+  });
+
+  describe('solar budgets', () => {
+    /** Irradiação de um ponto do Ceará: chuvas no começo do ano, seca no segundo semestre. */
+    const irradiance = [5.4, 5.1, 4.8, 4.6, 5.0, 5.3, 5.6, 6.1, 6.3, 6.2, 6.0, 5.7];
+
+    const solarPayload = {
+      panels: [{ quantity: 12, wattagePeak: 550 }],
+      inverters: [{ quantity: 1, type: 'INVERSOR' }],
+      investment: 30000,
+      currentMonthlyBill: 850,
+      projectedMonthlyBill: 120,
+    };
+
+    const createSolar = (overrides: Record<string, unknown> = {}) =>
+      service.create(userId, {
+        clientId: client._id.toString(),
+        type: 'SOLAR',
+        solar: { ...solarPayload, ...overrides },
+      } as any);
+
+    it('stores the order value as the budget total, with no catalogue items', async () => {
+      const budget = await createSolar();
+
+      expect(budget.type).toBe('SOLAR');
+      expect(budget.items).toEqual([]);
+      expect(budget.itemsTotal).toBe(30000);
+      expect(budget.total).toBe(30000);
+    });
+
+    it('computes the financial indicators at creation', async () => {
+      const budget = await createSolar();
+
+      expect(budget.solar!.financials.monthlySavings).toBe(730);
+      expect(budget.solar!.financials.annualSavings).toBe(8760);
+      expect(budget.solar!.financials.horizonYears).toBe(25);
+      expect(budget.solar!.financials.paybackMonths).toBe(42);
+      expect(budget.solar!.financials.irrPercent).toBeGreaterThan(0);
+    });
+
+    it('omits payback and IRR when the bill does not drop', async () => {
+      const budget = await createSolar({ currentMonthlyBill: 500, projectedMonthlyBill: 500 });
+
+      expect(budget.solar!.financials.paybackMonths).toBeUndefined();
+      expect(budget.solar!.financials.irrPercent).toBeUndefined();
+    });
+
+    it('computes generation when the local irradiance is provided', async () => {
+      const budget = await createSolar({ monthlyIrradiance: irradiance });
+
+      // 12 x 550 Wp = 6,6 kWp
+      expect(budget.solar!.generation!.systemPowerKwp).toBe(6.6);
+      expect(budget.solar!.generation!.monthly).toHaveLength(12);
+      expect(budget.solar!.generation!.annualKwh).toBeGreaterThan(0);
+      // A irradiação usada fica gravada para o cálculo poder ser reconferido depois.
+      expect(budget.solar!.generation!.monthlyIrradiance).toEqual(irradiance);
+    });
+
+    // Os testes deste bloco não mockam a busca de irradiação de propósito: mostram que o
+    // orçamento nasce íntegro mesmo sem o gráfico. A busca automática tem bloco próprio.
+    it('creates the budget without the generation block when no irradiance can be resolved', async () => {
+      const budget = await createSolar();
+      expect(budget.solar!.generation).toBeUndefined();
+    });
+
+    it('snapshots the warranties from the company settings', async () => {
+      companySettingsServiceMock.get.mockResolvedValue({
+        ...companySettings,
+        panelEfficiencyWarrantyYears: 25,
+        panelDefectWarrantyYears: 12,
+        inverterWarrantyYears: 10,
+        installationWarrantyYears: 5,
+      });
+
+      const budget = await createSolar();
+
+      expect(budget.solar!.warranties).toEqual({
+        panelEfficiencyYears: 25,
+        panelDefectYears: 12,
+        inverterYears: 10,
+        installationYears: 5,
+      });
+    });
+
+    it('leaves the warranties empty when the company has not configured them', async () => {
+      const budget = await createSolar();
+
+      expect(budget.solar!.warranties).toEqual({
+        panelEfficiencyYears: undefined,
+        panelDefectYears: undefined,
+        inverterYears: undefined,
+        installationYears: undefined,
+      });
+    });
+
+    it('sums panel models of different wattage in the same kit', async () => {
+      const budget = await createSolar({
+        panels: [
+          { quantity: 8, wattagePeak: 550 },
+          { quantity: 4, wattagePeak: 450 },
+        ],
+        monthlyIrradiance: irradiance,
+      });
+
+      expect(budget.solar!.generation!.systemPowerKwp).toBe(6.2);
+    });
+
+    it('still applies discount and travel cost on top of the order value', async () => {
+      const budget = await service.create(userId, {
+        clientId: client._id.toString(),
+        type: 'SOLAR',
+        solar: solarPayload,
+        discount: 1000,
+      } as any);
+
+      expect(budget.total).toBe(29000);
+    });
+
+    it('rejects a solar budget created without the solar block', async () => {
+      await expect(
+        service.create(userId, { clientId: client._id.toString(), type: 'SOLAR' } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('refuses catalogue items on an existing solar budget', async () => {
+      const budget = {
+        status: BudgetStatus.RASCUNHO,
+        type: 'SOLAR',
+        items: [],
+        itemsTotal: 30000,
+        travelCost: 0,
+        discount: 0,
+        save: jest.fn(),
+      };
+      budgetModelMock.findOne = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(budget) });
+
+      await expect(
+        service.update(userId, new Types.ObjectId().toString(), { items: [{ serviceId: 's1', quantity: 1 }] } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(budget.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('solar irradiance lookup', () => {
+    const monthly = [5.4, 5.1, 4.8, 4.6, 5.0, 5.3, 5.6, 6.1, 6.3, 6.2, 6.0, 5.7];
+
+    const solarPayload = {
+      panels: [{ quantity: 12, wattagePeak: 550 }],
+      inverters: [{ quantity: 1, type: 'INVERSOR' }],
+      investment: 30000,
+      currentMonthlyBill: 850,
+      projectedMonthlyBill: 120,
+    };
+
+    beforeEach(() => {
+      solarIrradianceServiceMock.getMonthlyIrradiance.mockResolvedValue(monthly);
+      distanceServiceMock.locate.mockResolvedValue({ label: 'Rua Cliente, 100', lat: -3.32, lon: -40.09 });
+    });
+
+    it('geocodes the client address and fetches the irradiance when there is no travel cost', async () => {
+      const budget = await service.create(userId, {
+        clientId: client._id.toString(),
+        type: 'SOLAR',
+        solar: solarPayload,
+      } as any);
+
+      expect(distanceServiceMock.locate).toHaveBeenCalledWith(client.address);
+      expect(solarIrradianceServiceMock.getMonthlyIrradiance).toHaveBeenCalledWith(-3.32, -40.09);
+      expect(budget.solar!.generation!.monthlyIrradiance).toEqual(monthly);
+    });
+
+    // O deslocamento já geocodificou o destino; pedir de novo seria uma chamada paga à toa.
+    it('reuses the point resolved by the travel calculation instead of geocoding twice', async () => {
+      distanceServiceMock.calculate.mockResolvedValue({
+        distanceKm: 10,
+        durationMin: 15,
+        travelCost: 20,
+        distanceCalculationId: new Types.ObjectId(),
+        cached: false,
+        resolvedDestination: { label: 'Rua Destino', lat: -4.1, lon: -38.5 },
+      });
+
+      await service.create(userId, {
+        clientId: client._id.toString(),
+        type: 'SOLAR',
+        solar: solarPayload,
+        calculateDistance: true,
+      } as any);
+
+      expect(distanceServiceMock.locate).not.toHaveBeenCalled();
+      expect(solarIrradianceServiceMock.getMonthlyIrradiance).toHaveBeenCalledWith(-4.1, -38.5);
+    });
+
+    it('prefers an irradiance sent in the body over the automatic lookup', async () => {
+      const manual = Array<number>(12).fill(4.2);
+
+      const budget = await service.create(userId, {
+        clientId: client._id.toString(),
+        type: 'SOLAR',
+        solar: { ...solarPayload, monthlyIrradiance: manual },
+      } as any);
+
+      expect(solarIrradianceServiceMock.getMonthlyIrradiance).not.toHaveBeenCalled();
+      expect(budget.solar!.generation!.monthlyIrradiance).toEqual(manual);
+    });
+
+    // Perder equipamentos, faturas e valor já digitados porque a NASA piscou seria pior do
+    // que emitir a proposta sem o gráfico.
+    it('still creates the budget when the irradiance lookup fails', async () => {
+      solarIrradianceServiceMock.getMonthlyIrradiance.mockRejectedValue(new Error('NASA fora do ar'));
+
+      const budget = await service.create(userId, {
+        clientId: client._id.toString(),
+        type: 'SOLAR',
+        solar: solarPayload,
+      } as any);
+
+      expect(budget.solar!.generation).toBeUndefined();
+      expect(budget.solar!.financials.investment).toBe(30000);
+      expect(budget.total).toBe(30000);
+    });
+
+    it('still creates the budget when the address cannot be geocoded', async () => {
+      distanceServiceMock.locate.mockRejectedValue(new Error('Endereço não encontrado'));
+
+      const budget = await service.create(userId, {
+        clientId: client._id.toString(),
+        type: 'SOLAR',
+        solar: solarPayload,
+      } as any);
+
+      expect(budget.solar!.generation).toBeUndefined();
+    });
+
+    it('never looks up irradiance for a services budget', async () => {
+      await service.create(userId, {
+        clientId: client._id.toString(),
+        items: [{ serviceId: 's1', quantity: 1 }],
+      } as any);
+
+      expect(solarIrradianceServiceMock.getMonthlyIrradiance).not.toHaveBeenCalled();
+      expect(distanceServiceMock.locate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('budget type defaults', () => {
+    it('defaults to SERVICOS when the caller sends no type', async () => {
+      const budget = await service.create(userId, {
+        clientId: client._id.toString(),
+        items: [{ serviceId: 's1', quantity: 1 }],
+      } as any);
+
+      expect(budget.type).toBe('SERVICOS');
+      expect(budget.solar).toBeUndefined();
+    });
   });
 
   describe('getConversionStats', () => {

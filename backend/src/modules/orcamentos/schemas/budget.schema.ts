@@ -1,5 +1,15 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { SolarDetails, SolarDetailsSchema } from './solar-details.schema';
+
+/**
+ * Orçamento de serviços (o fluxo original) ou de venda de sistema fotovoltaico.
+ * O default é SERVICOS para que todo orçamento já gravado continue válido sem migração.
+ */
+export enum BudgetType {
+  SERVICOS = 'SERVICOS',
+  SOLAR = 'SOLAR',
+}
 
 export enum BudgetStatus {
   RASCUNHO = 'RASCUNHO',
@@ -43,8 +53,18 @@ export class Budget {
   @Prop({ type: Types.ObjectId, ref: 'Client', required: true })
   clientId!: Types.ObjectId;
 
-  @Prop({ type: [BudgetItemSchema], required: true })
+  @Prop({ required: true, enum: BudgetType, default: BudgetType.SERVICOS })
+  type!: BudgetType;
+
+  // Vazio num orçamento solar: painel e inversor não estão no catálogo de serviços e não
+  // devem estar — `buildItems` resolve todo item contra o catálogo, e essa garantia de
+  // preço precisa continuar valendo. O equipamento solar vive em `solar.panels/inverters`.
+  @Prop({ type: [BudgetItemSchema], required: true, default: [] })
   items!: BudgetItem[];
+
+  /** Presente apenas quando `type` é SOLAR. */
+  @Prop({ type: SolarDetailsSchema })
+  solar?: SolarDetails;
 
   @Prop({ required: true, min: 0 })
   itemsTotal!: number;
