@@ -270,9 +270,18 @@ describe('cover page', () => {
 
     expect(html).toContain('class="cover"');
     expect(html).toContain('Proposta comercial');
-    expect(html).toContain('Sistema de Energia');
+    expect(html).toContain('class="cover-company">Proposta<');
     expect(html).toContain('Nº 0008');
     expect(html).toContain('6,60 kWp');
+  });
+
+  // A logo é o elemento principal da capa; um ajuste que a encolha de volta tem que doer.
+  it('gives the logo roughly a third of the sheet', () => {
+    const html = buildBudgetHtml(solarBudget, client, company);
+    const plate = html.match(/\.cover-logo-plate \{[^}]*height:\s*(\d+)mm/);
+
+    expect(plate).not.toBeNull();
+    expect(Number(plate![1]) / 297).toBeGreaterThan(0.25);
   });
 
   it('breaks the page after the cover so the content starts on a fresh sheet', () => {

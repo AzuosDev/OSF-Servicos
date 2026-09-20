@@ -42,9 +42,8 @@ export function buildCoverHtml(
       <div class="cover-logo-plate">
         <img src="data:image/png;base64,${OSF_LOGO_BASE64}" alt="${escapeHtml(company.companyName)}" />
       </div>
-      <h1 class="cover-title">Sistema de Energia<br />Solar Fotovoltaica</h1>
       <div class="cover-rule"></div>
-      <p class="cover-company">${escapeHtml(company.companyName)}</p>
+      <p class="cover-company">Proposta</p>
     </div>
 
     <div class="cover-bottom">
@@ -69,6 +68,14 @@ export function buildCoverHtml(
  * na primeira versão.
  */
 const CONTENT_HEIGHT = '259mm'; // 297mm - 22mm (cabeçalho) - 16mm (rodapé)
+
+/**
+ * A logo é o elemento principal da capa: ocupa ~30% da folha A4 (89mm de 297mm de altura).
+ * A placa branca circular existe para a logo ficar legível sobre o azul — a proporção entre
+ * a placa e a imagem dentro dela é a mesma da versão anterior, só que em escala.
+ */
+const LOGO_PLATE_SIZE = '89mm';
+const LOGO_IMAGE_SIZE = '58mm';
 
 export const COVER_STYLES = `
   .cover {
@@ -121,41 +128,35 @@ export const COVER_STYLES = `
   .cover-center { text-align: center; }
 
   .cover-logo-plate {
-    width: 132px;
-    height: 132px;
-    margin: 0 auto 30px;
+    width: ${LOGO_PLATE_SIZE};
+    height: ${LOGO_PLATE_SIZE};
+    margin: 0 auto;
     border-radius: 50%;
-    background: #FFFFFF;
+    /* O PNG da logo nao tem fundo transparente: e um quadrado branco de #FEFEFE. Com a placa
+       em branco puro a diferenca de um ponto aparecia como uma moldura quadrada visivel
+       dentro do circulo. Igualar o tom faz o quadrado sumir. */
+    background: #FEFEFE;
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  .cover-logo-plate img { width: 84px; height: 84px; object-fit: contain; }
-
-  .cover-title {
-    font-size: 34px;
-    line-height: 1.22;
-    font-weight: 800;
-    letter-spacing: -0.4px;
-    margin: 0;
-    color: #FFFFFF;
-  }
+  .cover-logo-plate img { width: ${LOGO_IMAGE_SIZE}; height: ${LOGO_IMAGE_SIZE}; object-fit: contain; }
 
   .cover-rule {
     width: 64px;
     height: 3px;
     background: #F0AC28;
-    margin: 22px auto;
+    margin: 26px auto 22px;
     border-radius: 2px;
   }
 
   .cover-company {
     margin: 0;
-    font-size: 12px;
-    letter-spacing: 2.6px;
+    font-size: 26px;
+    letter-spacing: 7px;
     text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.72);
-    font-weight: 600;
+    color: #FFFFFF;
+    font-weight: 700;
   }
 
   .cover-grid {
