@@ -353,20 +353,95 @@ describe('BudgetsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('refuses catalogue items on an existing solar budget', async () => {
-      const budget = {
-        status: BudgetStatus.RASCUNHO,
+  });
+
+  describe('serviços adicionais na venda solar', () => {
+    const solarPayload = {
+      panels: [{ quantity: 12, wattagePeak: 550 }],
+      inverters: [{ quantity: 1, type: 'INVERSOR' }],
+      investment: 30000,
+      currentMonthlyBill: 850,
+      projectedMonthlyBill: 120,
+    };
+
+    // Um serviço adicional é parte do que o cliente paga, mas não é parte do equipamento.
+    it('soma os serviços ao valor do sistema no total do orçamento', async () => {
+      const budget = await service.create(userId, {
+        clientId: client._id.toString(),
         type: 'SOLAR',
-        items: [],
-        itemsTotal: 30000,
-        travelCost: 0,
-        discount: 0,
-        save: jest.fn(),
-      };
+        solar: solarPayload,
+        items: [{ serviceId: new Types.ObjectId().toString(), quantity: 2 }],
+      } as any);
+
+      expect(budget.itemsTotal).toBe(31000); // 30.000 do sistema + 2 x 500
+      expect(budget.total).toBe(31000);
+      expect(budget.items).toHaveLength(1);
+    });
+
+    // Payback e T.I.R. projetam o retorno do equipamento. Somar a obra em volta neles
+    // mudaria calado o modelo financeiro que o cliente recebeu impresso.
+    it('mantém o investimento do bloco solar apenas com o valor do sistema', async () => {
+      const budget = await service.create(userId, {
+        clientId: client._id.toString(),
+        type: 'SOLAR',
+        solar: solarPayload,
+        items: [{ serviceId: new Types.ObjectId().toString(), quantity: 2 }],
+      } as any);
+
+      expect(budget.solar!.financials.investment).toBe(30000);
+    });
+
+    it('cria a venda solar sem nenhum serviço adicional', async () => {
+      const budget = await service.create(userId, {
+        clientId: client._id.toString(),
+        type: 'SOLAR',
+        solar: solarPayload,
+      } as any);
+
+      expect(budget.items).toEqual([]);
+      expect(budget.itemsTotal).toBe(30000);
+    });
+
+    const existingSolarBudget = () => ({
+      status: BudgetStatus.RASCUNHO,
+      type: 'SOLAR',
+      items: [],
+      itemsTotal: 30000,
+      travelCost: 0,
+      discount: 0,
+      solar: { financials: { investment: 30000 } },
+      save: jest.fn(),
+    });
+
+    it('recalcula o total ao acrescentar serviços a um orçamento solar já criado', async () => {
+      const budget = existingSolarBudget();
+      budgetModelMock.findOne = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(budget) });
+
+      const updated = await service.update(userId, new Types.ObjectId().toString(), {
+        items: [{ serviceId: new Types.ObjectId().toString(), quantity: 1 }],
+      } as any);
+
+      expect(updated.itemsTotal).toBe(30500);
+      expect(updated.total).toBe(30500);
+      expect(budget.save).toHaveBeenCalled();
+    });
+
+    // Quem adiciona precisa poder tirar: lista vazia volta ao valor do sistema puro.
+    it('aceita esvaziar a lista de serviços de um orçamento solar', async () => {
+      const budget = { ...existingSolarBudget(), items: [{ subtotal: 500 }], itemsTotal: 30500 };
+      budgetModelMock.findOne = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(budget) });
+
+      const updated = await service.update(userId, new Types.ObjectId().toString(), { items: [] } as any);
+
+      expect(updated.itemsTotal).toBe(30000);
+    });
+
+    it('recusa esvaziar a lista de um orçamento de serviços, que ficaria sem conteúdo', async () => {
+      const budget = { ...existingSolarBudget(), type: 'SERVICOS', solar: undefined };
       budgetModelMock.findOne = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(budget) });
 
       await expect(
-        service.update(userId, new Types.ObjectId().toString(), { items: [{ serviceId: 's1', quantity: 1 }] } as any),
+        service.update(userId, new Types.ObjectId().toString(), { items: [] } as any),
       ).rejects.toThrow(BadRequestException);
       expect(budget.save).not.toHaveBeenCalled();
     });

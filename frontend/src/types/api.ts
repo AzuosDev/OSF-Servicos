@@ -590,11 +590,14 @@ export type Budget = MongoDocument & {
   sequenceNumber: number;
   clientId: ApiId;
   type: BudgetType;
-  /** Vazio num orçamento solar — o equipamento vive em `solar`, fora do catálogo. */
+  /**
+   * Serviços do catálogo. Na venda solar são os adicionais contratados junto com o sistema
+   * — o equipamento vive em `solar`, fora do catálogo.
+   */
   items: BudgetItem[];
   /** Presente apenas quando `type` é SOLAR. */
   solar?: SolarDetails;
-  /** Na venda solar é o valor do pedido da distribuidora, não a soma de itens. */
+  /** Na venda solar é o valor do pedido da distribuidora mais os serviços adicionais. */
   itemsTotal: number;
   travelCost: number;
   discount: number;

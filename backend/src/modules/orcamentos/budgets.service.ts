@@ -90,6 +90,19 @@ export class BudgetsService {
   }
 
   /**
+   * Base do orçamento antes de deslocamento e desconto.
+   *
+   * Na venda solar é o valor do pedido da distribuidora **mais** os serviços adicionais de
+   * catálogo (instalação de padrão, alvenaria, etc.). O `investment` guardado em
+   * `solar.financials` continua sendo só o sistema — é dele que saem payback e T.I.R., que
+   * projetam o retorno do equipamento, não da obra em volta.
+   */
+  private calculateItemsTotal(items: { subtotal: number }[], solar?: SolarDetails): number {
+    const servicesTotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+    return (solar?.financials.investment ?? 0) + servicesTotal;
+  }
+
+  /**
    * Monta o bloco solar já calculado. Garantias são copiadas das configurações da empresa
    * e a geração só entra quando há irradiação do local — sem ela o orçamento nasce sem o
    * gráfico, em vez de nascer com número inventado.
@@ -206,7 +219,9 @@ export class BudgetsService {
       throw new BadRequestException('Informe os dados do sistema solar');
     }
 
-    const items = isSolar ? [] : await this.buildItems(userId, dto.items);
+    // Serviços de catálogo entram nos dois tipos: no orçamento de serviços são o documento
+    // inteiro, na venda solar são os adicionais somados ao sistema.
+    const items = await this.buildItems(userId, dto.items ?? []);
 
     // O deslocamento vem antes do bloco solar porque já devolve a coordenada do cliente
     // geocodificada — a mesma que a irradiação precisa, sem pagar uma segunda consulta.
@@ -227,9 +242,7 @@ export class BudgetsService {
 
     const solar = isSolar && dto.solar ? await this.buildSolarDetails(dto.solar, companySettings, client.address, clientPoint) : undefined;
 
-    // Na venda solar o valor do pedido ocupa o lugar do total dos itens, para que desconto,
-    // deslocamento e total sigam somando exatamente como no orçamento de serviços.
-    const itemsTotal = solar ? solar.financials.investment : items.reduce((sum, item) => sum + item.subtotal, 0);
+    const itemsTotal = this.calculateItemsTotal(items, solar);
 
     const discount = dto.discount ?? 0;
     const total = Math.max(0, itemsTotal + travelCost - discount);
@@ -308,16 +321,15 @@ export class BudgetsService {
       );
     }
 
-    // Num orçamento solar o `itemsTotal` é o valor do pedido, não a soma de itens de
-    // catálogo. Aceitar itens aqui sobrescreveria esse valor e o total passaria a divergir
-    // do pedido da distribuidora.
-    if (dto.items && budget.type === BudgetType.SOLAR) {
-      throw new BadRequestException('Um orçamento de sistema solar não recebe itens de serviço');
+    // Lista vazia é legítima na venda solar (tirar o último serviço adicional), mas deixaria
+    // um orçamento de serviços sem conteúdo nenhum.
+    if (dto.items?.length === 0 && budget.type !== BudgetType.SOLAR) {
+      throw new BadRequestException('Um orçamento de serviços precisa de ao menos um item');
     }
 
     if (dto.items) {
       budget.items = await this.buildItems(userId, dto.items);
-      budget.itemsTotal = budget.items.reduce((sum, item) => sum + item.subtotal, 0);
+      budget.itemsTotal = this.calculateItemsTotal(budget.items, budget.solar);
     }
     if (dto.discount !== undefined) {
       budget.discount = dto.discount;

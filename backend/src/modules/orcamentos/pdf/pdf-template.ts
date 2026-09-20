@@ -92,12 +92,18 @@ export function buildBudgetHtml(
     </tbody>
   </table>`;
 
+  // Na venda solar os itens de catálogo são serviços adicionais, impressos depois da
+  // economia estimada — não na tabela de equipamentos, que é só o sistema.
+  const totals = { travelCost: budget.travelCost, discount: budget.discount, total: budget.total };
+  const additionalServices = isSolar ? budget.items : [];
+
   const valuesTable =
     isSolar && budget.solar
-      ? buildSolarEquipmentTable(budget.solar, budget.travelCost, budget.discount, budget.total)
+      ? buildSolarEquipmentTable(budget.solar, totals, additionalServices.length > 0)
       : servicesTable;
 
-  const solarSections = isSolar && budget.solar ? buildSolarSectionsHtml(budget.solar) : '';
+  const solarSections =
+    isSolar && budget.solar ? buildSolarSectionsHtml(budget.solar, additionalServices, totals) : '';
 
   // Capa só na venda solar: o orçamento de serviços cabe numa página, e uma capa nele seria
   // cerimônia sem função.

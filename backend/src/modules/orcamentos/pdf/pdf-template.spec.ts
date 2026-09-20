@@ -227,6 +227,76 @@ describe('page margins', () => {
   });
 });
 
+describe('serviços adicionais na venda solar', () => {
+  const client: any = { name: 'Cliente Solar', address: 'Rua Teste, 123' };
+  const company: any = { companyName: 'OSF Serviços', baseAddress: 'Rua Empresa, 1' };
+
+  const solarBudget = (items: any[]): any => ({
+    sequenceNumber: 9,
+    type: 'SOLAR',
+    createdAt: new Date('2026-01-10T00:00:00.000Z'),
+    validUntil: new Date('2026-01-17T00:00:00.000Z'),
+    items,
+    travelCost: 0,
+    discount: 0,
+    total: 31200,
+    notes: 'Instalação em telhado cerâmico.',
+    solar: {
+      panels: [{ quantity: 12, wattagePeak: 550 }],
+      inverters: [{ quantity: 1, type: 'INVERSOR' }],
+      warranties: { inverterYears: 10 },
+      financials: {
+        investment: 30000,
+        currentMonthlyBill: 850,
+        projectedMonthlyBill: 120,
+        monthlySavings: 730,
+        annualSavings: 8760,
+        horizonYears: 25,
+        totalSavings: 219000,
+      },
+    },
+  });
+
+  const items = [{ name: 'Instalação de padrão', quantity: 1, unitPrice: 1200, subtotal: 1200 }];
+
+  // A ordem foi pedida assim: a proposta convence antes de listar o que mais será cobrado.
+  it('imprime os serviços depois da economia estimada e antes das observações', () => {
+    const html = buildBudgetHtml(solarBudget(items), client, company);
+
+    const savings = html.indexOf('Economia estimada');
+    const services = html.indexOf('Serviços adicionais');
+    // O título, não a palavra: "Observações" também aparece num comentário do CSS.
+    const notes = html.indexOf('<h2>Observações</h2>');
+
+    expect(savings).toBeGreaterThan(-1);
+    expect(services).toBeGreaterThan(savings);
+    expect(notes).toBeGreaterThan(services);
+  });
+
+  it('fecha a listagem com o total de sistema + serviços', () => {
+    const html = buildBudgetHtml(solarBudget(items), client, company);
+    const section = html.slice(html.indexOf('Serviços adicionais'));
+
+    expect(section).toContain('Instalação de padrão');
+    expect(section).toContain('R$ 31.200,00');
+  });
+
+  // Sem serviços adicionais o documento tem que sair idêntico ao que já saía.
+  it('não muda o orçamento solar sem serviços adicionais', () => {
+    const html = buildBudgetHtml(solarBudget([]), client, company);
+
+    expect(html).not.toContain('Serviços adicionais');
+    expect(html).toContain('R$ 31.200,00'); // total segue no fim dos equipamentos
+  });
+
+  it('não imprime equipamento solar na tabela de serviços adicionais', () => {
+    const html = buildBudgetHtml(solarBudget(items), client, company);
+    const section = html.slice(html.indexOf('Serviços adicionais'));
+
+    expect(section).not.toContain('Painel solar');
+  });
+});
+
 describe('cover page', () => {
   const client: any = { name: 'Cliente Solar', address: 'Rua Teste, 123' };
   const company: any = { companyName: 'OSF Serviços', baseAddress: 'Rua Empresa, 1' };

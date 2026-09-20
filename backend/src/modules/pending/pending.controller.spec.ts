@@ -12,6 +12,20 @@ import { PendingAccount } from './schemas/pending-account.schema';
 
 const FAKE_USER_ID = new Types.ObjectId().toString();
 
+/**
+ * Primeiro dia do mês deslocado `offset` meses a partir do mês corrente, em ISO (UTC).
+ *
+ * A regra de `affectsBalance` compara o mês da parcela com o mês de hoje, então uma data
+ * cravada no código para de testar o que promete assim que o calendário passa por ela — foi
+ * o que aconteceu com este teste, escrito supondo julho/2026 como "hoje".
+ */
+const monthOffsetISO = (offset: number): string => {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1))
+    .toISOString()
+    .slice(0, 10);
+};
+
 describe('PendingController (e2e)', () => {
   let app: INestApplication;
   let mongod: MongoMemoryServer;
@@ -483,16 +497,20 @@ describe('PendingController (e2e)', () => {
   });
 
   it('POST parcelada com affectsBalance:false — parcelas retroativas herdam false, futuras/atual forçam true', async () => {
-    // Hoje: 2026-07-01. Parcelas: mai/jun (retroativas) + jul/ago/set (atual+futuro).
+    // Cinco parcelas mensais a partir de dois meses atrás: 1 e 2 caem em meses já passados,
+    // 3 é a do mês corrente e 4 e 5 são futuras — valha qual for a data em que o teste rodar.
+    const dataInicio = monthOffsetISO(-2);
+    const dataFim = monthOffsetISO(2);
+
     const res = await request(app.getHttpServer())
       .post('/api/accounts')
       .send({
         ...basePayload,
         title: 'Parcelada retroativa parcial',
-        dueDate: '2026-05-01', // frontend sempre envia dueDate = dataInicio para parcelada
+        dueDate: dataInicio, // frontend sempre envia dueDate = dataInicio para parcelada
         isParcelada: true,
         affectsBalance: false,
-        parcelas: { totalParcelas: 5, dataInicio: '2026-05-01', dataFim: '2026-09-01' },
+        parcelas: { totalParcelas: 5, dataInicio, dataFim },
       })
       .expect(201);
 
@@ -501,14 +519,53 @@ describe('PendingController (e2e)', () => {
 
     const byNum = (n: number) => installments.find((i) => i.numeroParcela === n)!;
 
-    // Parcelas retroativas: maio e junho
+    // Parcelas retroativas: os dois meses anteriores herdam o affectsBalance do dto
     expect(byNum(1).affectsBalance).toBe(false);
     expect(byNum(2).affectsBalance).toBe(false);
 
-    // Parcela do mês atual (julho) e futuras: sempre true independente do dto
+    // Parcela do mês corrente e as futuras: sempre true, independente do dto
     expect(byNum(3).affectsBalance).toBe(true);
     expect(byNum(4).affectsBalance).toBe(true);
     expect(byNum(5).affectsBalance).toBe(true);
+  });
+
+  // Antes de `addMonths` operar em UTC, uma parcelada iniciada no dia 31 pulava os meses
+  // curtos: 31/08 -> 31/09 virava 01/10, e o cliente recebia duas parcelas em outubro e
+  // nenhuma em setembro. O dia agora é limitado ao último dia do mês de destino.
+  it('POST parcelada iniciada no dia 31 gera uma parcela por mês, sem pular mês curto', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .send({
+        ...basePayload,
+        title: 'Parcelada dia 31',
+        dueDate: '2026-08-31',
+        isParcelada: true,
+        parcelas: { totalParcelas: 4, dataInicio: '2026-08-31', dataFim: '2026-11-30' },
+      })
+      .expect(201);
+
+    const dueDates = (res.body as Array<{ dueDate: string }>).map((i) => i.dueDate.slice(0, 10));
+
+    expect(dueDates).toEqual(['2026-08-31', '2026-09-30', '2026-10-31', '2026-11-30']);
+  });
+
+  // O fuso do servidor é negativo (UTC-3): ler a data com `getMonth()` local jogava a
+  // primeira parcela para o mês anterior ao que o usuário digitou.
+  it('POST parcelada respeita o mês digitado, sem deslocar pelo fuso do servidor', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .send({
+        ...basePayload,
+        title: 'Parcelada primeiro dia do mês',
+        dueDate: '2026-07-01',
+        isParcelada: true,
+        parcelas: { totalParcelas: 3, dataInicio: '2026-07-01', dataFim: '2026-09-01' },
+      })
+      .expect(201);
+
+    const dueDates = (res.body as Array<{ dueDate: string }>).map((i) => i.dueDate.slice(0, 10));
+
+    expect(dueDates).toEqual(['2026-07-01', '2026-08-01', '2026-09-01']);
   });
 
   it('PATCH on a later installment updates group metadata but not its own dueDate', async () => {
