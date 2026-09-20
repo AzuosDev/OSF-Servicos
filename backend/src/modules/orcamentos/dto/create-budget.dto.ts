@@ -29,10 +29,21 @@ export class CreateBudgetDto {
   @IsEnum(BudgetType)
   type?: BudgetType;
 
-  // Serviços exigem itens; venda de sistema solar não tem item de catálogo nenhum, e sim o
-  // bloco `solar` abaixo. As duas validações são espelhadas para que não exista orçamento
-  // sem conteúdo nem orçamento com os dois preenchidos.
-  @ValidateIf((dto: CreateBudgetDto) => dto.type !== BudgetType.SOLAR)
+  /**
+   * Serviços do catálogo.
+   *
+   * Obrigatório e não-vazio no orçamento de serviços — lá é o conteúdo do documento. Na
+   * venda solar é opcional: são os serviços adicionais somados ao sistema (instalação de
+   * padrão, alvenaria, etc.), e o conteúdo obrigatório é o bloco `solar`.
+   *
+   * A condição cobre a propriedade inteira porque `@ValidateIf` desliga **todos** os
+   * validadores quando é falsa — então ela só pula a validação quando não há nada para
+   * validar. Item que vier num orçamento solar passa pelas mesmas regras de sempre.
+   */
+  @ValidateIf(
+    (dto: CreateBudgetDto) =>
+      dto.type !== BudgetType.SOLAR || (Array.isArray(dto.items) && dto.items.length > 0),
+  )
   @IsArray()
   @ArrayNotEmpty()
   @ValidateNested({ each: true })

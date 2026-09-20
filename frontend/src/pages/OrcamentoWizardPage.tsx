@@ -123,7 +123,7 @@ export function OrcamentoWizardPage() {
   const servicesQuery = useQuery<Service[]>({
     queryKey: ["services", "active"],
     queryFn: () => api.get<Service[]>("/api/services?activeOnly=true").then((r) => r.data),
-    enabled: step === 2 && !isSolar,
+    enabled: step === 2,
   });
 
   const filteredClients = useMemo(() => {
@@ -146,8 +146,8 @@ export function OrcamentoWizardPage() {
     [cart],
   );
   const travelCost = distancePreview?.travelCost ?? 0;
-  // Na venda solar o valor do pedido ocupa o lugar do total dos itens, igual ao backend.
-  const baseTotal = isSolar ? solarForm.investment : itemsTotal;
+  // Na venda solar o valor do pedido entra somado aos serviços adicionais, igual ao backend.
+  const baseTotal = isSolar ? solarForm.investment + itemsTotal : itemsTotal;
   const total = Math.max(0, baseTotal + travelCost - discount);
 
   // Memória de cálculo da limpeza de placas — entra nas observações do orçamento
@@ -219,17 +219,16 @@ export function OrcamentoWizardPage() {
       const { data } = await api.post<Budget>("/api/orcamentos/budgets", {
         clientId: selectedClient._id,
         type: budgetType,
-        // Os dois blocos são exclusivos: o backend recusa itens de catálogo num orçamento
-        // solar, e recusa um orçamento de serviços sem itens.
-        ...(isSolar
-          ? { solar: toSolarPayload(solarForm) }
-          : {
-              items: cart.map((item) => ({
-                serviceId: item.service._id,
-                quantity: item.quantity,
-                ...(item.unitPriceOverride != null && { unitPriceOverride: item.unitPriceOverride }),
-              })),
-            }),
+        ...(isSolar && { solar: toSolarPayload(solarForm) }),
+        // Serviços entram nos dois tipos. Na venda solar são adicionais e podem não existir
+        // — o backend só exige a lista quando o orçamento é de serviços.
+        ...((!isSolar || cart.length > 0) && {
+          items: cart.map((item) => ({
+            serviceId: item.service._id,
+            quantity: item.quantity,
+            ...(item.unitPriceOverride != null && { unitPriceOverride: item.unitPriceOverride }),
+          })),
+        }),
         calculateDistance: !skipDistance,
         destinationAddress: !skipDistance ? destinationAddress.trim() || selectedClient.address : undefined,
         discount: discount || undefined,
@@ -484,187 +483,193 @@ export function OrcamentoWizardPage() {
           </div>
         )}
 
-        {step === 2 && isSolar && (
+        {step === 2 && (
           <div className="space-y-5">
-            <div>
-              <h2 className="text-lg font-bold">Sistema fotovoltaico</h2>
-              <p className="mt-1 text-sm text-text-secondary">
-                Equipamentos e valores do pedido. A geração, o payback e a T.I.R. são calculados a partir daqui.
-              </p>
-            </div>
-
-            {/* Atalho, nunca obrigação: o formulário abaixo funciona sozinho. Pedido em
-                PDF de imagem (algumas distribuidoras geram assim) cai no preenchimento
-                manual com mensagem explicando o motivo. */}
-            <div className="rounded-xl border border-dashed border-border-default p-4">
-              <input
-                ref={orderFileRef}
-                type="file"
-                accept="application/pdf,.pdf"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) parseOrderMutation.mutate(file);
-                  e.target.value = "";
-                }}
-              />
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-text-primary">Preencher a partir do pedido</p>
-                  <p className="text-xs text-text-secondary">
-                    Envie o PDF da distribuidora e confira os campos preenchidos.
+            {isSolar && (
+              <div className="space-y-5">
+                <div>
+                  <h2 className="text-lg font-bold">Sistema fotovoltaico</h2>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    Equipamentos e valores do pedido. A geração, o payback e a T.I.R. são calculados a partir daqui.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  disabled={parseOrderMutation.isPending}
-                  onClick={() => orderFileRef.current?.click()}
-                  className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-accent-gold px-4 py-2.5 text-sm font-bold text-accent-gold transition hover:bg-accent-gold/10 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {parseOrderMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="h-4 w-4" />
-                  )}
-                  Enviar PDF do pedido
-                </button>
-              </div>
 
-              {parseOrderMutation.isError && (
-                <p className="mt-3 rounded-lg bg-accent-red/10 p-3 text-xs text-accent-red">
-                  {getApiErrorMessages(parseOrderMutation.error, "Não foi possível ler o pedido.")[0]}
-                </p>
-              )}
-
-              {parseOrderMutation.isSuccess && (
-                <div className="mt-3 space-y-2">
-                  <p className="text-xs text-accent-green">
-                    Pedido lido. Confira cada campo abaixo antes de continuar.
-                  </p>
-                  {orderWarnings.length > 0 && (
-                    <ul className="space-y-1 rounded-lg bg-accent-orange/10 p-3 text-xs text-accent-orange">
-                      {orderWarnings.map((warning) => (
-                        <li key={warning}>{warning}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <SolarSystemForm value={solarForm} onChange={setSolarForm} />
-          </div>
-        )}
-
-        {step === 2 && !isSolar && (
-          <div className="space-y-5">
-            <div>
-              <h2 className="text-lg font-bold">Serviços</h2>
-              <p className="mt-1 text-sm text-text-secondary">
-                Selecione os serviços incluídos neste orçamento. A quantidade pode ser digitada direto no campo.
-              </p>
-            </div>
-
-            {servicesQuery.isLoading ? (
-              <p className="text-sm text-text-secondary">Carregando serviços...</p>
-            ) : (
-              <div className="grid gap-2 sm:grid-cols-2">
-                {(servicesQuery.data ?? []).map((service) => (
-                  <button
-                    key={service._id}
-                    type="button"
-                    onClick={() => addToCart(service)}
-                    className="flex items-center justify-between gap-2 rounded-xl bg-bg-muted px-4 py-3 text-left transition hover:bg-bg-overlay"
-                  >
-                    <span className="min-w-0 flex-1 text-sm font-semibold leading-snug text-white">
-                      {service.name}
-                    </span>
-                    <span className="shrink-0 text-sm font-bold text-accent-gold">
-                      {isPanelCleaningService(service.name) ? "Por placa" : formatCurrency(service.defaultValue)}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {cart.length > 0 && (
-              <div className="space-y-2 border-t border-border-default pt-4">
-                {cart.map((item) => (
-                  <div
-                    key={item.service._id}
-                    className="flex flex-col gap-3 rounded-xl border border-border-default p-3 sm:flex-row sm:items-center sm:px-4"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold leading-snug">{item.service.name}</p>
-                      <p className="mt-0.5 text-xs leading-relaxed text-text-secondary">
-                        {isPanelCleaningService(item.service.name)
-                          ? `${formatCurrency(20)}/placa até 10 · ${formatCurrency(15)}/placa acima`
-                          : `${formatCurrency(item.unitPriceOverride ?? item.service.defaultValue)} / un.`}
+                {/* Atalho, nunca obrigação: o formulário abaixo funciona sozinho. Pedido em
+                    PDF de imagem (algumas distribuidoras geram assim) cai no preenchimento
+                    manual com mensagem explicando o motivo. */}
+                <div className="rounded-xl border border-dashed border-border-default p-4">
+                  <input
+                    ref={orderFileRef}
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) parseOrderMutation.mutate(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-text-primary">Preencher a partir do pedido</p>
+                      <p className="text-xs text-text-secondary">
+                        Envie o PDF da distribuidora e confira os campos preenchidos.
                       </p>
                     </div>
-
-                    <div className="flex items-center justify-between gap-3 sm:justify-end">
-                      {isPanelCleaningService(item.service.name) ? (
-                        <button
-                          type="button"
-                          onClick={() => setPanelModalService(item.service)}
-                          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-bg-muted px-3 py-2 text-xs font-semibold text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
-                        >
-                          <Pencil className="h-3 w-3" />
-                          {item.quantity} {item.quantity === 1 ? "placa" : "placas"}
-                        </button>
+                    <button
+                      type="button"
+                      disabled={parseOrderMutation.isPending}
+                      onClick={() => orderFileRef.current?.click()}
+                      className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-accent-gold px-4 py-2.5 text-sm font-bold text-accent-gold transition hover:bg-accent-gold/10 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {parseOrderMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <div className="flex shrink-0 items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.service._id, -1)}
-                            className="grid h-8 w-8 place-items-center rounded-lg bg-bg-muted text-text-secondary hover:bg-bg-overlay"
-                          >
-                            <Minus className="h-3.5 w-3.5" />
-                          </button>
-                          <QuantityInput
-                            value={item.quantity}
-                            onChange={(quantity) => setQuantity(item.service._id, quantity)}
-                            label={`Quantidade de ${item.service.name}`}
-                            className="w-20 rounded-lg border border-bg-muted bg-bg-muted px-1 py-1.5 text-sm font-bold text-white outline-none focus:border-accent-gold"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.service._id, 1)}
-                            className="grid h-8 w-8 place-items-center rounded-lg bg-bg-muted text-text-secondary hover:bg-bg-overlay"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
+                        <Upload className="h-4 w-4" />
                       )}
-                      <span className="ml-auto shrink-0 text-sm font-bold text-accent-gold sm:ml-0 sm:w-24 sm:text-right">
-                        {formatCurrency(
-                          calculateBudgetItemSubtotal(
-                            item.service.name,
-                            item.service.defaultValue,
-                            item.quantity,
-                            item.unitPriceOverride,
-                          ),
-                        )}
-                      </span>
-
-                      <button
-                        type="button"
-                        onClick={() => removeFromCart(item.service._id)}
-                        aria-label={`Remover ${item.service.name}`}
-                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-accent-red transition hover:bg-accent-red/10"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                      Enviar PDF do pedido
+                    </button>
                   </div>
-                ))}
-                <div className="flex items-center justify-between pt-2 text-sm font-bold">
-                  <span>Subtotal</span>
-                  <span className="text-accent-gold">{formatCurrency(itemsTotal)}</span>
+
+                  {parseOrderMutation.isError && (
+                    <p className="mt-3 rounded-lg bg-accent-red/10 p-3 text-xs text-accent-red">
+                      {getApiErrorMessages(parseOrderMutation.error, "Não foi possível ler o pedido.")[0]}
+                    </p>
+                  )}
+
+                  {parseOrderMutation.isSuccess && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs text-accent-green">
+                        Pedido lido. Confira cada campo abaixo antes de continuar.
+                      </p>
+                      {orderWarnings.length > 0 && (
+                        <ul className="space-y-1 rounded-lg bg-accent-orange/10 p-3 text-xs text-accent-orange">
+                          {orderWarnings.map((warning) => (
+                            <li key={warning}>{warning}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </div>
+
+                <SolarSystemForm value={solarForm} onChange={setSolarForm} />
               </div>
             )}
+
+            {/* Catálogo de serviços nos dois tipos: sozinho no orçamento de serviços,
+                como adicional na venda solar. */}
+            <div className={cn("space-y-5", isSolar && "border-t border-border-default pt-6")}>
+              <div>
+                <h2 className="text-lg font-bold">{isSolar ? "Serviços adicionais" : "Serviços"}</h2>
+                <p className="mt-1 text-sm text-text-secondary">
+                  {isSolar
+                    ? "Opcional. Serviços do catálogo cobrados junto com o sistema — saem no PDF depois da economia estimada, com o total de sistema + serviços."
+                    : "Selecione os serviços incluídos neste orçamento. A quantidade pode ser digitada direto no campo."}
+                </p>
+              </div>
+
+              {servicesQuery.isLoading ? (
+                <p className="text-sm text-text-secondary">Carregando serviços...</p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {(servicesQuery.data ?? []).map((service) => (
+                    <button
+                      key={service._id}
+                      type="button"
+                      onClick={() => addToCart(service)}
+                      className="flex items-center justify-between gap-2 rounded-xl bg-bg-muted px-4 py-3 text-left transition hover:bg-bg-overlay"
+                    >
+                      <span className="min-w-0 flex-1 text-sm font-semibold leading-snug text-white">
+                        {service.name}
+                      </span>
+                      <span className="shrink-0 text-sm font-bold text-accent-gold">
+                        {isPanelCleaningService(service.name) ? "Por placa" : formatCurrency(service.defaultValue)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {cart.length > 0 && (
+                <div className="space-y-2 border-t border-border-default pt-4">
+                  {cart.map((item) => (
+                    <div
+                      key={item.service._id}
+                      className="flex flex-col gap-3 rounded-xl border border-border-default p-3 sm:flex-row sm:items-center sm:px-4"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold leading-snug">{item.service.name}</p>
+                        <p className="mt-0.5 text-xs leading-relaxed text-text-secondary">
+                          {isPanelCleaningService(item.service.name)
+                            ? `${formatCurrency(20)}/placa até 10 · ${formatCurrency(15)}/placa acima`
+                            : `${formatCurrency(item.unitPriceOverride ?? item.service.defaultValue)} / un.`}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 sm:justify-end">
+                        {isPanelCleaningService(item.service.name) ? (
+                          <button
+                            type="button"
+                            onClick={() => setPanelModalService(item.service)}
+                            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-bg-muted px-3 py-2 text-xs font-semibold text-text-secondary transition hover:bg-bg-overlay hover:text-text-primary"
+                          >
+                            <Pencil className="h-3 w-3" />
+                            {item.quantity} {item.quantity === 1 ? "placa" : "placas"}
+                          </button>
+                        ) : (
+                          <div className="flex shrink-0 items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.service._id, -1)}
+                              className="grid h-8 w-8 place-items-center rounded-lg bg-bg-muted text-text-secondary hover:bg-bg-overlay"
+                            >
+                              <Minus className="h-3.5 w-3.5" />
+                            </button>
+                            <QuantityInput
+                              value={item.quantity}
+                              onChange={(quantity) => setQuantity(item.service._id, quantity)}
+                              label={`Quantidade de ${item.service.name}`}
+                              className="w-20 rounded-lg border border-bg-muted bg-bg-muted px-1 py-1.5 text-sm font-bold text-white outline-none focus:border-accent-gold"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.service._id, 1)}
+                              className="grid h-8 w-8 place-items-center rounded-lg bg-bg-muted text-text-secondary hover:bg-bg-overlay"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        )}
+                        <span className="ml-auto shrink-0 text-sm font-bold text-accent-gold sm:ml-0 sm:w-24 sm:text-right">
+                          {formatCurrency(
+                            calculateBudgetItemSubtotal(
+                              item.service.name,
+                              item.service.defaultValue,
+                              item.quantity,
+                              item.unitPriceOverride,
+                            ),
+                          )}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(item.service._id)}
+                          aria-label={`Remover ${item.service.name}`}
+                          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-accent-red transition hover:bg-accent-red/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between pt-2 text-sm font-bold">
+                    <span>{isSolar ? "Subtotal dos serviços" : "Subtotal"}</span>
+                    <span className="text-accent-gold">{formatCurrency(itemsTotal)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -764,7 +769,7 @@ export function OrcamentoWizardPage() {
                   </div>
                 </>
               )}
-              {!isSolar && cart.map((item) => (
+              {cart.map((item) => (
                 <div key={item.service._id} className="flex justify-between text-sm">
                   <span className="text-text-secondary">
                     {isPanelCleaningService(item.service.name)

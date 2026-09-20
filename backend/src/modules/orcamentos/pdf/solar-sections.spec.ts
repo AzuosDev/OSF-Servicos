@@ -1,5 +1,11 @@
-import { buildGenerationChartSvg, buildSolarEquipmentTable, buildSolarSectionsHtml } from './solar-sections';
+import {
+  SolarTotals,
+  buildGenerationChartSvg,
+  buildSolarEquipmentTable,
+  buildSolarSectionsHtml,
+} from './solar-sections';
 import { formatPaybackPeriod, formatYears } from './format';
+import { BudgetItem } from '../schemas/budget.schema';
 import { SolarDetails } from '../schemas/solar-details.schema';
 
 const monthly = [
@@ -16,6 +22,16 @@ const monthly = [
   { month: 11, kwh: 960 },
   { month: 12, kwh: 940 },
 ];
+
+const totals = (overrides: Partial<SolarTotals> = {}): SolarTotals => ({
+  travelCost: 0,
+  discount: 0,
+  total: 30000,
+  ...overrides,
+});
+
+const service = (name: string, quantity: number, unitPrice: number): BudgetItem =>
+  ({ name, quantity, unitPrice, subtotal: unitPrice * quantity }) as BudgetItem;
 
 const makeSolar = (overrides: Partial<SolarDetails> = {}): SolarDetails =>
   ({
@@ -117,7 +133,7 @@ describe('buildGenerationChartSvg', () => {
 
 describe('buildSolarSectionsHtml', () => {
   it('prints generation, warranties, financial indicators and savings', () => {
-    const html = buildSolarSectionsHtml(makeSolar());
+    const html = buildSolarSectionsHtml(makeSolar(), [], totals());
 
     expect(html).toContain('Geração de energia estimada');
     expect(html).toContain('Garantias do sistema');
@@ -126,7 +142,7 @@ describe('buildSolarSectionsHtml', () => {
   });
 
   it('shows the system power, weekly and monthly averages', () => {
-    const html = buildSolarSectionsHtml(makeSolar());
+    const html = buildSolarSectionsHtml(makeSolar(), [], totals());
 
     // Duas casas fixas: "6,60 kWp" é como proposta fotovoltaica escreve potência.
     expect(html).toContain('6,60 kWp');
@@ -135,7 +151,7 @@ describe('buildSolarSectionsHtml', () => {
   });
 
   it('shows the bill before and after the system', () => {
-    const html = buildSolarSectionsHtml(makeSolar());
+    const html = buildSolarSectionsHtml(makeSolar(), [], totals());
 
     expect(html).toContain('Fatura mensal atual');
     expect(html).toContain('Com o sistema instalado');
@@ -143,14 +159,14 @@ describe('buildSolarSectionsHtml', () => {
   });
 
   it('prints the payback in years and months, and the IRR as a percentage', () => {
-    const html = buildSolarSectionsHtml(makeSolar());
+    const html = buildSolarSectionsHtml(makeSolar(), [], totals());
 
     expect(html).toContain('3 anos e 6 meses');
     expect(html).toContain('29,15%');
   });
 
   it('omits the whole generation section when the budget has no irradiance', () => {
-    const html = buildSolarSectionsHtml(makeSolar({ generation: undefined }));
+    const html = buildSolarSectionsHtml(makeSolar({ generation: undefined }), [], totals());
 
     expect(html).not.toContain('Geração de energia estimada');
     expect(html).not.toContain('<svg');
@@ -160,14 +176,14 @@ describe('buildSolarSectionsHtml', () => {
   });
 
   it('omits the warranties section when the company configured none', () => {
-    const html = buildSolarSectionsHtml(makeSolar({ warranties: {} }));
+    const html = buildSolarSectionsHtml(makeSolar({ warranties: {} }), [], totals());
 
     expect(html).not.toContain('Garantias do sistema');
     expect(html).toContain('Indicadores financeiros');
   });
 
   it('prints only the warranties that were configured', () => {
-    const html = buildSolarSectionsHtml(makeSolar({ warranties: { inverterYears: 10 } }));
+    const html = buildSolarSectionsHtml(makeSolar({ warranties: { inverterYears: 10 } }), [], totals());
 
     expect(html).toContain('Garantias do sistema');
     expect(html).toContain('Inversor / microinversor');
@@ -177,10 +193,14 @@ describe('buildSolarSectionsHtml', () => {
   // Prometer "0 anos" ou "—" de retorno seria pior do que não prometer nada.
   it('omits payback and IRR when there is no return to project', () => {
     const solar = makeSolar();
-    const html = buildSolarSectionsHtml({
-      ...solar,
-      financials: { ...solar.financials, irrPercent: undefined, paybackMonths: undefined },
-    } as SolarDetails);
+    const html = buildSolarSectionsHtml(
+      {
+        ...solar,
+        financials: { ...solar.financials, irrPercent: undefined, paybackMonths: undefined },
+      } as SolarDetails,
+      [],
+      totals(),
+    );
 
     expect(html).toContain('Valor do investimento');
     expect(html).not.toContain('T.I.R.');
@@ -190,9 +210,8 @@ describe('buildSolarSectionsHtml', () => {
   it('escapes an unsafe equipment model instead of injecting it raw', () => {
     const html = buildSolarEquipmentTable(
       makeSolar({ panels: [{ quantity: 1, wattagePeak: 550, model: '<script>alert(1)</script>' }] }),
-      0,
-      0,
-      30000,
+      totals(),
+      false,
     );
 
     expect(html).not.toContain('<script>alert(1)</script>');
@@ -202,7 +221,7 @@ describe('buildSolarSectionsHtml', () => {
 
 describe('buildSolarEquipmentTable', () => {
   it('lists panels and inverters with quantity and power', () => {
-    const html = buildSolarEquipmentTable(makeSolar(), 0, 0, 30000);
+    const html = buildSolarEquipmentTable(makeSolar(), totals(), false);
 
     expect(html).toContain('Painel solar Canadian 550W');
     expect(html).toContain('550 Wp');
@@ -213,9 +232,8 @@ describe('buildSolarEquipmentTable', () => {
   it('names a microinverter as such', () => {
     const html = buildSolarEquipmentTable(
       makeSolar({ inverters: [{ quantity: 8, type: 'MICROINVERSOR' }] as SolarDetails['inverters'] }),
-      0,
-      0,
-      30000,
+      totals(),
+      false,
     );
 
     expect(html).toContain('Microinversor');
@@ -224,16 +242,15 @@ describe('buildSolarEquipmentTable', () => {
   it('shows a dash when the order does not state the inverter power', () => {
     const html = buildSolarEquipmentTable(
       makeSolar({ inverters: [{ quantity: 1, type: 'INVERSOR' }] as SolarDetails['inverters'] }),
-      0,
-      0,
-      30000,
+      totals(),
+      false,
     );
 
     expect(html).toContain('—');
   });
 
   it('adds travel cost and discount on top of the system value', () => {
-    const html = buildSolarEquipmentTable(makeSolar(), 150, 1000, 29150);
+    const html = buildSolarEquipmentTable(makeSolar(), totals({ travelCost: 150, discount: 1000, total: 29150 }), false);
 
     expect(html).toContain('Deslocamento');
     expect(html).toContain('Desconto');
@@ -241,9 +258,87 @@ describe('buildSolarEquipmentTable', () => {
   });
 
   it('omits the travel and discount rows when they are zero', () => {
-    const html = buildSolarEquipmentTable(makeSolar(), 0, 0, 30000);
+    const html = buildSolarEquipmentTable(makeSolar(), totals(), false);
 
     expect(html).not.toContain('Deslocamento');
     expect(html).not.toContain('Desconto');
+  });
+});
+
+describe('serviços adicionais', () => {
+  const services = [service('Instalação de padrão', 1, 1200), service('Aterramento', 2, 150)];
+
+  it('lista os serviços com quantidade, valor unitário e subtotal', () => {
+    const html = buildSolarSectionsHtml(makeSolar(), services, totals({ total: 31500 }));
+
+    expect(html).toContain('Serviços adicionais');
+    expect(html).toContain('Instalação de padrão');
+    expect(html).toContain('Aterramento');
+    expect(html).toContain('R$ 300,00'); // 2 × 150
+  });
+
+  // O cliente lê a proposta de cima para baixo: primeiro o que ele ganha, depois o que paga.
+  it('entra depois da economia estimada e antes do fim do documento', () => {
+    const html = buildSolarSectionsHtml(makeSolar(), services, totals({ total: 31500 }));
+
+    expect(html.indexOf('Economia estimada')).toBeLessThan(html.indexOf('Serviços adicionais'));
+  });
+
+  it('fecha com o totalizador de sistema + serviços adicionais', () => {
+    const html = buildSolarSectionsHtml(makeSolar(), services, totals({ total: 31500 }));
+    const section = html.slice(html.indexOf('Serviços adicionais'));
+
+    expect(section).toContain('Sistema fotovoltaico');
+    expect(section).toContain('R$ 30.000,00'); // sistema
+    expect(section).toContain('R$ 1.500,00'); // serviços
+    expect(section).toContain('R$ 31.500,00'); // total
+    expect(section).toContain('class="total-row"');
+  });
+
+  it('soma deslocamento e desconto no fecho dos serviços, não na tabela de equipamentos', () => {
+    const closing = totals({ travelCost: 200, discount: 100, total: 31600 });
+    const sections = buildSolarSectionsHtml(makeSolar(), services, closing);
+    const equipment = buildSolarEquipmentTable(makeSolar(), closing, true);
+
+    expect(sections).toContain('Deslocamento');
+    expect(sections).toContain('Desconto');
+    expect(equipment).not.toContain('Deslocamento');
+    expect(equipment).not.toContain('Desconto');
+  });
+
+  // Dois totais no mesmo documento deixariam o cliente sem saber qual é o valor a pagar.
+  it('deixa um único total no documento quando há serviços adicionais', () => {
+    const closing = totals({ total: 31500 });
+    const document =
+      buildSolarEquipmentTable(makeSolar(), closing, true) +
+      buildSolarSectionsHtml(makeSolar(), services, closing);
+
+    expect(document.match(/class="total-row"/g)).toHaveLength(2); // sistema + total geral
+    expect(document.match(/>Total</g)).toHaveLength(1);
+  });
+
+  it('não imprime a seção quando não há serviço adicional nenhum', () => {
+    const html = buildSolarSectionsHtml(makeSolar(), [], totals());
+
+    expect(html).not.toContain('Serviços adicionais');
+  });
+
+  // Sem serviços o documento é exatamente o que era antes: total no fim dos equipamentos.
+  it('mantém o fecho na tabela de equipamentos quando não há serviços', () => {
+    const html = buildSolarEquipmentTable(makeSolar(), totals({ travelCost: 150, total: 30150 }), false);
+
+    expect(html).toContain('Deslocamento');
+    expect(html).toContain('class="total-row"');
+  });
+
+  it('escapa o nome do serviço em vez de injetar HTML', () => {
+    const html = buildSolarSectionsHtml(
+      makeSolar(),
+      [service('<img src=x onerror=alert(1)>', 1, 100)],
+      totals(),
+    );
+
+    expect(html).not.toContain('<img src=x');
+    expect(html).toContain('&lt;img');
   });
 });

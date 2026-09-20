@@ -56,9 +56,10 @@ export class Budget {
   @Prop({ required: true, enum: BudgetType, default: BudgetType.SERVICOS })
   type!: BudgetType;
 
-  // Vazio num orçamento solar: painel e inversor não estão no catálogo de serviços e não
-  // devem estar — `buildItems` resolve todo item contra o catálogo, e essa garantia de
-  // preço precisa continuar valendo. O equipamento solar vive em `solar.panels/inverters`.
+  // Serviços do catálogo. No orçamento de serviços são o documento inteiro; na venda solar
+  // são os adicionais (instalação de padrão, alvenaria...), somados ao valor do sistema.
+  // O equipamento solar nunca entra aqui: `buildItems` resolve todo item contra o catálogo
+  // para garantir o preço, e painel e inversor vivem em `solar.panels/inverters`.
   @Prop({ type: [BudgetItemSchema], required: true, default: [] })
   items!: BudgetItem[];
 

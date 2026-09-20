@@ -1,3 +1,4 @@
+import { BudgetItem } from '../schemas/budget.schema';
 import { SolarDetails, SolarInverterType } from '../schemas/solar-details.schema';
 import { MONTH_LABELS } from '../solar/solar-calculations';
 import { escapeHtml, formatCurrency, formatNumber, formatPaybackPeriod, formatYears } from './format';
@@ -114,15 +115,29 @@ function buildEquipmentRows(solar: SolarDetails): string {
   return panelRows + inverterRows;
 }
 
-/** Tabela de equipamentos — substitui a tabela de serviços no orçamento solar. */
-export function buildSolarEquipmentTable(solar: SolarDetails, travelCost: number, discount: number, total: number): string {
-  const travelRow =
-    travelCost > 0
-      ? `<tr><td colspan="2">Deslocamento</td><td class="right">${formatCurrency(travelCost)}</td></tr>`
-      : '';
+/** Fecho de valores: deslocamento, desconto e o total — sempre na última tabela impressa. */
+export type SolarTotals = {
+  travelCost: number;
+  discount: number;
+  total: number;
+};
 
-  const discountRow =
-    discount > 0 ? `<tr><td colspan="2">Desconto</td><td class="right">-${formatCurrency(discount)}</td></tr>` : '';
+/**
+ * Tabela de equipamentos — substitui a tabela de serviços no orçamento solar.
+ *
+ * Quando há serviços adicionais, ela fecha no valor do sistema e o total geral migra para o
+ * fim da tabela de serviços. Dois totais no mesmo documento deixariam o cliente sem saber
+ * qual é o valor a pagar.
+ */
+export function buildSolarEquipmentTable(
+  solar: SolarDetails,
+  totals: SolarTotals,
+  hasAdditionalServices: boolean,
+): string {
+  const systemLabel = hasAdditionalServices ? 'Sistema fotovoltaico' : 'Sistema';
+  const systemRow = `<tr${hasAdditionalServices ? ' class="total-row"' : ''}><td colspan="2">${systemLabel}</td><td class="right">${formatCurrency(
+    solar.financials.investment,
+  )}</td></tr>`;
 
   return `<table>
     <thead>
@@ -130,12 +145,72 @@ export function buildSolarEquipmentTable(solar: SolarDetails, travelCost: number
     </thead>
     <tbody>
       ${buildEquipmentRows(solar)}
-      <tr><td colspan="2">Sistema</td><td class="right">${formatCurrency(solar.financials.investment)}</td></tr>
-      ${travelRow}
-      ${discountRow}
-      <tr class="total-row"><td colspan="2">Total</td><td class="right">${formatCurrency(total)}</td></tr>
+      ${systemRow}
+      ${hasAdditionalServices ? '' : buildClosingRows(totals, 2)}
     </tbody>
   </table>`;
+}
+
+/** Deslocamento, desconto e total — omitidos individualmente quando são zero. */
+function buildClosingRows(totals: SolarTotals, labelColumns: number): string {
+  const travelRow =
+    totals.travelCost > 0
+      ? `<tr><td colspan="${labelColumns}">Deslocamento</td><td class="right">${formatCurrency(totals.travelCost)}</td></tr>`
+      : '';
+
+  const discountRow =
+    totals.discount > 0
+      ? `<tr><td colspan="${labelColumns}">Desconto</td><td class="right">-${formatCurrency(totals.discount)}</td></tr>`
+      : '';
+
+  return `${travelRow}${discountRow}
+      <tr class="total-row"><td colspan="${labelColumns}">Total</td><td class="right">${formatCurrency(totals.total)}</td></tr>`;
+}
+
+/**
+ * Serviços adicionais contratados junto com o sistema.
+ *
+ * Fecha com o totalizador de sistema + serviços porque é aqui que a listagem de valores
+ * termina: o cliente lê a proposta de cima para baixo e o último número que encontra é o
+ * que ele vai pagar.
+ */
+function buildAdditionalServicesSection(
+  solar: SolarDetails,
+  services: BudgetItem[],
+  totals: SolarTotals,
+): string {
+  if (services.length === 0) return '';
+
+  const rows = services
+    .map(
+      (item) => `
+        <tr>
+          <td>${escapeHtml(item.name)}</td>
+          <td class="right">${item.quantity}</td>
+          <td class="right">${formatCurrency(item.unitPrice)}</td>
+          <td class="right">${formatCurrency(item.subtotal)}</td>
+        </tr>`,
+    )
+    .join('');
+
+  const servicesTotal = services.reduce((sum, item) => sum + item.subtotal, 0);
+
+  return `<section class="solar-section solar-section-table">
+    <h2>Serviços adicionais</h2>
+    <table>
+      <thead>
+        <tr><th>Serviço</th><th class="right">Qtd</th><th class="right">Valor unit.</th><th class="right">Subtotal</th></tr>
+      </thead>
+      <tbody>
+        ${rows}
+        <tr class="summary-row"><td colspan="3">Sistema fotovoltaico</td><td class="right">${formatCurrency(
+          solar.financials.investment,
+        )}</td></tr>
+        <tr><td colspan="3">Serviços adicionais</td><td class="right">${formatCurrency(servicesTotal)}</td></tr>
+        ${buildClosingRows(totals, 3)}
+      </tbody>
+    </table>
+  </section>`;
 }
 
 function buildGenerationSection(solar: SolarDetails): string {
@@ -214,13 +289,24 @@ function buildSavingsSection(solar: SolarDetails): string {
   </section>`;
 }
 
-/** Todas as seções solares, na ordem em que aparecem no documento. */
-export function buildSolarSectionsHtml(solar: SolarDetails): string {
+/**
+ * Todas as seções solares, na ordem em que aparecem no documento.
+ *
+ * Os serviços adicionais entram depois da economia estimada: primeiro a proposta convence
+ * (geração, garantias, retorno, economia), e só então lista o que mais está sendo cobrado
+ * e fecha a conta.
+ */
+export function buildSolarSectionsHtml(
+  solar: SolarDetails,
+  additionalServices: BudgetItem[],
+  totals: SolarTotals,
+): string {
   return [
     buildGenerationSection(solar),
     buildWarrantiesSection(solar),
     buildFinancialSection(solar),
     buildSavingsSection(solar),
+    buildAdditionalServicesSection(solar, additionalServices, totals),
   ].join('');
 }
 
@@ -233,6 +319,18 @@ export const SOLAR_SECTION_STYLES = `
   .indicator { display: flex; flex-direction: column; gap: 2px; }
   .indicator-label { font-size: 9.5px; color: #9a9a9a; letter-spacing: 0.4px; }
   .indicator-value { font-size: 13px; color: #111111; font-weight: bold; }
+
+  /* Lista longa de serviços pode passar de uma página; as regras globais de quebra já
+     mantêm o cabeçalho da tabela e cada linha inteiros. */
+  .solar-section-table { page-break-inside: auto; break-inside: auto; }
+  .solar-section table { margin-top: 0; }
+
+  /* Separa a listagem dos serviços do fecho de valores — sem isso as duas partes viram
+     um bloco só e o cliente perde de vista onde a conta começa a ser somada.
+     2px porque com border-collapse collapse uma borda de 1px empata com a borda de
+     baixo da linha anterior e perde: a mais larga é que vence. Cinza, não azul, para não
+     competir com a régua do total. */
+  .summary-row td { border-top: 2px solid #CBD5E1; }
 
   .chart { margin-top: 14px; }
   .solar-section .note { font-size: 10px; color: #8a8a8a; margin: 6px 0 0; }
