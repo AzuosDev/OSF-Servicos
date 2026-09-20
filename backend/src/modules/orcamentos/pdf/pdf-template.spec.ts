@@ -194,6 +194,39 @@ describe('buildBudgetHtml for a solar budget', () => {
   });
 });
 
+describe('page margins', () => {
+  const client: any = { name: 'Cliente', address: 'Rua Teste, 123' };
+  const company: any = { companyName: 'OSF Serviços', baseAddress: 'Rua Empresa, 1' };
+  const budget: any = {
+    sequenceNumber: 1, type: 'SERVICOS', createdAt: new Date(), items: [],
+    travelCost: 0, discount: 0, total: 100,
+  };
+
+  /**
+   * Regressão: uma regra `@page { margin: 0 }` no CSS sobrepõe a margem passada em
+   * `page.pdf()`. O sintoma é conteúdo colado na borda da folha e o cabeçalho/rodapé
+   * impressos por cima do texto — foi exatamente o que saiu no PDF de produção.
+   */
+  it('never declares a zero page margin in CSS, which would override the Puppeteer margin', () => {
+    const html = buildBudgetHtml(budget, client, company);
+    const pageRules = html.match(/@page[^}]*}/g) ?? [];
+
+    for (const rule of pageRules) {
+      expect(rule).not.toMatch(/margin\s*:\s*0/);
+    }
+  });
+
+  it('keeps headings from being orphaned at the bottom of a page', () => {
+    const html = buildBudgetHtml(budget, client, company);
+    expect(html).toContain('page-break-after: avoid');
+  });
+
+  it('never splits a table row across two pages', () => {
+    const html = buildBudgetHtml(budget, client, company);
+    expect(html).toContain('tr { break-inside: avoid');
+  });
+});
+
 describe('cover page', () => {
   const client: any = { name: 'Cliente Solar', address: 'Rua Teste, 123' };
   const company: any = { companyName: 'OSF Serviços', baseAddress: 'Rua Empresa, 1' };
