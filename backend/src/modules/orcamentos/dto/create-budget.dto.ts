@@ -41,6 +41,16 @@ export class CreateBudgetDto {
   @Type(() => Number)
   discount?: number;
 
+  /**
+   * Total definido manualmente. Precisa ser maior que o valor calculado (itens + deslocamento);
+   * quando vem, o desconto é ignorado — o valor digitado já é o fechamento.
+   */
+  @IsOptional()
+  @IsNumber()
+  @Min(0.01)
+  @Type(() => Number)
+  manualTotal?: number;
+
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))
   @IsString()

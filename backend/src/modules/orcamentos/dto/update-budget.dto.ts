@@ -33,6 +33,16 @@ export class UpdateBudgetDto {
   @Type(() => Number)
   discount?: number;
 
+  /**
+   * Total definido manualmente. Ausente mantém o modo atual; `null` volta para o cálculo
+   * automático; um número liga (ou ajusta) o modo manual.
+   */
+  @IsOptional()
+  @IsNumber()
+  @Min(0.01)
+  @Type(() => Number)
+  manualTotal?: number | null;
+
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) : value))
   @IsString()

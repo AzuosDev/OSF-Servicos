@@ -25,8 +25,10 @@ import { clampQuantity, MAX_QUANTITY, QuantityInput } from "../components/ui/Qua
 import {
   calculateBudgetItemSubtotal,
   calculatePanelCleaningSubtotal,
+  isManualTotalValid,
   isPanelCleaningService,
 } from "../lib/orcamentos";
+import { ManualTotalBadge, ManualTotalField } from "../components/orcamentos/ManualTotalField";
 import type {
   Budget,
   Client,
@@ -82,6 +84,8 @@ export function OrcamentoWizardPage() {
   const [distancePreview, setDistancePreview] = useState<DistanceCalculationResult | null>(null);
 
   const [discount, setDiscount] = useState(0);
+  const [isManualTotal, setIsManualTotal] = useState(false);
+  const [manualTotal, setManualTotal] = useState(0);
   const [notes, setNotes] = useState("");
   const [validUntil, setValidUntil] = useState(defaultValidUntil());
 
@@ -125,7 +129,10 @@ export function OrcamentoWizardPage() {
     [cart],
   );
   const travelCost = distancePreview?.travelCost ?? 0;
-  const total = Math.max(0, itemsTotal + travelCost - discount);
+  // No modo manual o desconto não entra: o valor digitado já é o fechamento.
+  const calculatedTotal = Math.max(0, itemsTotal + travelCost - (isManualTotal ? 0 : discount));
+  const total = isManualTotal ? manualTotal : calculatedTotal;
+  const manualTotalInvalid = isManualTotal && !isManualTotalValid(manualTotal, calculatedTotal);
 
   // Memória de cálculo da limpeza de placas — entra nas observações do orçamento
   // automaticamente, já que o valor não vem de um preço fixo do serviço.
@@ -187,7 +194,8 @@ export function OrcamentoWizardPage() {
         })),
         calculateDistance: !skipDistance,
         destinationAddress: !skipDistance ? destinationAddress.trim() || selectedClient.address : undefined,
-        discount: discount || undefined,
+        discount: isManualTotal ? undefined : discount || undefined,
+        manualTotal: isManualTotal ? manualTotal : undefined,
         notes: notes.trim() || undefined,
         validUntil: `${validUntil}T00:00:00.000Z`,
       });
@@ -647,18 +655,28 @@ export function OrcamentoWizardPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block">
-                <span className="mb-1 block text-sm text-text-secondary">Desconto (opcional)</span>
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={discount || ""}
-                  onChange={(e) => setDiscount(Number(e.target.value) || 0)}
-                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
-                />
-              </label>
+            <ManualTotalField
+              calculatedTotal={calculatedTotal}
+              isManual={isManualTotal}
+              manualTotal={manualTotal}
+              onModeChange={setIsManualTotal}
+              onManualTotalChange={setManualTotal}
+            />
+
+            <div className={cn("grid gap-3", isManualTotal ? "grid-cols-1" : "grid-cols-2")}>
+              {!isManualTotal && (
+                <label className="block">
+                  <span className="mb-1 block text-sm text-text-secondary">Desconto (opcional)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={discount || ""}
+                    onChange={(e) => setDiscount(Number(e.target.value) || 0)}
+                    className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+                  />
+                </label>
+              )}
               <label className="block">
                 <span className="mb-1 block text-sm text-text-secondary">Válido até</span>
                 <input
@@ -686,8 +704,16 @@ export function OrcamentoWizardPage() {
               )}
             </label>
 
-            <div className="flex items-center justify-between rounded-xl bg-bg-muted px-5 py-4">
-              <span className="text-sm font-semibold text-text-secondary">Total</span>
+            <div
+              className={cn(
+                "flex items-center justify-between rounded-xl bg-bg-muted px-5 py-4",
+                isManualTotal && "border border-accent-orange/60",
+              )}
+            >
+              <span className="flex items-center gap-2 text-sm font-semibold text-text-secondary">
+                Total
+                {isManualTotal && <ManualTotalBadge />}
+              </span>
               <span className="font-sans text-2xl font-extrabold text-accent-gold">{formatCurrency(total)}</span>
             </div>
 
@@ -708,7 +734,10 @@ export function OrcamentoWizardPage() {
               <p className="mt-1 text-sm text-text-secondary">{selectedClient?.name}</p>
             </div>
             <div className="flex w-full max-w-sm items-center justify-between rounded-xl bg-bg-muted px-5 py-4">
-              <span className="text-sm font-semibold text-text-secondary">Total</span>
+              <span className="flex items-center gap-2 text-sm font-semibold text-text-secondary">
+                Total
+                {createdBudget.manualTotal != null && <ManualTotalBadge />}
+              </span>
               <span className="font-sans text-2xl font-extrabold text-accent-gold">
                 {formatCurrency(createdBudget.total)}
               </span>
@@ -771,7 +800,7 @@ export function OrcamentoWizardPage() {
           {step === 4 && (
             <button
               type="button"
-              disabled={createBudgetMutation.isPending}
+              disabled={createBudgetMutation.isPending || manualTotalInvalid}
               onClick={() => createBudgetMutation.mutate()}
               className="inline-flex items-center gap-2 rounded-full bg-accent-gold px-6 py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
             >

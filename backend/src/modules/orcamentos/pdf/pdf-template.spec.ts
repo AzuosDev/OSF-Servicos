@@ -102,6 +102,34 @@ describe('buildBudgetHtml', () => {
   });
 });
 
+describe('manual total', () => {
+  const client: any = { name: 'Cliente', address: 'Rua Teste, 123' };
+  const company: any = { companyName: 'OSF Serviços', baseAddress: 'Rua Empresa, 1' };
+
+  const servicesBudget: any = {
+    sequenceNumber: 3,
+    type: 'SERVICOS',
+    createdAt: new Date('2026-01-10T00:00:00.000Z'),
+    items: [{ name: 'Instalação de painel solar', quantity: 2, unitPrice: 500, subtotal: 1000 }],
+    itemsTotal: 1000,
+    travelCost: 50,
+    discount: 0,
+    total: 1800,
+    manualTotal: 1800,
+  };
+
+  it('lists the services without partial prices and closes on the manual total', () => {
+    const html = buildBudgetHtml(servicesBudget, client, company);
+
+    expect(html).toContain('Instalação de painel solar');
+    expect(html).toContain('Deslocamento');
+    expect(html).toContain('1.800,00');
+    expect(html).not.toContain('Valor unit.');
+    expect(html).not.toContain('500,00');
+    expect(html).not.toContain('50,00');
+  });
+});
+
 describe('BudgetStatus enum sanity', () => {
   it('has the expected statuses', () => {
     expect(Object.values(BudgetStatus)).toEqual([

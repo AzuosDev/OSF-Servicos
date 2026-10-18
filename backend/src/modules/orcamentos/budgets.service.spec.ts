@@ -227,6 +227,97 @@ describe('BudgetsService', () => {
     );
   });
 
+  describe('manual total', () => {
+    const budgetId = new Types.ObjectId().toString();
+
+    const editable = (overrides: Record<string, unknown> = {}) => ({
+      status: BudgetStatus.RASCUNHO,
+      items: [{ serviceId: new Types.ObjectId(), name: 'Antigo', unitPrice: 100, quantity: 1, subtotal: 100 }],
+      itemsTotal: 100,
+      travelCost: 50,
+      discount: 0,
+      total: 150,
+      manualTotal: undefined as number | undefined,
+      save: jest.fn().mockResolvedValue(undefined),
+      ...overrides,
+    });
+
+    it('uses the typed value as the total and keeps the calculated breakdown', async () => {
+      const budget = await service.create(userId, {
+        clientId: client._id.toString(),
+        items: [{ serviceId: 'svc1', quantity: 2 }],
+        manualTotal: 1500,
+      } as any);
+
+      expect(budget.itemsTotal).toBe(1000);
+      expect(budget.manualTotal).toBe(1500);
+      expect(budget.total).toBe(1500);
+    });
+
+    it('ignores the discount in manual mode', async () => {
+      const budget = await service.create(userId, {
+        clientId: client._id.toString(),
+        items: [{ serviceId: 'svc1', quantity: 2 }],
+        discount: 200,
+        manualTotal: 1500,
+      } as any);
+
+      expect(budget.discount).toBe(0);
+      expect(budget.total).toBe(1500);
+    });
+
+    it.each([1000, 999.99])('refuses a manual value not greater than the calculated one (%s)', async (manualTotal) => {
+      await expect(
+        service.create(userId, {
+          clientId: client._id.toString(),
+          items: [{ serviceId: 'svc1', quantity: 2 }],
+          manualTotal,
+        } as any),
+      ).rejects.toThrow('O valor manual precisa ser maior que o valor calculado');
+      expect(budgetModelMock.create).not.toHaveBeenCalled();
+    });
+
+    it('turns manual mode on during an edit, dropping the discount', async () => {
+      const budget = editable({ discount: 30, total: 120 });
+      budgetModelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(budget) });
+
+      const result = await service.update(userId, budgetId, { manualTotal: 400 } as any);
+
+      expect(result.manualTotal).toBe(400);
+      expect(result.discount).toBe(0);
+      expect(result.total).toBe(400);
+    });
+
+    it('goes back to the calculated total when manualTotal is null', async () => {
+      const budget = editable({ manualTotal: 400, total: 400 });
+      budgetModelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(budget) });
+
+      const result = await service.update(userId, budgetId, { manualTotal: null } as any);
+
+      expect(result.manualTotal).toBeUndefined();
+      expect(result.total).toBe(150);
+    });
+
+    it('keeps the manual total when the body does not mention it', async () => {
+      const budget = editable({ manualTotal: 400, total: 400 });
+      budgetModelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(budget) });
+
+      const result = await service.update(userId, budgetId, { notes: 'Só a observação' } as any);
+
+      expect(result.total).toBe(400);
+    });
+
+    it('refuses an edit whose new items push the calculated value past the manual one', async () => {
+      const budget = editable({ manualTotal: 400, total: 400 });
+      budgetModelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(budget) });
+
+      await expect(
+        service.update(userId, budgetId, { items: [{ serviceId: 'svc1', quantity: 2 }] } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(budget.save).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getConversionStats', () => {
     it('computes conversionRate from aggregated counts', async () => {
       (service as any).budgetModel = {

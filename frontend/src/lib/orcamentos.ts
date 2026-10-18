@@ -106,3 +106,11 @@ export function panelTierUnitPrice(quantity: number): number {
 export function followsPanelTier(name: string, quantity: number, unitPrice: number): boolean {
   return isPanelCleaningService(name) && Math.abs(unitPrice - panelTierUnitPrice(quantity)) < 0.01;
 }
+
+/**
+ * O total manual só pode subir o orçamento — baixar o preço é papel do desconto. Comparado em
+ * centavos, igual ao backend, para não esbarrar em ruído de ponto flutuante.
+ */
+export function isManualTotalValid(manualTotal: number, calculatedTotal: number): boolean {
+  return Math.round(manualTotal * 100) > Math.round(calculatedTotal * 100);
+}

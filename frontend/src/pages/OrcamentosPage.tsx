@@ -9,6 +9,7 @@ import { getApiErrorMessages } from "../lib/errors";
 import { useToast } from "../components/ui/Toast";
 import { BudgetStatusReasonModal } from "../components/modals/BudgetStatusReasonModal";
 import { BudgetEditModal, type BudgetEditPayload } from "../components/modals/BudgetEditModal";
+import { ManualTotalBadge } from "../components/orcamentos/ManualTotalField";
 import {
   budgetPdfFileName,
   BUDGET_STATUS_BADGE_CLASS,
@@ -290,7 +291,12 @@ export function OrcamentosPage() {
                   <td className="px-5 py-4 text-text-secondary">
                     {budget.createdAt ? formatDateBR(budget.createdAt) : "—"}
                   </td>
-                  <td className="px-5 py-4 font-bold">{formatCurrency(budget.total)}</td>
+                  <td className="px-5 py-4 font-bold">
+                    <span className="flex flex-wrap items-center gap-2">
+                      {formatCurrency(budget.total)}
+                      {budget.manualTotal != null && <ManualTotalBadge />}
+                    </span>
+                  </td>
                   <td className="px-5 py-4">
                     {(() => {
                       const allowed = BUDGET_STATUS_TRANSITIONS[budget.status];

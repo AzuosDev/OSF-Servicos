@@ -60,6 +60,10 @@ export function buildBudgetHtml(
   client: ClientDocument,
   company: CompanySettingsDocument,
 ): string {
+  // Valor fechado à mão: os preços parciais não somariam o total impresso, então o documento
+  // lista só o que está incluso e fecha no valor combinado.
+  const isManualTotal = budget.manualTotal != null;
+
   const itemsRows = budget.items
     .map(
       (item) => `
@@ -81,6 +85,31 @@ export function buildBudgetHtml(
     budget.discount > 0
       ? `<tr><td colspan="3">Desconto</td><td class="right">-${formatCurrency(budget.discount)}</td></tr>`
       : '';
+
+  const valuesTable = isManualTotal
+    ? `<table>
+    <thead>
+      <tr><th>Serviço</th><th class="right">Qtd</th></tr>
+    </thead>
+    <tbody>
+      ${budget.items
+        .map((item) => `<tr><td>${escapeHtml(item.name)}</td><td class="right">${item.quantity}</td></tr>`)
+        .join('')}
+      ${budget.travelCost > 0 ? '<tr><td colspan="2">Deslocamento</td></tr>' : ''}
+      <tr class="total-row"><td>Total</td><td class="right">${formatCurrency(budget.total)}</td></tr>
+    </tbody>
+  </table>`
+    : `<table>
+    <thead>
+      <tr><th>Serviço</th><th class="right">Qtd</th><th class="right">Valor unit.</th><th class="right">Subtotal</th></tr>
+    </thead>
+    <tbody>
+      ${itemsRows}
+      ${travelRow}
+      ${discountRow}
+      <tr class="total-row"><td colspan="3">Total</td><td class="right">${formatCurrency(budget.total)}</td></tr>
+    </tbody>
+  </table>`;
 
   return `<!doctype html>
 <html>
@@ -144,17 +173,7 @@ export function buildBudgetHtml(
     </div>
   </section>
 
-  <table>
-    <thead>
-      <tr><th>Serviço</th><th class="right">Qtd</th><th class="right">Valor unit.</th><th class="right">Subtotal</th></tr>
-    </thead>
-    <tbody>
-      ${itemsRows}
-      ${travelRow}
-      ${discountRow}
-      <tr class="total-row"><td colspan="3">Total</td><td class="right">${formatCurrency(budget.total)}</td></tr>
-    </tbody>
-  </table>
+  ${valuesTable}
 
   ${budget.notes ? `<section><h2>Observações</h2><div>${escapeHtml(budget.notes)}</div></section>` : ''}
 
