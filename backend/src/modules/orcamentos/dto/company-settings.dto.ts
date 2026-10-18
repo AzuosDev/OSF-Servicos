@@ -1,4 +1,4 @@
-import { IsLatitude, IsLongitude, IsNotEmpty, IsNumber, IsOptional, IsString, Min, MaxLength, ValidateIf } from 'class-validator';
+import { IsInt, IsLatitude, IsLongitude, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min, MaxLength, ValidateIf } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import sanitizeHtml from 'sanitize-html';
 
@@ -76,6 +76,36 @@ export class CompanySettingsDto {
   @Min(0)
   @Type(() => Number)
   freeRadiusKm!: number;
+
+  // Garantias do sistema fotovoltaico — anos inteiros. Opcionais: quem não vende sistema
+  // solar nunca preenche, e o orçamento de venda solar só imprime o que estiver configurado.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(50)
+  @Type(() => Number)
+  panelEfficiencyWarrantyYears?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(50)
+  @Type(() => Number)
+  panelDefectWarrantyYears?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(50)
+  @Type(() => Number)
+  inverterWarrantyYears?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(50)
+  @Type(() => Number)
+  installationWarrantyYears?: number;
 
   @IsOptional()
   @Transform(({ value }) => clean(value))

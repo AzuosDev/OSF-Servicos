@@ -8,6 +8,7 @@ import { CompanySettingsService } from './company-settings.service';
 import { ClientsService } from './clients.service';
 import { buildBudgetHtml } from './pdf/pdf-template';
 import { budgetPdfFileName } from './pdf/budget-pdf-filename';
+import { PAGE_MARGIN, buildFooterTemplate, buildHeaderTemplate } from './pdf/page-chrome';
 
 export type GeneratedBudgetPdf = {
   buffer: Buffer;
@@ -63,7 +64,16 @@ export class PdfService {
       browser = await this.launchBrowser();
       const page = await browser.newPage();
       await page.setContent(html, { waitUntil: 'load' });
-      const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
+      // Cabeçalho e rodapé do Puppeteer se repetem em toda página e reservam espaço via
+      // margem, então nunca cobrem a última linha do conteúdo.
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        displayHeaderFooter: true,
+        headerTemplate: buildHeaderTemplate(companySettings, String(budget.sequenceNumber).padStart(4, '0')),
+        footerTemplate: buildFooterTemplate(companySettings),
+        margin: { ...PAGE_MARGIN },
+      });
       return {
         buffer: Buffer.from(pdfBuffer),
         fileName: budgetPdfFileName(client.name, budget.createdAt),

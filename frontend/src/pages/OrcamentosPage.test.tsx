@@ -32,6 +32,7 @@ function makeBudget(sequenceNumber: number): Budget {
     userId: "user-1",
     sequenceNumber,
     clientId: "client-1",
+    type: "SERVICOS",
     items: [],
     itemsTotal: 100,
     travelCost: 0,

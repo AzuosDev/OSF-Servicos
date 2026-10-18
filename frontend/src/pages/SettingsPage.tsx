@@ -86,6 +86,12 @@ type CompanySettingsFormState = {
   pricePerKm: number;
   minimumTravelFee: number;
   freeRadiusKm: number;
+  // Strings e não números: "" significa "não configurado", e o campo some do PDF.
+  // Com 0 não daria para distinguir "sem garantia informada" de "garantia de zero ano".
+  panelEfficiencyWarrantyYears: string;
+  panelDefectWarrantyYears: string;
+  inverterWarrantyYears: string;
+  installationWarrantyYears: string;
   pdfFooterNote: string;
 };
 
@@ -102,8 +108,23 @@ function emptyCompanySettingsForm(): CompanySettingsFormState {
     pricePerKm: 1.5,
     minimumTravelFee: 0,
     freeRadiusKm: 0,
+    panelEfficiencyWarrantyYears: "",
+    panelDefectWarrantyYears: "",
+    inverterWarrantyYears: "",
+    installationWarrantyYears: "",
     pdfFooterNote: "",
   };
+}
+
+/**
+ * Campo de garantia vazio precisa virar `undefined` — mandar `NaN` ou `0` gravaria uma
+ * garantia que a empresa nunca informou. O backend só aceita inteiro de 0 a 50.
+ */
+function warrantyYears(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number(trimmed);
+  return Number.isInteger(parsed) && parsed >= 0 && parsed <= 50 ? parsed : undefined;
 }
 
 function CompanySettingsSection() {
@@ -132,6 +153,13 @@ function CompanySettingsSection() {
       pricePerKm: settings.pricePerKm,
       minimumTravelFee: settings.minimumTravelFee,
       freeRadiusKm: settings.freeRadiusKm,
+      panelEfficiencyWarrantyYears:
+        settings.panelEfficiencyWarrantyYears != null ? String(settings.panelEfficiencyWarrantyYears) : "",
+      panelDefectWarrantyYears:
+        settings.panelDefectWarrantyYears != null ? String(settings.panelDefectWarrantyYears) : "",
+      inverterWarrantyYears: settings.inverterWarrantyYears != null ? String(settings.inverterWarrantyYears) : "",
+      installationWarrantyYears:
+        settings.installationWarrantyYears != null ? String(settings.installationWarrantyYears) : "",
       pdfFooterNote: settings.pdfFooterNote ?? "",
     });
   }, [settingsQuery.data]);
@@ -150,6 +178,10 @@ function CompanySettingsSection() {
         pricePerKm: form.pricePerKm,
         minimumTravelFee: form.minimumTravelFee,
         freeRadiusKm: form.freeRadiusKm,
+        panelEfficiencyWarrantyYears: warrantyYears(form.panelEfficiencyWarrantyYears),
+        panelDefectWarrantyYears: warrantyYears(form.panelDefectWarrantyYears),
+        inverterWarrantyYears: warrantyYears(form.inverterWarrantyYears),
+        installationWarrantyYears: warrantyYears(form.installationWarrantyYears),
         pdfFooterNote: form.pdfFooterNote.trim() || undefined,
       };
       const { data } = await api.put<CompanySettings>("/api/orcamentos/company-settings", payload);
@@ -324,6 +356,73 @@ function CompanySettingsSection() {
                 className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
               />
             </label>
+          </div>
+
+          {/* Garantias do sistema fotovoltaico — usadas só no orçamento de venda solar.
+              Cada uma é impressa apenas se estiver preenchida, como os contatos acima. */}
+          <div className="space-y-3 rounded-xl border border-bg-muted p-4">
+            <div>
+              <h3 className="text-sm font-semibold text-text-primary">Garantias do sistema solar (opcional)</h3>
+              <p className="text-xs text-text-secondary">
+                Preencha só se você vende sistema fotovoltaico. Esses prazos são herdados por todo orçamento
+                de venda solar — cada campo em branco simplesmente não aparece no PDF.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-sm text-text-secondary">Painel — eficiência (anos)</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={50}
+                  step="1"
+                  placeholder="Ex.: 25"
+                  value={form.panelEfficiencyWarrantyYears}
+                  onChange={(e) => setForm((f) => ({ ...f, panelEfficiencyWarrantyYears: e.target.value }))}
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-sm text-text-secondary">Painel — defeito (anos)</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={50}
+                  step="1"
+                  placeholder="Ex.: 12"
+                  value={form.panelDefectWarrantyYears}
+                  onChange={(e) => setForm((f) => ({ ...f, panelDefectWarrantyYears: e.target.value }))}
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-sm text-text-secondary">Inversor / microinversor (anos)</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={50}
+                  step="1"
+                  placeholder="Ex.: 10"
+                  value={form.inverterWarrantyYears}
+                  onChange={(e) => setForm((f) => ({ ...f, inverterWarrantyYears: e.target.value }))}
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-sm text-text-secondary">Instalação (anos)</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={50}
+                  step="1"
+                  placeholder="Ex.: 5"
+                  value={form.installationWarrantyYears}
+                  onChange={(e) => setForm((f) => ({ ...f, installationWarrantyYears: e.target.value }))}
+                  className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+                />
+              </label>
+            </div>
           </div>
 
           <label className="block">

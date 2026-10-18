@@ -1,5 +1,4 @@
 import {
-  ArrayNotEmpty,
   IsArray,
   IsDateString,
   IsNumber,
@@ -20,9 +19,15 @@ import { CreateBudgetItemDto } from './create-budget-item.dto';
  * `distanceCalculationId` gravado.
  */
 export class UpdateBudgetDto {
+  /**
+   * Lista completa de serviços, não um acréscimo — o que vier substitui o que está gravado.
+   *
+   * Aceita lista vazia porque na venda solar os serviços são adicionais: tirar o último
+   * precisa ser possível. Que um orçamento de serviços não fique sem nenhum item é
+   * verificado no service, que é quem conhece o tipo do orçamento.
+   */
   @IsOptional()
   @IsArray()
-  @ArrayNotEmpty()
   @ValidateNested({ each: true })
   @Type(() => CreateBudgetItemDto)
   items?: CreateBudgetItemDto[];

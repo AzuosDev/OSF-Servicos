@@ -201,6 +201,15 @@ export class DistanceService {
     return { distanceKm: summary.distance / 1000, durationMin: summary.duration / 60 };
   }
 
+  /**
+   * Coordenada de um endereço, sem calcular rota nem custo. Usado pelo orçamento solar,
+   * que precisa do ponto do cliente para buscar a irradiação local mas nem sempre cobra
+   * deslocamento.
+   */
+  async locate(address: string, focus?: GeoPoint): Promise<GeocodedPlace> {
+    return this.geocode(address, focus);
+  }
+
   async calculate(
     userId: string,
     origin: GeoOrigin,

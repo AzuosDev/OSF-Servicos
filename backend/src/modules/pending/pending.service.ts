@@ -64,10 +64,34 @@ export class PendingService {
     return null;
   }
 
+  /**
+   * Soma meses preservando o dia, em UTC — a mesma convenção do resto do módulo.
+   *
+   * A versão anterior usava `setMonth`/`getMonth`, que leem o fuso local, e caía em duas
+   * armadilhas ao gerar as parcelas:
+   *
+   * - `new Date('2026-07-01')` é meia-noite UTC, que num fuso negativo (Brasil) é 30/06 às
+   *   21h local. A contagem começava um mês antes do que o usuário pediu, e o dia virava 30.
+   * - Dia 30/31 transborda em mês curto: `setMonth` transforma 31/09 em 01/10, então a
+   *   parcela de setembro sumia da lista e outubro ficava com duas. Aqui o dia é limitado
+   *   ao último dia do mês de destino.
+   */
   private addMonths(date: Date, months: number) {
-    const nextDate = new Date(date);
-    nextDate.setMonth(nextDate.getMonth() + months);
-    return nextDate;
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth() + months;
+    // Dia 0 do mês seguinte é o último dia do mês de destino — e trata a virada de ano.
+    const lastDayOfTargetMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    return new Date(
+      Date.UTC(
+        year,
+        month,
+        Math.min(date.getUTCDate(), lastDayOfTargetMonth),
+        date.getUTCHours(),
+        date.getUTCMinutes(),
+        date.getUTCSeconds(),
+        date.getUTCMilliseconds(),
+      ),
+    );
   }
 
   private isRetroactive(date: Date): boolean {

@@ -65,6 +65,71 @@ describe('CompanySettingsController (e2e)', () => {
     expect(res.body.companyName).toBe('OSF Serviços');
   });
 
+  it('PUT accepts the solar warranty years and returns them', async () => {
+    const res = await request(app.getHttpServer())
+      .put('/api/orcamentos/company-settings')
+      .send({
+        ...payload,
+        panelEfficiencyWarrantyYears: 25,
+        panelDefectWarrantyYears: 12,
+        inverterWarrantyYears: 10,
+        installationWarrantyYears: 5,
+      })
+      .expect(200);
+
+    expect(res.body.panelEfficiencyWarrantyYears).toBe(25);
+    expect(res.body.panelDefectWarrantyYears).toBe(12);
+    expect(res.body.inverterWarrantyYears).toBe(10);
+    expect(res.body.installationWarrantyYears).toBe(5);
+  });
+
+  // Quem não vende sistema solar nunca preenche esses campos — salvar sem eles precisa
+  // continuar funcionando, e é assim que todos os cadastros já existentes se comportam.
+  it('PUT still works without any warranty field', async () => {
+    const res = await request(app.getHttpServer())
+      .put('/api/orcamentos/company-settings')
+      .send(payload)
+      .expect(200);
+
+    expect(res.body.companyName).toBe('OSF Serviços');
+  });
+
+  it('PUT rejects a warranty in years that is not a whole number', async () => {
+    await request(app.getHttpServer())
+      .put('/api/orcamentos/company-settings')
+      .send({ ...payload, inverterWarrantyYears: 10.5 })
+      .expect(400);
+  });
+
+  it('PUT rejects a warranty outside the 0-50 years range', async () => {
+    await request(app.getHttpServer())
+      .put('/api/orcamentos/company-settings')
+      .send({ ...payload, panelEfficiencyWarrantyYears: 99 })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .put('/api/orcamentos/company-settings')
+      .send({ ...payload, panelDefectWarrantyYears: -1 })
+      .expect(400);
+  });
+
+  // Sem o $unset no serviço o valor antigo sobreviveria e o PDF seguiria prometendo ao
+  // cliente uma garantia que a empresa apagou.
+  it('PUT clears a warranty that was saved before and is now absent', async () => {
+    await request(app.getHttpServer())
+      .put('/api/orcamentos/company-settings')
+      .send({ ...payload, inverterWarrantyYears: 10, panelDefectWarrantyYears: 12 })
+      .expect(200);
+
+    const res = await request(app.getHttpServer())
+      .put('/api/orcamentos/company-settings')
+      .send({ ...payload, panelDefectWarrantyYears: 12 })
+      .expect(200);
+
+    expect(res.body.inverterWarrantyYears).toBeUndefined();
+    expect(res.body.panelDefectWarrantyYears).toBe(12);
+  });
+
   it('PUT twice does not create a duplicate document (unique index on userId)', async () => {
     await request(app.getHttpServer())
       .put('/api/orcamentos/company-settings')

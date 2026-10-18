@@ -92,7 +92,10 @@ export function BudgetEditModal({
     [items],
   );
   const travelCost = budget?.travelCost ?? 0;
-  const calculatedTotal = Math.max(0, itemsTotal + travelCost - (isManualTotal ? 0 : discount));
+  // Na venda solar o valor do sistema entra na base, igual ao backend — sem ele o "maior que o
+  // calculado" do modo manual compararia contra um número menor que o real.
+  const systemValue = budget?.solar?.financials.investment ?? 0;
+  const calculatedTotal = Math.max(0, systemValue + itemsTotal + travelCost - (isManualTotal ? 0 : discount));
   const total = isManualTotal ? manualTotal : calculatedTotal;
 
   const updateItem = (index: number, patch: Partial<EditableItem>) => {

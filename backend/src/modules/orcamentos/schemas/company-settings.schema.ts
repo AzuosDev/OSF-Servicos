@@ -47,6 +47,22 @@ export class CompanySettings {
   @Prop({ required: true, min: 0, default: 0 })
   freeRadiusKm!: number;
 
+  // Garantias padrão do sistema fotovoltaico, impressas no orçamento de venda solar.
+  // Ficam aqui — e não no orçamento — porque valem para todas as vendas: configura uma vez
+  // e todo orçamento herda. São opcionais de propósito: sem valor configurado a seção
+  // simplesmente não é impressa, em vez de imprimir um prazo padrão que não é o seu.
+  @Prop({ min: 0, max: 50 })
+  panelEfficiencyWarrantyYears?: number;
+
+  @Prop({ min: 0, max: 50 })
+  panelDefectWarrantyYears?: number;
+
+  @Prop({ min: 0, max: 50 })
+  inverterWarrantyYears?: number;
+
+  @Prop({ min: 0, max: 50 })
+  installationWarrantyYears?: number;
+
   @Prop({ trim: true, maxlength: 1000 })
   pdfFooterNote?: string;
 }
