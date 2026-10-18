@@ -4,13 +4,22 @@ import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { ModalShell } from "./ModalShell";
 import { CurrencyInput } from "../ui/CurrencyInput";
 import { QuantityInput } from "../ui/QuantityInput";
+import { ManualTotalBadge, ManualTotalField } from "../orcamentos/ManualTotalField";
 import { formatCurrency } from "../../lib/finance";
-import { followsPanelTier, isPanelCleaningService, panelTierUnitPrice } from "../../lib/orcamentos";
+import {
+  followsPanelTier,
+  isManualTotalValid,
+  isPanelCleaningService,
+  panelTierUnitPrice,
+} from "../../lib/orcamentos";
+import { cn } from "../../lib/utils";
 import type { Budget, Service } from "../../types/api";
 
 export type BudgetEditPayload = {
   items: { serviceId: string; quantity: number; unitPriceOverride: number }[];
   discount: number;
+  /** `null` volta o orçamento para o total calculado. */
+  manualTotal: number | null;
   notes?: string;
   validUntil?: string;
 };
@@ -51,6 +60,8 @@ export function BudgetEditModal({
 }) {
   const [items, setItems] = useState<EditableItem[]>([]);
   const [discount, setDiscount] = useState(0);
+  const [isManualTotal, setIsManualTotal] = useState(false);
+  const [manualTotal, setManualTotal] = useState(0);
   const [notes, setNotes] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [serviceToAdd, setServiceToAdd] = useState("");
@@ -69,6 +80,8 @@ export function BudgetEditModal({
       })),
     );
     setDiscount(budget.discount ?? 0);
+    setIsManualTotal(budget.manualTotal != null);
+    setManualTotal(budget.manualTotal ?? 0);
     setNotes(budget.notes ?? "");
     setValidUntil(toDateInputValue(budget.validUntil));
     setServiceToAdd("");
@@ -79,7 +92,11 @@ export function BudgetEditModal({
     [items],
   );
   const travelCost = budget?.travelCost ?? 0;
-  const total = Math.max(0, itemsTotal + travelCost - discount);
+  // Na venda solar o valor do sistema entra na base, igual ao backend — sem ele o "maior que o
+  // calculado" do modo manual compararia contra um número menor que o real.
+  const systemValue = budget?.solar?.financials.investment ?? 0;
+  const calculatedTotal = Math.max(0, systemValue + itemsTotal + travelCost - (isManualTotal ? 0 : discount));
+  const total = isManualTotal ? manualTotal : calculatedTotal;
 
   const updateItem = (index: number, patch: Partial<EditableItem>) => {
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)));
@@ -119,7 +136,8 @@ export function BudgetEditModal({
           // então o backend não deve substituí-lo pelo preço atual do catálogo.
           unitPriceOverride: item.unitPrice,
         })),
-        discount,
+        discount: isManualTotal ? 0 : discount,
+        manualTotal: isManualTotal ? manualTotal : null,
         notes: notes.trim(),
         validUntil: validUntil ? new Date(`${validUntil}T00:00:00.000Z`).toISOString() : undefined,
       },
@@ -132,7 +150,8 @@ export function BudgetEditModal({
   }
 
   const hasInvalidItem = items.some((item) => item.quantity < 1 || item.unitPrice <= 0);
-  const canSubmit = items.length > 0 && !hasInvalidItem && !isPending;
+  const manualTotalInvalid = isManualTotal && !isManualTotalValid(manualTotal, calculatedTotal);
+  const canSubmit = items.length > 0 && !hasInvalidItem && !manualTotalInvalid && !isPending;
 
   return (
     <ModalShell
@@ -143,7 +162,10 @@ export function BudgetEditModal({
       footer={
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-text-secondary">Total</span>
+            <span className="flex items-center gap-2 text-sm font-semibold text-text-secondary">
+              Total
+              {isManualTotal && <ManualTotalBadge />}
+            </span>
             <span className="font-sans text-xl font-extrabold text-accent-gold">{formatCurrency(total)}</span>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -259,15 +281,25 @@ export function BudgetEditModal({
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1 block text-sm text-text-secondary">Desconto</span>
-            <CurrencyInput
-              value={discount}
-              onChange={setDiscount}
-              className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
-            />
-          </label>
+        <ManualTotalField
+          calculatedTotal={calculatedTotal}
+          isManual={isManualTotal}
+          manualTotal={manualTotal}
+          onModeChange={setIsManualTotal}
+          onManualTotalChange={setManualTotal}
+        />
+
+        <div className={cn("grid gap-3", !isManualTotal && "sm:grid-cols-2")}>
+          {!isManualTotal && (
+            <label className="block">
+              <span className="mb-1 block text-sm text-text-secondary">Desconto</span>
+              <CurrencyInput
+                value={discount}
+                onChange={setDiscount}
+                className="w-full rounded-xl border border-bg-muted bg-bg-muted px-4 py-3 text-white outline-none focus:border-accent-gold"
+              />
+            </label>
+          )}
           <label className="block">
             <span className="mb-1 block text-sm text-text-secondary">Válido até</span>
             <input

@@ -23,6 +23,7 @@ import { CreateBudgetItemDto } from './dto/create-budget-item.dto';
 import { GetBudgetsDto } from './dto/get-budgets.dto';
 import { UpdateBudgetStatusDto } from './dto/update-budget-status.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
+import { formatCurrency } from './pdf/format';
 
 const VALID_TRANSITIONS: Record<BudgetStatus, BudgetStatus[]> = {
   [BudgetStatus.RASCUNHO]: [BudgetStatus.ENVIADO, BudgetStatus.CANCELADO],
@@ -100,6 +101,27 @@ export class BudgetsService {
   private calculateItemsTotal(items: { subtotal: number }[], solar?: SolarDetails): number {
     const servicesTotal = items.reduce((sum, item) => sum + item.subtotal, 0);
     return (solar?.financials.investment ?? 0) + servicesTotal;
+  }
+
+  /**
+   * Total final do orçamento.
+   *
+   * No modo automático é itens + deslocamento − desconto. No manual é o valor digitado, que
+   * só pode **subir** o orçamento: o manual existe para fechar um valor acima do calculado,
+   * e baixar o preço é papel do desconto. A comparação é em centavos para não esbarrar em
+   * ruído de ponto flutuante.
+   */
+  private resolveTotal(itemsTotal: number, travelCost: number, discount: number, manualTotal?: number): number {
+    const calculated = Math.max(0, itemsTotal + travelCost - discount);
+    if (manualTotal == null) {
+      return calculated;
+    }
+    if (Math.round(manualTotal * 100) <= Math.round(calculated * 100)) {
+      throw new BadRequestException(
+        `O valor manual precisa ser maior que o valor calculado (${formatCurrency(calculated)})`,
+      );
+    }
+    return manualTotal;
   }
 
   /**
@@ -244,8 +266,11 @@ export class BudgetsService {
 
     const itemsTotal = this.calculateItemsTotal(items, solar);
 
-    const discount = dto.discount ?? 0;
-    const total = Math.max(0, itemsTotal + travelCost - discount);
+    // No modo manual o valor digitado já é o fechamento — um desconto por cima dele seria
+    // uma segunda negociação escondida no mesmo número.
+    const manualTotal = dto.manualTotal ?? undefined;
+    const discount = manualTotal != null ? 0 : dto.discount ?? 0;
+    const total = this.resolveTotal(itemsTotal, travelCost, discount, manualTotal);
 
     const sequenceNumber = await this.countersService.getNextSequence(`budget:${userId}`);
 
@@ -264,6 +289,7 @@ export class BudgetsService {
       travelCost,
       discount,
       total,
+      manualTotal,
       distanceCalculationId,
       status: BudgetStatus.RASCUNHO,
       notes: dto.notes,
@@ -340,9 +366,17 @@ export class BudgetsService {
     if (dto.validUntil !== undefined) {
       budget.validUntil = new Date(dto.validUntil);
     }
+    // `null` desliga o modo manual; atribuir undefined faz o Mongoose remover o campo.
+    if (dto.manualTotal !== undefined) {
+      budget.manualTotal = dto.manualTotal ?? undefined;
+    }
+    if (budget.manualTotal != null) {
+      budget.discount = 0;
+    }
 
-    // O deslocamento não é editável aqui, mas continua entrando no total.
-    budget.total = Math.max(0, budget.itemsTotal + budget.travelCost - budget.discount);
+    // O deslocamento não é editável aqui, mas continua entrando no total. No modo manual a
+    // validação roda de novo: trocar itens pode deixar o valor fechado abaixo do calculado.
+    budget.total = this.resolveTotal(budget.itemsTotal, budget.travelCost, budget.discount, budget.manualTotal);
 
     await budget.save();
     return budget;

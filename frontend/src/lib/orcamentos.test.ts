@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { budgetPdfFileName, followsPanelTier, panelTierUnitPrice } from "./orcamentos";
+import { budgetPdfFileName, followsPanelTier, isManualTotalValid, panelTierUnitPrice } from "./orcamentos";
 
 describe("budgetPdfFileName", () => {
   const createdAt = "2026-08-18T12:00:00.000Z";
@@ -50,5 +50,18 @@ describe("followsPanelTier", () => {
 
   it("never applies to a service outside the panel-cleaning rule", () => {
     expect(followsPanelTier("Instalação de painel solar", 20, 17.5)).toBe(false);
+  });
+});
+
+describe("isManualTotalValid", () => {
+  it("accepts only a value above the calculated total", () => {
+    expect(isManualTotalValid(1500, 1050)).toBe(true);
+    expect(isManualTotalValid(1050.01, 1050)).toBe(true);
+    expect(isManualTotalValid(1050, 1050)).toBe(false);
+    expect(isManualTotalValid(900, 1050)).toBe(false);
+  });
+
+  it("ignores floating point noise when comparing", () => {
+    expect(isManualTotalValid(0.1 + 0.2, 0.3)).toBe(false);
   });
 });

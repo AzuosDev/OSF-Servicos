@@ -120,6 +120,11 @@ export type SolarTotals = {
   travelCost: number;
   discount: number;
   total: number;
+  /**
+   * Total fechado à mão: as tabelas saem sem valores parciais (sistema, serviços,
+   * deslocamento, desconto) e só o total é impresso — as parcelas não somariam o valor final.
+   */
+  isManual?: boolean;
 };
 
 /**
@@ -135,9 +140,11 @@ export function buildSolarEquipmentTable(
   hasAdditionalServices: boolean,
 ): string {
   const systemLabel = hasAdditionalServices ? 'Sistema fotovoltaico' : 'Sistema';
-  const systemRow = `<tr${hasAdditionalServices ? ' class="total-row"' : ''}><td colspan="2">${systemLabel}</td><td class="right">${formatCurrency(
-    solar.financials.investment,
-  )}</td></tr>`;
+  const systemRow = totals.isManual
+    ? ''
+    : `<tr${hasAdditionalServices ? ' class="total-row"' : ''}><td colspan="2">${systemLabel}</td><td class="right">${formatCurrency(
+        solar.financials.investment,
+      )}</td></tr>`;
 
   return `<table>
     <thead>
@@ -153,6 +160,13 @@ export function buildSolarEquipmentTable(
 
 /** Deslocamento, desconto e total — omitidos individualmente quando são zero. */
 function buildClosingRows(totals: SolarTotals, labelColumns: number): string {
+  if (totals.isManual) {
+    const travelLine =
+      totals.travelCost > 0 ? `<tr><td colspan="${labelColumns + 1}">Deslocamento</td></tr>` : '';
+    return `${travelLine}
+      <tr class="total-row"><td colspan="${labelColumns}">Total</td><td class="right">${formatCurrency(totals.total)}</td></tr>`;
+  }
+
   const travelRow =
     totals.travelCost > 0
       ? `<tr><td colspan="${labelColumns}">Deslocamento</td><td class="right">${formatCurrency(totals.travelCost)}</td></tr>`
@@ -180,6 +194,24 @@ function buildAdditionalServicesSection(
   totals: SolarTotals,
 ): string {
   if (services.length === 0) return '';
+
+  if (totals.isManual) {
+    const manualRows = services
+      .map((item) => `<tr><td>${escapeHtml(item.name)}</td><td class="right">${item.quantity}</td></tr>`)
+      .join('');
+    return `<section class="solar-section solar-section-table">
+    <h2>Serviços adicionais</h2>
+    <table>
+      <thead>
+        <tr><th>Serviço</th><th class="right">Qtd</th></tr>
+      </thead>
+      <tbody>
+        ${manualRows}
+        ${buildClosingRows(totals, 1)}
+      </tbody>
+    </table>
+  </section>`;
+  }
 
   const rows = services
     .map(
@@ -251,13 +283,17 @@ function buildWarrantiesSection(solar: SolarDetails): string {
   </section>`;
 }
 
-function buildFinancialSection(solar: SolarDetails): string {
+/**
+ * Com total manual o "valor do investimento" (só o sistema) contradiria o total impresso, então
+ * sai do documento. T.I.R. e payback continuam: projetam o retorno do equipamento.
+ */
+function buildFinancialSection(solar: SolarDetails, isManualTotal = false): string {
   const { investment, irrPercent, paybackMonths } = solar.financials;
 
   return `<section class="solar-section">
     <h2>Indicadores financeiros</h2>
     <div class="indicator-grid">
-      ${indicator('Valor do investimento', formatCurrency(investment))}
+      ${isManualTotal ? '' : indicator('Valor do investimento', formatCurrency(investment))}
       ${indicator('T.I.R. (ao ano)', irrPercent != null ? `${formatNumber(irrPercent, 2)}%` : undefined)}
       ${indicator('Payback', paybackMonths != null ? formatPaybackPeriod(paybackMonths) : undefined)}
     </div>
@@ -304,7 +340,7 @@ export function buildSolarSectionsHtml(
   return [
     buildGenerationSection(solar),
     buildWarrantiesSection(solar),
-    buildFinancialSection(solar),
+    buildFinancialSection(solar, totals.isManual),
     buildSavingsSection(solar),
     buildAdditionalServicesSection(solar, additionalServices, totals),
   ].join('');

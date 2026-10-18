@@ -415,6 +415,66 @@ describe('notes section', () => {
   });
 });
 
+describe('manual total', () => {
+  const client: any = { name: 'Cliente', address: 'Rua Teste, 123' };
+  const company: any = { companyName: 'OSF Serviços', baseAddress: 'Rua Empresa, 1' };
+
+  const servicesBudget: any = {
+    sequenceNumber: 3,
+    type: 'SERVICOS',
+    createdAt: new Date('2026-01-10T00:00:00.000Z'),
+    items: [{ name: 'Instalação de painel solar', quantity: 2, unitPrice: 500, subtotal: 1000 }],
+    itemsTotal: 1000,
+    travelCost: 50,
+    discount: 0,
+    total: 1800,
+    manualTotal: 1800,
+  };
+
+  it('lists the services without partial prices and closes on the manual total', () => {
+    const html = buildBudgetHtml(servicesBudget, client, company);
+
+    expect(html).toContain('Instalação de painel solar');
+    expect(html).toContain('Deslocamento');
+    expect(html).toContain('1.800,00');
+    expect(html).not.toContain('Valor unit.');
+    expect(html).not.toContain('500,00');
+    expect(html).not.toContain('50,00');
+  });
+
+  it('hides the system value and the additional services prices on a solar budget', () => {
+    const solarBudget: any = {
+      ...servicesBudget,
+      type: 'SOLAR',
+      items: [{ name: 'Instalação de padrão', quantity: 1, unitPrice: 1200, subtotal: 1200 }],
+      travelCost: 0,
+      total: 45000,
+      manualTotal: 45000,
+      solar: {
+        panels: [{ quantity: 12, wattagePeak: 550 }],
+        inverters: [{ quantity: 1, type: 'INVERSOR' }],
+        warranties: { inverterYears: 10 },
+        financials: {
+          investment: 30000,
+          currentMonthlyBill: 850,
+          projectedMonthlyBill: 120,
+          monthlySavings: 730,
+          annualSavings: 8760,
+          horizonYears: 25,
+          totalSavings: 219000,
+        },
+      },
+    };
+    const html = buildBudgetHtml(solarBudget, client, company);
+    const tables = html.slice(html.indexOf('<table>'));
+
+    expect(tables).toContain('Instalação de padrão');
+    expect(tables).toContain('45.000,00');
+    expect(tables).not.toContain('30.000,00');
+    expect(tables).not.toContain('1.200,00');
+  });
+});
+
 describe('BudgetStatus enum sanity', () => {
   it('has the expected statuses', () => {
     expect(Object.values(BudgetStatus)).toEqual([

@@ -79,6 +79,14 @@ export class Budget {
   @Prop({ required: true, min: 0 })
   total!: number;
 
+  /**
+   * Valor fechado à mão pelo dono do sistema. Quando presente, é ele o `total` e o PDF sai
+   * sem preços parciais — só a descrição do que está incluso e o valor final. `itemsTotal`,
+   * `travelCost` e `discount` continuam guardando a conta calculada, para referência interna.
+   */
+  @Prop({ min: 0 })
+  manualTotal?: number;
+
   @Prop({ type: Types.ObjectId, ref: 'DistanceCalculation' })
   distanceCalculationId?: Types.ObjectId;
 

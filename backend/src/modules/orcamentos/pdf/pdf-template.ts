@@ -58,6 +58,10 @@ export function buildBudgetHtml(
   // é exatamente o mesmo nos dois tipos.
   const isSolar = budget.type === BudgetType.SOLAR && !!budget.solar;
 
+  // Valor fechado à mão: os preços parciais não somariam o total impresso, então o documento
+  // lista só o que está incluso e fecha no valor combinado.
+  const isManualTotal = budget.manualTotal != null;
+
   const itemsRows = budget.items
     .map(
       (item) => `
@@ -80,7 +84,22 @@ export function buildBudgetHtml(
       ? `<tr><td colspan="3">Desconto</td><td class="right">-${formatCurrency(budget.discount)}</td></tr>`
       : '';
 
-  const servicesTable = `<table>
+  const manualServicesTable = `<table>
+    <thead>
+      <tr><th>Serviço</th><th class="right">Qtd</th></tr>
+    </thead>
+    <tbody>
+      ${budget.items
+        .map((item) => `<tr><td>${escapeHtml(item.name)}</td><td class="right">${item.quantity}</td></tr>`)
+        .join('')}
+      ${budget.travelCost > 0 ? '<tr><td colspan="2">Deslocamento</td></tr>' : ''}
+      <tr class="total-row"><td>Total</td><td class="right">${formatCurrency(budget.total)}</td></tr>
+    </tbody>
+  </table>`;
+
+  const servicesTable = isManualTotal
+    ? manualServicesTable
+    : `<table>
     <thead>
       <tr><th>Serviço</th><th class="right">Qtd</th><th class="right">Valor unit.</th><th class="right">Subtotal</th></tr>
     </thead>
@@ -94,7 +113,12 @@ export function buildBudgetHtml(
 
   // Na venda solar os itens de catálogo são serviços adicionais, impressos depois da
   // economia estimada — não na tabela de equipamentos, que é só o sistema.
-  const totals = { travelCost: budget.travelCost, discount: budget.discount, total: budget.total };
+  const totals = {
+    travelCost: budget.travelCost,
+    discount: budget.discount,
+    total: budget.total,
+    isManual: isManualTotal,
+  };
   const additionalServices = isSolar ? budget.items : [];
 
   const valuesTable =

@@ -602,6 +602,11 @@ export type Budget = MongoDocument & {
   travelCost: number;
   discount: number;
   total: number;
+  /**
+   * Valor fechado à mão. Quando presente, é o `total`, e `itemsTotal`/`travelCost`/`discount`
+   * ficam como a conta calculada de referência.
+   */
+  manualTotal?: number;
   distanceCalculationId?: ApiId;
   status: BudgetStatus;
   notes?: string;
